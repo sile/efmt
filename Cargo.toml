@@ -1,0 +1,11 @@
+[package]
+name = "efmt"
+version = "0.1.0"
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+
+[dependencies]
+clap = "2"
+erl_parse = "0.0"
+erl_pp = "0.1"
+erl_tokenize = "0.3"
+trackable = "0.2"
