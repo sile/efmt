@@ -5,8 +5,10 @@ extern crate erl_tokenize;
 extern crate trackable;
 
 pub use error::{Error, ErrorKind};
+pub use formatter::Formatter;
 
 mod error;
+mod formatter;
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 

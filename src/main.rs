@@ -13,5 +13,6 @@ fn main() {
     let file = matches.value_of("ERL_FILE").unwrap();
 
     let module = track_try_unwrap!(efmt::parse_erl_file(file));
-    println!("MODULE: {:?}", module);
+    let mut formatter = efmt::Formatter::new(std::io::stdout());
+    track_try_unwrap!(formatter.format(&module));
 }
