@@ -3,7 +3,11 @@ extern crate efmt;
 #[macro_use]
 extern crate trackable;
 
+use std::fs::File;
+use std::io::Read;
 use clap::{App, Arg};
+use efmt::Error;
+use efmt::formatter::ModuleFormatter;
 
 fn main() {
     let matches = App::new("efmt")
@@ -12,7 +16,10 @@ fn main() {
         .get_matches();
     let file = matches.value_of("ERL_FILE").unwrap();
 
-    let module = track_try_unwrap!(efmt::parse_erl_file(file));
-    let mut formatter = efmt::Formatter::new(std::io::stdout());
-    track_try_unwrap!(formatter.format(&module));
+    let mut code = String::new();
+    let mut file = track_try_unwrap!(File::open(file).map_err(Error::from));
+    track_try_unwrap!(file.read_to_string(&mut code).map_err(Error::from));
+
+    let mut formatter = track_try_unwrap!(ModuleFormatter::new(&code, std::io::stdout()));
+    track_try_unwrap!(formatter.format());
 }
