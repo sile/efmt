@@ -1,13 +1,5 @@
-extern crate erl_parse;
-extern crate erl_pp;
-extern crate erl_tokenize;
-#[macro_use]
-extern crate trackable;
+pub mod ast;
+pub mod commands;
+pub mod parser;
 
-pub use error::{Error, ErrorKind};
-
-pub mod formatter;
-
-mod error;
-
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = anyhow::Result<T>;
