@@ -4,6 +4,7 @@ use crate::Result;
 use erl_tokenize::values::Symbol;
 
 pub mod export_attr;
+pub mod export_type_attr;
 pub mod function;
 pub mod module_attr;
 
@@ -11,6 +12,7 @@ pub mod module_attr;
 pub enum Ast {
     ModuleAttr(self::module_attr::ModuleAttr),
     ExportAttr(self::export_attr::ExportAttr),
+    ExportTypeAttr(self::export_type_attr::ExportTypeAttr),
 }
 
 impl Parse for Ast {
@@ -26,13 +28,17 @@ impl Parse for Ast {
                 (Symbol::Hyphen, "export") => {
                     return self::export_attr::ExportAttr::parse(lexer).map(Self::ExportAttr);
                 }
+                (Symbol::Hyphen, "export_type") => {
+                    return self::export_type_attr::ExportTypeAttr::parse(lexer)
+                        .map(Self::ExportTypeAttr);
+                }
                 _ => {
-                    todo!()
+                    todo!("{:?}", tokens);
                 }
             }
         } else {
         }
 
-        todo!()
+        todo!("{:?}", tokens);
     }
 }
