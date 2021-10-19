@@ -62,6 +62,7 @@ dependencies = [
  "anyhow",
  "erl_tokenize",
  "structopt",
+ "thiserror",
 ]
 
 [[package]]

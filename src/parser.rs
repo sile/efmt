@@ -23,6 +23,10 @@ impl Iterator for Parser {
     type Item = Result<Ast>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        // TODO: handle eof
+        match Ast::parse(&mut self.lexer) {
+            Err(e) => Some(Err(e)),
+            Ok(a) => Some(Ok(a)),
+        }
     }
 }

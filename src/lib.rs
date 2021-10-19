@@ -3,4 +3,8 @@ pub mod commands;
 pub mod lexer;
 pub mod parser;
 
-pub type Result<T> = anyhow::Result<T>;
+mod error;
+
+pub use self::error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
