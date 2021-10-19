@@ -75,20 +75,22 @@ impl Lexer {
     }
 
     pub fn read_token(&mut self) -> Result<LexicalToken> {
-        if let Some(token) = self.token_stack.pop() {
-            Ok(token)
+        let token = if let Some(token) = self.token_stack.pop() {
+            token
         } else {
-            self.next_token()
-        }
+            self.next_token()?
+        };
+        self.current_position = Position::new(token.end_position().offset());
+        Ok(token)
     }
 
     pub fn unread_token(&mut self, token: LexicalToken) {
+        self.current_position = Position::new(token.start_position().offset());
         self.token_stack.push(token);
     }
 
     fn next_token(&mut self) -> Result<LexicalToken> {
         while let Some(token) = self.tokenizer.next().transpose()? {
-            self.current_position = Position::new(token.end_position().offset());
             match token {
                 Token::Comment(t) => {
                     self.comments

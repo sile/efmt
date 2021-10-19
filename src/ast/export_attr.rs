@@ -1,20 +1,18 @@
-use crate::expect::ExpectAtom;
-use crate::lexer::{Lexer, Region};
-use crate::parser::Parse;
-use crate::Result;
-use erl_tokenize::tokens::AtomToken;
+use crate::ast::function::NameAndArity;
+use crate::expect::{Either, Or};
+use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::values::Symbol;
 
 /// `-` `export` `(` `ProperList<NameAndArity>` `)` `.`
 #[derive(Debug, Clone)]
 pub struct ExportAttr {
-    module_name: AtomToken,
+    exports: Vec<NameAndArity>,
     region: Region,
 }
 
 impl ExportAttr {
-    pub fn module_name(&self) -> &str {
-        self.module_name.value()
+    pub fn exports(&self) -> &[NameAndArity] {
+        &self.exports
     }
 }
 
@@ -22,14 +20,28 @@ impl Parse for ExportAttr {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let _ = lexer.read_expect(Symbol::Hyphen)?;
-        let _ = lexer.read_expect("module")?;
+        let _ = lexer.read_expect("export")?;
         let _ = lexer.read_expect(Symbol::OpenParen)?;
-        let module_name = lexer.read_expect(ExpectAtom)?;
+        let _ = lexer.read_expect(Symbol::OpenSquare)?;
+
+        let mut exports = Vec::new();
+        loop {
+            let export = NameAndArity::parse(lexer)?;
+            exports.push(export);
+
+            if matches!(
+                lexer.read_expect(Or(Symbol::Comma, Symbol::CloseSquare))?,
+                Either::B(_)
+            ) {
+                break;
+            }
+        }
+
         let _ = lexer.read_expect(Symbol::CloseParen)?;
         let _ = lexer.read_expect(Symbol::Dot)?;
         let end = lexer.current_position();
         Ok(Self {
-            module_name,
+            exports,
             region: Region::new(start, end),
         })
     }
@@ -43,6 +55,6 @@ mod tests {
     fn parse_works() {
         let mut lexer = Lexer::new("-export([foo/3, bar/0]).");
         let attr = ExportAttr::parse(&mut lexer).unwrap();
-        assert_eq!(attr.module_name(), "foo");
+        assert_eq!(attr.exports().len(), 2);
     }
 }
