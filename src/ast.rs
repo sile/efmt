@@ -3,11 +3,14 @@ use crate::parser::Parse;
 use crate::Result;
 use erl_tokenize::values::Symbol;
 
+pub mod export_attr;
+pub mod function;
 pub mod module_attr;
 
 #[derive(Debug, Clone)]
 pub enum Ast {
     ModuleAttr(self::module_attr::ModuleAttr),
+    ExportAttr(self::export_attr::ExportAttr),
 }
 
 impl Parse for Ast {
@@ -19,6 +22,9 @@ impl Parse for Ast {
             match (token0.value(), token1.value()) {
                 (Symbol::Hyphen, "module") => {
                     return self::module_attr::ModuleAttr::parse(lexer).map(Self::ModuleAttr);
+                }
+                (Symbol::Hyphen, "export") => {
+                    return self::export_attr::ExportAttr::parse(lexer).map(Self::ExportAttr);
                 }
                 _ => {
                     todo!()

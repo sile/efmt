@@ -1,6 +1,5 @@
-use crate::{Error, Result};
-use erl_tokenize::tokens::{AtomToken, CommentToken, SymbolToken};
-use erl_tokenize::values::Symbol;
+use crate::{Error, Expect, Result};
+use erl_tokenize::tokens::CommentToken;
 use erl_tokenize::{LexicalToken, PositionRange, Token, Tokenizer};
 use std::collections::BTreeMap;
 
@@ -109,32 +108,10 @@ impl Lexer {
         Err(Error::UnexpectedEof)
     }
 
-    pub fn expect_symbol_value(&mut self, expected: Symbol) -> Result<SymbolToken> {
-        match self.read_token()? {
-            LexicalToken::Symbol(token) => {
-                if token.value() != expected {
-                    return Err(
-                        anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into(),
-                    );
-                }
-                Ok(token)
-            }
-            token => Err(anyhow::anyhow!("expected a symbol token, but got {:?}", token).into()),
-        }
-    }
-
-    pub fn expect_atom(&mut self) -> Result<AtomToken> {
-        match self.read_token()? {
-            LexicalToken::Atom(token) => Ok(token),
-            token => Err(anyhow::anyhow!("expected a atom token, but got {:?}", token).into()),
-        }
-    }
-
-    pub fn expect_atom_value(&mut self, expected: &str) -> Result<AtomToken> {
-        let token = self.expect_atom()?;
-        if token.value() != expected {
-            return Err(anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into());
-        }
-        Ok(token)
+    pub fn read_expect<T: Expect>(&mut self, expected: T) -> Result<T::Token> {
+        let token = self.read_token()?;
+        expected
+            .expect(token)
+            .map_err(|token| anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into())
     }
 }

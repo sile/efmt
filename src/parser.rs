@@ -1,6 +1,5 @@
 use crate::ast::Ast;
-use crate::lexer::Lexer;
-use crate::Result;
+use crate::{Lexer, Result};
 
 pub trait Parse: Sized {
     fn parse(lexer: &mut Lexer) -> Result<Self>;

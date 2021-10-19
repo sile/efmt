@@ -5,20 +5,20 @@ use crate::Result;
 use erl_tokenize::tokens::AtomToken;
 use erl_tokenize::values::Symbol;
 
-/// `-` `module` `(` `AtomToken` `)` `.`
+/// `-` `export` `(` `ProperList<NameAndArity>` `)` `.`
 #[derive(Debug, Clone)]
-pub struct ModuleAttr {
+pub struct ExportAttr {
     module_name: AtomToken,
     region: Region,
 }
 
-impl ModuleAttr {
+impl ExportAttr {
     pub fn module_name(&self) -> &str {
         self.module_name.value()
     }
 }
 
-impl Parse for ModuleAttr {
+impl Parse for ExportAttr {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let _ = lexer.read_expect(Symbol::Hyphen)?;
@@ -41,8 +41,8 @@ mod tests {
 
     #[test]
     fn parse_works() {
-        let mut lexer = Lexer::new("-module(foo).");
-        let module_attr = ModuleAttr::parse(&mut lexer).unwrap();
-        assert_eq!(module_attr.module_name(), "foo");
+        let mut lexer = Lexer::new("-export([foo/3, bar/0]).");
+        let attr = ExportAttr::parse(&mut lexer).unwrap();
+        assert_eq!(attr.module_name(), "foo");
     }
 }
