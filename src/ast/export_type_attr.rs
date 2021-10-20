@@ -25,7 +25,7 @@ impl Parse for ExportTypeAttr {
         let _ = lexer.read_expect(Symbol::OpenSquare)?;
 
         let mut exports = Vec::new();
-        if lexer.try_read_expect(Symbol::CloseSquare)?.is_none() {
+        if lexer.try_read_expect(Symbol::CloseSquare).is_none() {
             loop {
                 let export = NameAndArity::parse(lexer)?;
                 exports.push(export);

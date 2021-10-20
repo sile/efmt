@@ -20,11 +20,11 @@ pub enum Type {
     BinaryOpCall,
     Fun,
     Range,
-    Union,
+    Union(Box<Union>),
 }
 
-impl Parse for Type {
-    fn parse(lexer: &mut Lexer) -> Result<Self> {
+impl Type {
+    fn parse_except_union(lexer: &mut Lexer) -> Result<Self> {
         if lexer.expect_2tokens(ExpectAtom, Or(Symbol::Colon, Symbol::OpenParen)) {
             return Call::parse(lexer).map(Box::new).map(Type::TypeCall);
         }
@@ -33,4 +33,24 @@ impl Parse for Type {
         }
         Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()).into())
     }
+}
+
+impl Parse for Type {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let ty = Self::parse_except_union(lexer)?;
+        if lexer.try_read_expect(Symbol::VerticalBar).is_some() {
+            Ok(Type::Union(Box::new(Union {
+                left: ty,
+                right: Self::parse(lexer)?,
+            })))
+        } else {
+            Ok(ty)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Union {
+    left: Type,
+    right: Type,
 }

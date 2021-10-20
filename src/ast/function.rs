@@ -65,7 +65,7 @@ where
         let mut args = Vec::new();
         while let Some(arg) = Arg::try_parse(lexer) {
             args.push(arg);
-            if lexer.try_read_expect(Symbol::Comma)?.is_none() {
+            if lexer.try_read_expect(Symbol::Comma).is_none() {
                 break;
             }
         }

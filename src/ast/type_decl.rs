@@ -23,7 +23,7 @@ impl Parse for TypeDecl {
 
         let mut params = Vec::new();
         let _ = lexer.read_expect(Symbol::OpenParen)?;
-        if lexer.try_read_expect(Symbol::CloseParen)?.is_none() {
+        if lexer.try_read_expect(Symbol::CloseParen).is_none() {
             loop {
                 params.push(lexer.read_expect(ExpectVariable)?);
                 if lexer

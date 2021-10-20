@@ -124,14 +124,8 @@ impl Lexer {
             .map_err(|token| anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into())
     }
 
-    pub fn try_read_expect<T: Expect>(&mut self, expected: T) -> Result<Option<T::Token>> {
-        let token = self.read_token()?;
-        match expected.expect(token) {
-            Ok(token) => Ok(Some(token)),
-            Err(token) => {
-                self.tokenizer.set_position(token.start_position());
-                Ok(None)
-            }
-        }
+    pub fn try_read_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
+        self.with_transaction(|lexer| lexer.read_expect(expected))
+            .ok()
     }
 }
