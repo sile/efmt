@@ -49,6 +49,21 @@ impl Expect for ExpectAtom {
 }
 
 #[derive(Debug)]
+pub struct ExpectSymbol;
+
+impl Expect for ExpectSymbol {
+    type Token = SymbolToken;
+
+    fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
+        if let LexicalToken::Symbol(token) = token {
+            Ok(token)
+        } else {
+            Err(token)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ExpectVariable;
 
 impl Expect for ExpectVariable {

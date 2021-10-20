@@ -46,6 +46,12 @@ impl Lexer {
         Position::new(self.tokenizer.next_position().offset())
     }
 
+    pub fn region(&self, start: Position) -> Region {
+        Region::new(start, self.current_position())
+    }
+
+    // TODO: try_error_logs() -> Vec<Error>;
+
     pub fn eof(&mut self) -> Result<bool> {
         match self.peek_token() {
             Err(Error::UnexpectedEof) => Ok(true),

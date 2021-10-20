@@ -1,13 +1,28 @@
 use crate::ast::Ast;
-use crate::expect::{ExpectAtom, ExpectVariable};
+use crate::expect::{ExpectAtom, ExpectSymbol, ExpectVariable};
 use crate::{Lexer, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
+use erl_tokenize::values::Symbol;
 
 pub trait Parse: Sized {
     fn parse(lexer: &mut Lexer) -> Result<Self>;
 
     fn try_parse(lexer: &mut Lexer) -> Option<Self> {
         lexer.with_transaction(|lexer| Self::parse(lexer)).ok()
+    }
+
+    fn expect(&self, lexer: &mut Lexer) -> Result<()>
+    where
+        Self: PartialEq + std::fmt::Debug,
+    {
+        lexer.with_transaction(|lexer| {
+            let value = Self::parse(lexer)?;
+            if value == *self {
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("expected {:?}, but got {:?}", self, value).into())
+            }
+        })
     }
 }
 
@@ -49,5 +64,11 @@ impl Parse for AtomToken {
 impl Parse for VariableToken {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         lexer.read_expect(ExpectVariable)
+    }
+}
+
+impl Parse for Symbol {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        lexer.read_expect(ExpectSymbol).map(|token| token.value())
     }
 }

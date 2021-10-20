@@ -1,7 +1,7 @@
 use crate::ast::function::Call;
 use crate::expect::{ExpectAtom, Or};
 use crate::{Lexer, Parse, Region, Result};
-use erl_tokenize::tokens::{AtomToken, VariableToken};
+use erl_tokenize::tokens::{AtomToken, CharToken, FloatToken, IntegerToken, VariableToken};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::LexicalToken;
 
@@ -10,7 +10,7 @@ use erl_tokenize::LexicalToken;
 pub enum Type {
     Literal(TypeLiteral),
     Variable(VariableToken),
-    Annotated,
+    Annotated(Box<Annotated>),
     Tuple(Box<Tuple>),
     Map,
     Record,
@@ -21,7 +21,7 @@ pub enum Type {
     UnaryOpCall,
     BinaryOpCall,
     Fun,
-    Range,
+    Range(Box<Range>),
     Union(Box<Union>),
 }
 
@@ -36,6 +36,9 @@ impl Type {
         if let Some(x) = Tuple::try_parse(lexer) {
             return Ok(Self::Tuple(Box::new(x)));
         }
+        if let Some(x) = Annotated::try_parse(lexer) {
+            return Ok(Self::Annotated(Box::new(x)));
+        }
         if let Some(token) = VariableToken::try_parse(lexer) {
             return Ok(Self::Variable(token));
         }
@@ -48,15 +51,20 @@ impl Type {
 
 impl Parse for Type {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
-        let ty = Self::parse_except_union(lexer)?;
+        let mut ty = Self::parse_except_union(lexer)?;
+        if lexer.try_read_expect(Symbol::DoubleDot).is_some() {
+            ty = Self::Range(Box::new(Range {
+                min: ty,
+                max: Self::parse(lexer)?,
+            }));
+        }
         if lexer.try_read_expect(Symbol::VerticalBar).is_some() {
-            Ok(Self::Union(Box::new(Union {
+            ty = Self::Union(Box::new(Union {
                 left: ty,
                 right: Self::parse(lexer)?,
-            })))
-        } else {
-            Ok(ty)
+            }));
         }
+        Ok(ty)
     }
 }
 
@@ -66,10 +74,19 @@ pub struct Union {
     right: Type,
 }
 
+/// `Type` `..` `Type`
+#[derive(Debug, Clone)]
+pub struct Range {
+    min: Type,
+    max: Type,
+}
+
 #[derive(Debug, Clone)]
 pub enum TypeLiteral {
     Atom(AtomToken),
-    // TODO: Integer, Float, Char
+    Integer(IntegerToken),
+    Char(CharToken),
+    Float(FloatToken),
 }
 
 impl Parse for TypeLiteral {
@@ -78,6 +95,9 @@ impl Parse for TypeLiteral {
             let token = lexer.read_token()?;
             match token {
                 LexicalToken::Atom(token) => Ok(Self::Atom(token)),
+                LexicalToken::Integer(token) => Ok(Self::Integer(token)),
+                LexicalToken::Char(token) => Ok(Self::Char(token)),
+                LexicalToken::Float(token) => Ok(Self::Float(token)),
                 _ => Err(anyhow::anyhow!("TODO or unknown literal: {:?}", token).into()),
             }
         })
@@ -143,5 +163,38 @@ impl Parse for Tuple {
             elements,
             region: Region::new(start, lexer.current_position()),
         })
+    }
+}
+
+/// `VariableToken` `::` `Type`
+#[derive(Debug, Clone)]
+pub struct Annotated {
+    name: VariableToken,
+    ty: Type,
+    region: Region,
+}
+
+impl Parse for Annotated {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = VariableToken::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::DoubleColon)?;
+        let ty = Type::parse(lexer)?;
+        Ok(Self {
+            name,
+            ty,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_works() {
+        let mut lexer = Lexer::new("{scientific, Decimals :: 0..249}");
+        let _ = Type::parse(&mut lexer).unwrap();
     }
 }
