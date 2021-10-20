@@ -32,8 +32,6 @@ impl Region {
 pub struct Lexer {
     tokenizer: Tokenizer<String>,
     comments: BTreeMap<Position, CommentToken>,
-    current_position: Position,
-    token_stack: Vec<LexicalToken>,
 }
 
 impl Lexer {
@@ -41,13 +39,11 @@ impl Lexer {
         Self {
             tokenizer: Tokenizer::new(text.as_ref().to_owned()),
             comments: BTreeMap::new(),
-            current_position: Position::new(0),
-            token_stack: Vec::new(),
         }
     }
 
     pub fn current_position(&self) -> Position {
-        self.current_position
+        Position::new(self.tokenizer.next_position().offset())
     }
 
     pub fn eof(&mut self) -> Result<bool> {
@@ -58,38 +54,49 @@ impl Lexer {
         }
     }
 
+    pub fn with_transaction<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        let position = self.tokenizer.next_position();
+        match f(self) {
+            Err(e) => {
+                self.tokenizer.set_position(position);
+                Err(e)
+            }
+            Ok(x) => Ok(x),
+        }
+    }
+
+    pub fn with_peek<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
+        let position = self.tokenizer.next_position();
+        let result = f(self);
+        self.tokenizer.set_position(position);
+        result
+    }
+
+    pub fn expect_2tokens(&mut self, expected0: impl Expect, expected1: impl Expect) -> bool {
+        self.with_peek(|lexer| {
+            lexer.read_expect(expected0).is_ok() && lexer.read_expect(expected1).is_ok()
+        })
+    }
+
     pub fn peek_token(&mut self) -> Result<LexicalToken> {
-        let token = self.read_token()?;
-        self.unread_token(token.clone());
-        Ok(token)
+        self.with_peek(|lexer| lexer.read_token())
     }
 
     pub fn peek_tokens(&mut self, n: usize) -> Result<Vec<LexicalToken>> {
-        let tokens = (0..n)
-            .map(|_| self.read_token())
-            .collect::<Result<Vec<_>>>()?;
-        for token in tokens.iter().rev().cloned() {
-            self.unread_token(token);
-        }
-        Ok(tokens)
+        self.with_peek(|lexer| {
+            (0..n)
+                .map(|_| lexer.read_token())
+                .collect::<Result<Vec<_>>>()
+        })
     }
 
     pub fn read_token(&mut self) -> Result<LexicalToken> {
-        let token = if let Some(token) = self.token_stack.pop() {
-            token
-        } else {
-            self.next_token()?
-        };
-        self.current_position = Position::new(token.end_position().offset());
-        Ok(token)
-    }
-
-    pub fn unread_token(&mut self, token: LexicalToken) {
-        self.current_position = Position::new(token.start_position().offset());
-        self.token_stack.push(token);
-    }
-
-    fn next_token(&mut self) -> Result<LexicalToken> {
         while let Some(token) = self.tokenizer.next().transpose()? {
             match token {
                 Token::Comment(t) => {
@@ -115,5 +122,16 @@ impl Lexer {
         expected
             .expect(token)
             .map_err(|token| anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into())
+    }
+
+    pub fn try_read_expect<T: Expect>(&mut self, expected: T) -> Result<Option<T::Token>> {
+        let token = self.read_token()?;
+        match expected.expect(token) {
+            Ok(token) => Ok(Some(token)),
+            Err(token) => {
+                self.tokenizer.set_position(token.start_position());
+                Ok(None)
+            }
+        }
     }
 }

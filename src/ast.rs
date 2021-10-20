@@ -7,12 +7,15 @@ pub mod export_attr;
 pub mod export_type_attr;
 pub mod function;
 pub mod module_attr;
+pub mod ty;
+pub mod type_decl;
 
 #[derive(Debug, Clone)]
 pub enum Ast {
     ModuleAttr(self::module_attr::ModuleAttr),
     ExportAttr(self::export_attr::ExportAttr),
     ExportTypeAttr(self::export_type_attr::ExportTypeAttr),
+    TypeDecl(self::type_decl::TypeDecl),
 }
 
 impl Parse for Ast {
@@ -31,6 +34,9 @@ impl Parse for Ast {
                 (Symbol::Hyphen, "export_type") => {
                     return self::export_type_attr::ExportTypeAttr::parse(lexer)
                         .map(Self::ExportTypeAttr);
+                }
+                (Symbol::Hyphen, "type") => {
+                    return self::type_decl::TypeDecl::parse(lexer).map(Self::TypeDecl);
                 }
                 _ => {
                     todo!("{:?}", tokens);

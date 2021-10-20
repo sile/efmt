@@ -1,9 +1,9 @@
-use erl_tokenize::tokens::{AtomToken, IntegerToken, SymbolToken};
+use erl_tokenize::tokens::{AtomToken, IntegerToken, SymbolToken, VariableToken};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::LexicalToken;
 
 pub trait Expect: std::fmt::Debug {
-    type Token;
+    type Token: Into<LexicalToken>;
 
     fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken>;
 }
@@ -49,6 +49,21 @@ impl Expect for ExpectAtom {
 }
 
 #[derive(Debug)]
+pub struct ExpectVariable;
+
+impl Expect for ExpectVariable {
+    type Token = VariableToken;
+
+    fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
+        if let LexicalToken::Variable(token) = token {
+            Ok(token)
+        } else {
+            Err(token)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ExpectNonNegInteger;
 
 impl Expect for ExpectNonNegInteger {
@@ -66,6 +81,38 @@ impl Expect for ExpectNonNegInteger {
 pub enum Either<A, B> {
     A(A),
     B(B),
+}
+
+impl<T> Either<T, T> {
+    pub fn into_token(self) -> T {
+        match self {
+            Self::A(x) => x,
+            Self::B(x) => x,
+        }
+    }
+}
+
+impl<A, B> Either<A, B> {
+    pub fn is_a(&self) -> bool {
+        matches!(self, Either::A(_))
+    }
+
+    pub fn is_b(&self) -> bool {
+        matches!(self, Either::B(_))
+    }
+}
+
+impl<A, B> From<Either<A, B>> for LexicalToken
+where
+    A: Into<LexicalToken>,
+    B: Into<LexicalToken>,
+{
+    fn from(x: Either<A, B>) -> Self {
+        match x {
+            Either::A(x) => x.into(),
+            Either::B(x) => x.into(),
+        }
+    }
 }
 
 #[derive(Debug)]
