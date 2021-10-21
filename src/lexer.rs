@@ -51,7 +51,7 @@ impl Lexer {
         Region::new(start, self.current_position())
     }
 
-    // TODO: try_error_logs() -> Vec<Error>;
+    // TODO: try_error_logs() -> Vec<Error>; or most_proceeded_position_error()
 
     pub fn eof(&mut self) -> Result<bool> {
         match self.peek_token() {
@@ -129,6 +129,10 @@ impl Lexer {
         expected
             .expect(token)
             .map_err(|token| anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into())
+    }
+
+    pub fn try_peek_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
+        self.with_peek(|lexer| lexer.read_expect(expected)).ok()
     }
 
     pub fn try_read_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {

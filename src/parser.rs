@@ -1,5 +1,5 @@
 use crate::ast::Ast;
-use crate::expect::{ExpectAtom, ExpectSymbol, ExpectVariable};
+use crate::expect::{Either, ExpectAtom, ExpectSymbol, ExpectVariable};
 use crate::{Lexer, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
 use erl_tokenize::values::Symbol;
@@ -70,5 +70,19 @@ impl Parse for VariableToken {
 impl Parse for Symbol {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         lexer.read_expect(ExpectSymbol).map(|token| token.value())
+    }
+}
+
+impl<A, B> Parse for Either<A, B>
+where
+    A: Parse,
+    B: Parse,
+{
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        if let Some(x) = A::try_parse(lexer) {
+            Ok(Self::A(x))
+        } else {
+            Ok(Self::B(B::parse(lexer)?))
+        }
     }
 }
