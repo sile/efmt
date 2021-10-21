@@ -1,7 +1,7 @@
 use crate::ast::ty::Type;
-use crate::expect::{ExpectAtom, ExpectNonNegInteger};
+use crate::expect::{ExpectAtom, ExpectNonNegInteger, ExpectVariable};
 use crate::{Lexer, Parse, Region, Result};
-use erl_tokenize::tokens::{AtomToken, IntegerToken};
+use erl_tokenize::tokens::{AtomToken, IntegerToken, VariableToken};
 use erl_tokenize::values::Symbol;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -177,5 +177,180 @@ impl Parse for SpecClause {
             ret,
             region: lexer.region(start),
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    clauses: Vec<FunDeclClause>,
+    region: Region,
+}
+
+impl Parse for FunDecl {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let mut clauses = Vec::new();
+        loop {
+            let clause = FunDeclClause::parse(lexer)?;
+            clauses.push(clause);
+            if lexer.try_read_expect(Symbol::Semicolon).is_none() {
+                break;
+            }
+        }
+        let _ = lexer.read_expect(Symbol::Dot)?;
+        Ok(Self {
+            clauses,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDeclClause {
+    name: AtomToken,
+    args: Vec<Pattern>,
+    // Optional<WhenGuard>
+    body: Body,
+    region: Region,
+}
+
+impl Parse for FunDeclClause {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = lexer.read_expect(ExpectAtom)?;
+        let args = Vec::<Pattern>::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::RightArrow)?;
+        let body = Body::parse(lexer)?;
+        Ok(Self {
+            name,
+            args,
+            body,
+            region: lexer.region(start),
+        })
+    }
+}
+
+impl Parse for Vec<Pattern> {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let mut args = Vec::new();
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        while let Some(arg) = Pattern::try_parse(lexer) {
+            args.push(arg);
+            if lexer.try_read_expect(Symbol::Comma).is_none() {
+                break;
+            }
+        }
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        Ok(args)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Pattern {
+    Variable(VariableToken),
+}
+
+impl Parse for Pattern {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        if let Some(x) = lexer.try_read_expect(ExpectVariable) {
+            return Ok(Self::Variable(x));
+        }
+        todo!("next: {:?}", lexer.read_token()?);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Body {
+    expressions: Vec<Expr>,
+    region: Region,
+}
+
+impl Parse for Body {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let mut expressions = Vec::new();
+        loop {
+            let expr = Expr::parse(lexer)?;
+            expressions.push(expr);
+            if lexer.try_read_expect(Symbol::Comma).is_none() {
+                break;
+            }
+        }
+        Ok(Self {
+            expressions,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Expr {
+    FunCall(Box<Call<IdLikeExpr, Expr>>),
+    Atom(AtomToken),
+    Variable(VariableToken),
+    List(Box<List>),
+}
+
+impl Parse for Expr {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        if let Some(x) = Call::try_parse(lexer) {
+            return Ok(Self::FunCall(Box::new(x)));
+        }
+        if let Some(x) = List::try_parse(lexer) {
+            return Ok(Self::List(Box::new(x)));
+        }
+        if let Some(x) = AtomToken::try_parse(lexer) {
+            return Ok(Self::Atom(x));
+        }
+        if let Some(x) = VariableToken::try_parse(lexer) {
+            return Ok(Self::Variable(x));
+        }
+        Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()?).into())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum List {
+    Proper { elements: Vec<Expr>, region: Region },
+}
+
+impl Parse for List {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::OpenSquare)?;
+        let mut elements = Vec::new();
+        while let Some(element) = Expr::try_parse(lexer) {
+            elements.push(element);
+            if lexer.try_read_expect(Symbol::Comma).is_none() {
+                break;
+            }
+        }
+        let _ = lexer.read_expect(Symbol::CloseSquare)?;
+        Ok(Self::Proper {
+            elements,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum IdLikeExpr {
+    Atom(AtomToken),
+    Variable(VariableToken),
+    // TODO: Parenthesized
+}
+
+impl Parse for IdLikeExpr {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        if let Some(x) = AtomToken::try_parse(lexer) {
+            return Ok(Self::Atom(x));
+        }
+        if let Some(x) = VariableToken::try_parse(lexer) {
+            return Ok(Self::Variable(x));
+        }
+        if lexer.try_read_expect(Symbol::OpenParen).is_some() {
+            todo!();
+        }
+        Err(anyhow::anyhow!("unsupported expression").into())
     }
 }

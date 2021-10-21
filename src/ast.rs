@@ -23,6 +23,7 @@ pub enum Ast {
     EndifDirective(EndifDirective),
     DefineDirective(DefineDirective),
     FunSpec(self::function::FunSpec),
+    FunDecl(self::function::FunDecl),
 }
 
 impl Parse for Ast {
@@ -65,10 +66,8 @@ impl Parse for Ast {
                     todo!("{:?}", tokens);
                 }
             }
-        } else {
         }
-
-        todo!("{:?}", tokens);
+        return Parse::parse(lexer).map(Self::FunDecl);
     }
 }
 
