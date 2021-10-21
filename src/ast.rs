@@ -2,6 +2,7 @@ use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
 use erl_tokenize::values::Symbol;
+use erl_tokenize::LexicalToken;
 
 pub mod export_attr;
 pub mod export_type_attr;
@@ -20,6 +21,7 @@ pub enum Ast {
     IfndefDirective(IfndefDirective),
     ElseDirective(ElseDirective),
     EndifDirective(EndifDirective),
+    DefineDirective(DefineDirective),
 }
 
 impl Parse for Ast {
@@ -53,6 +55,9 @@ impl Parse for Ast {
                 }
                 (Symbol::Hyphen, "endif") => {
                     return EndifDirective::parse(lexer).map(Self::EndifDirective)
+                }
+                (Symbol::Hyphen, "define") => {
+                    return DefineDirective::parse(lexer).map(Self::DefineDirective)
                 }
                 _ => {
                     todo!("{:?}", tokens);
@@ -153,6 +158,61 @@ impl Parse for EndifDirective {
         let _ = lexer.read_expect("endif")?;
         let _ = lexer.read_expect(Symbol::Dot)?;
         Ok(Self {
+            region: Region::new(start, lexer.current_position()),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefineDirective {
+    name: Either<AtomToken, VariableToken>,
+    args: Vec<VariableToken>,
+    replacement: Vec<LexicalToken>,
+    region: Region,
+}
+
+impl Parse for DefineDirective {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Hyphen)?;
+        let _ = lexer.read_expect("define")?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let name = lexer.read_expect(Or(ExpectAtom, ExpectVariable))?;
+
+        let mut args = Vec::new();
+        if lexer.try_read_expect(Symbol::OpenParen).is_some() {
+            loop {
+                let arg = lexer.read_expect(ExpectVariable)?;
+                args.push(arg);
+                if lexer.try_read_expect(Symbol::Comma).is_none() {
+                    break;
+                }
+            }
+            let _ = lexer.read_expect(Symbol::CloseParen)?;
+        }
+        let _ = lexer.read_expect(Symbol::Comma)?;
+
+        let mut replacement = Vec::new();
+        let mut level = 0;
+        loop {
+            let token = lexer.read_token()?;
+            if token.as_symbol_token().map(|x| x.value()) == Some(Symbol::OpenParen) {
+                level += 1;
+            }
+            if token.as_symbol_token().map(|x| x.value()) == Some(Symbol::CloseParen) {
+                if level == 0 {
+                    break;
+                }
+                level -= 1;
+            }
+            replacement.push(token);
+        }
+        let _ = lexer.read_expect(Symbol::Dot)?;
+
+        Ok(Self {
+            name,
+            args,
+            replacement,
             region: Region::new(start, lexer.current_position()),
         })
     }

@@ -103,7 +103,7 @@ impl Expect for ExpectNonNegInteger {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Either<A, B> {
     A(A),
     B(B),

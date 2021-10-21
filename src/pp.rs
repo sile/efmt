@@ -68,7 +68,6 @@ impl Preprocessor {
                 .is_some()
             {
                 if let Some(macro_define) = self.try_parse_define() {
-                    dbg!(&macro_define);
                     self.defines.insert(macro_define.name.clone(), macro_define);
                 }
             }
