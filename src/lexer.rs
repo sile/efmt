@@ -1,3 +1,4 @@
+use crate::pp::Preprocessor;
 use crate::{Error, Expect, Result};
 use erl_tokenize::tokens::CommentToken;
 use erl_tokenize::{LexicalToken, PositionRange, Token, Tokenizer};
@@ -30,14 +31,14 @@ impl Region {
 
 #[derive(Debug)]
 pub struct Lexer {
-    tokenizer: Tokenizer<String>,
+    tokenizer: Preprocessor,
     comments: BTreeMap<Position, CommentToken>,
 }
 
 impl Lexer {
     pub fn new(text: impl AsRef<str>) -> Self {
         Self {
-            tokenizer: Tokenizer::new(text.as_ref().to_owned()),
+            tokenizer: Preprocessor::new(Tokenizer::new(text.as_ref().to_owned())),
             comments: BTreeMap::new(),
         }
     }

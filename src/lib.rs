@@ -3,6 +3,7 @@ pub mod commands;
 pub mod expect;
 pub mod lexer;
 pub mod parser;
+pub mod pp;
 
 mod error;
 
