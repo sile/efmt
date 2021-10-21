@@ -1,5 +1,5 @@
-use erl_tokenize::tokens::{AtomToken, IntegerToken, SymbolToken, VariableToken};
-use erl_tokenize::values::Symbol;
+use erl_tokenize::tokens::{AtomToken, IntegerToken, KeywordToken, SymbolToken, VariableToken};
+use erl_tokenize::values::{Keyword, Symbol};
 use erl_tokenize::LexicalToken;
 
 pub trait Expect: std::fmt::Debug {
@@ -28,6 +28,17 @@ impl Expect for Symbol {
     fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
         match token {
             LexicalToken::Symbol(token) if token.value() == *self => Ok(token),
+            _ => Err(token),
+        }
+    }
+}
+
+impl Expect for Keyword {
+    type Token = KeywordToken;
+
+    fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
+        match token {
+            LexicalToken::Keyword(token) if token.value() == *self => Ok(token),
             _ => Err(token),
         }
     }

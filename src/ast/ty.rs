@@ -1,8 +1,8 @@
 use crate::ast::function::Call;
-use crate::expect::{ExpectAtom, Or};
+use crate::expect::{Either, ExpectAtom, Or};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, CharToken, FloatToken, IntegerToken, VariableToken};
-use erl_tokenize::values::Symbol;
+use erl_tokenize::values::{Keyword, Symbol};
 use erl_tokenize::LexicalToken;
 
 // https://erlang.org/doc/reference_manual/typespec.html
@@ -16,11 +16,11 @@ pub enum Type {
     Record,
     List(Box<List>),
     Bits,
-    Parenthesized,
+    Parenthesized(Box<Parenthesized>),
     TypeCall(Box<Call<AtomToken, Type>>),
-    UnaryOpCall,
+    UnaryOpCall(Box<UnaryOpCall>),
     BinaryOpCall,
-    Fun,
+    Fun(Box<Fun>),
     Range(Box<Range>),
     Union(Box<Union>),
 }
@@ -30,6 +30,9 @@ impl Type {
         if lexer.expect_2tokens(ExpectAtom, Or(Symbol::Colon, Symbol::OpenParen)) {
             return Call::parse(lexer).map(Box::new).map(Self::TypeCall);
         }
+        if let Some(x) = Parenthesized::try_parse(lexer) {
+            return Ok(Self::Parenthesized(Box::new(x)));
+        }
         if let Some(x) = List::try_parse(lexer) {
             return Ok(Self::List(Box::new(x)));
         }
@@ -38,6 +41,12 @@ impl Type {
         }
         if let Some(x) = Annotated::try_parse(lexer) {
             return Ok(Self::Annotated(Box::new(x)));
+        }
+        if let Some(x) = UnaryOpCall::try_parse(lexer) {
+            return Ok(Self::UnaryOpCall(Box::new(x)));
+        }
+        if let Some(x) = Fun::try_parse(lexer) {
+            return Ok(Self::Fun(Box::new(x)));
         }
         if let Some(token) = VariableToken::try_parse(lexer) {
             return Ok(Self::Variable(token));
@@ -188,6 +197,100 @@ impl Parse for Annotated {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnaryOp {
+    Plus,
+    Minus,
+    Bnot,
+}
+
+impl Parse for UnaryOp {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match lexer.read_expect(Or(Symbol::Plus, Or(Symbol::Hyphen, "bnot")))? {
+            Either::A(_) => Ok(Self::Plus),
+            Either::B(Either::A(_)) => Ok(Self::Minus),
+            _ => Ok(Self::Bnot),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Parenthesized {
+    ty: Type,
+    region: Region,
+}
+
+impl Parse for Parenthesized {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let ty = Type::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        Ok(Self {
+            ty,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryOpCall {
+    op: UnaryOp,
+    ty: Type,
+    region: Region,
+}
+
+impl Parse for UnaryOpCall {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let op = UnaryOp::parse(lexer)?;
+        let ty = Type::parse(lexer)?;
+        Ok(Self {
+            op,
+            ty,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Fun {
+    args: Option<Vec<Type>>, // `None` means any arity
+    return_type: Type,
+    region: Region,
+}
+
+impl Parse for Fun {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        // TODO: Support any fun (i.e., 'fun()')
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::Fun)?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let args = if lexer.try_read_expect(Symbol::TripleDot).is_some() {
+            None
+        } else {
+            let mut args = Vec::new();
+            while let Some(arg) = Type::try_parse(lexer) {
+                args.push(arg);
+                if lexer.try_read_expect(Symbol::Comma).is_none() {
+                    break;
+                }
+            }
+            Some(args)
+        };
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        let _ = lexer.read_expect(Symbol::RightArrow)?;
+        let return_type = Type::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        Ok(Self {
+            args,
+            return_type,
+            region: lexer.region(start),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +298,10 @@ mod tests {
     #[test]
     fn parse_works() {
         let mut lexer = Lexer::new("{scientific, Decimals :: 0..249}");
+        let _ = Type::parse(&mut lexer).unwrap();
+
+        let text = "fun ((term()) -> {ok, json_value()} | error)";
+        let mut lexer = Lexer::new(text);
         let _ = Type::parse(&mut lexer).unwrap();
     }
 }
