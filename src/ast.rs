@@ -22,6 +22,7 @@ pub enum Ast {
     ElseDirective(ElseDirective),
     EndifDirective(EndifDirective),
     DefineDirective(DefineDirective),
+    FunSpec(self::function::FunSpec),
 }
 
 impl Parse for Ast {
@@ -59,6 +60,7 @@ impl Parse for Ast {
                 (Symbol::Hyphen, "define") => {
                     return DefineDirective::parse(lexer).map(Self::DefineDirective)
                 }
+                (Symbol::Hyphen, "spec") => return Parse::parse(lexer).map(Self::FunSpec),
                 _ => {
                     todo!("{:?}", tokens);
                 }

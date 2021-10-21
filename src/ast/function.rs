@@ -1,3 +1,4 @@
+use crate::ast::ty::Type;
 use crate::expect::{ExpectAtom, ExpectNonNegInteger};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, IntegerToken};
@@ -103,6 +104,78 @@ where
             name,
             args,
             region: Region::new(start, end),
+        })
+    }
+}
+
+/// `-` `spec` `Option<ModulePrefix>` `AtomToken` `Clauses<SpecClause>` `.`
+#[derive(Debug, Clone)]
+pub struct FunSpec {
+    module: Option<ModulePrefix<AtomToken>>,
+    name: AtomToken,
+    clauses: Vec<SpecClause>,
+    region: Region,
+}
+
+impl Parse for FunSpec {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Hyphen)?;
+        let _ = lexer.read_expect("spec")?;
+        let module = ModulePrefix::try_parse(lexer);
+        let name = AtomToken::parse(lexer)?;
+
+        let mut clauses = Vec::new();
+        loop {
+            let clause = SpecClause::parse(lexer)?;
+            clauses.push(clause);
+            if lexer.try_read_expect(Symbol::Semicolon).is_none() {
+                break;
+            }
+        }
+        let _ = lexer.read_expect(Symbol::Dot)?;
+        Ok(Self {
+            module,
+            name,
+            clauses,
+            region: lexer.region(start),
+        })
+    }
+}
+
+/// `Args<Type>` `->` `Type` `Option<Constraints>`
+#[derive(Debug, Clone)]
+pub struct SpecClause {
+    args: Vec<Type>,
+    ret: Type,
+    region: Region,
+}
+
+impl Parse for SpecClause {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let mut args = Vec::new();
+        while let Some(arg) = Type::try_parse(lexer) {
+            args.push(arg);
+            if lexer.try_read_expect(Symbol::Comma).is_none() {
+                break;
+            }
+        }
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+
+        let _ = lexer.read_expect(Symbol::RightArrow)?;
+        let ret = Type::parse(lexer)?;
+
+        if lexer.try_read_expect("when").is_some() {
+            todo!()
+        }
+
+        Ok(Self {
+            args,
+            ret,
+            region: lexer.region(start),
         })
     }
 }
