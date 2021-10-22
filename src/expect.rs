@@ -1,4 +1,6 @@
-use erl_tokenize::tokens::{AtomToken, IntegerToken, KeywordToken, SymbolToken, VariableToken};
+use erl_tokenize::tokens::{
+    AtomToken, IntegerToken, KeywordToken, StringToken, SymbolToken, VariableToken,
+};
 use erl_tokenize::values::{Keyword, Symbol};
 use erl_tokenize::LexicalToken;
 
@@ -82,6 +84,21 @@ impl Expect for ExpectVariable {
 
     fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
         if let LexicalToken::Variable(token) = token {
+            Ok(token)
+        } else {
+            Err(token)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ExpectString;
+
+impl Expect for ExpectString {
+    type Token = StringToken;
+
+    fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
+        if let LexicalToken::String(token) = token {
             Ok(token)
         } else {
             Err(token)

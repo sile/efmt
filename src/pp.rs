@@ -156,6 +156,7 @@ impl Preprocessor {
             if let LexicalToken::Symbol(x) = &token {
                 if x.value() == Symbol::Question {
                     self.expand_macro()?;
+                    continue;
                 } else if x.value() == Symbol::Hyphen {
                     self.try_handle_directives()?;
                     self.tokenizer.set_position(x.end_position());

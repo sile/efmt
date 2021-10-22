@@ -22,6 +22,7 @@ pub enum Ast {
     ElseDirective(ElseDirective),
     EndifDirective(EndifDirective),
     DefineDirective(DefineDirective),
+    WildDirective(WildDirective),
     FunSpec(self::function::FunSpec),
     FunDecl(self::function::FunDecl),
 }
@@ -62,6 +63,7 @@ impl Parse for Ast {
                     return DefineDirective::parse(lexer).map(Self::DefineDirective)
                 }
                 (Symbol::Hyphen, "spec") => return Parse::parse(lexer).map(Self::FunSpec),
+                (Symbol::Hyphen, _) => return Parse::parse(lexer).map(Self::WildDirective),
                 _ => {
                     todo!("{:?}", tokens);
                 }
@@ -160,6 +162,30 @@ impl Parse for EndifDirective {
         let _ = lexer.read_expect(Symbol::Dot)?;
         Ok(Self {
             region: Region::new(start, lexer.current_position()),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WildDirective {
+    name: AtomToken,
+    value: self::function::Expr,
+    region: Region,
+}
+
+impl Parse for WildDirective {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Hyphen)?;
+        let name = lexer.read_expect(ExpectAtom)?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let value = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        let _ = lexer.read_expect(Symbol::Dot)?;
+        Ok(Self {
+            name,
+            value,
+            region: lexer.region(start),
         })
     }
 }

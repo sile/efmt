@@ -1,7 +1,7 @@
 use crate::ast::ty::Type;
-use crate::expect::{Either, ExpectAtom, ExpectNonNegInteger, ExpectVariable};
+use crate::expect::{Either, ExpectAtom, ExpectNonNegInteger, ExpectVariable, Or};
 use crate::{Lexer, Parse, Region, Result};
-use erl_tokenize::tokens::{AtomToken, IntegerToken, VariableToken};
+use erl_tokenize::tokens::{AtomToken, IntegerToken, StringToken, VariableToken};
 use erl_tokenize::values::{Keyword, Symbol};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -300,7 +300,9 @@ pub enum Expr {
     FunCall(Box<Call<IdLikeExpr, Expr>>),
     Atom(AtomToken),
     Variable(VariableToken),
+    String(StringToken),
     List(Box<List>),
+    Tuple(Box<Tuple>),
     Try(Box<Try>),
     Match(Box<Match>),
 }
@@ -319,31 +321,83 @@ impl Parse for Expr {
         if let Some(x) = List::try_parse(lexer) {
             return Ok(Self::List(Box::new(x)));
         }
+        if let Some(x) = Tuple::try_parse(lexer) {
+            return Ok(Self::Tuple(Box::new(x)));
+        }
         if let Some(x) = AtomToken::try_parse(lexer) {
             return Ok(Self::Atom(x));
         }
         if let Some(x) = VariableToken::try_parse(lexer) {
             return Ok(Self::Variable(x));
         }
+        if let Some(x) = StringToken::try_parse(lexer) {
+            return Ok(Self::String(x));
+        }
         Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()?).into())
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum List<T = Expr> {
-    Proper { elements: Vec<T>, region: Region },
+pub struct ProperList<T> {
+    elements: Vec<T>,
+    region: Region,
 }
 
-impl<T: Parse> Parse for List<T> {
+impl<T: Parse> Parse for ProperList<T> {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let _ = lexer.read_expect(Symbol::OpenSquare)?;
         let elements = parse_comma_delimited_items::<T>(lexer)?;
         let _ = lexer.read_expect(Symbol::CloseSquare)?;
-        Ok(Self::Proper {
+        Ok(Self {
             elements,
             region: lexer.region(start),
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ImproperList<T> {
+    elements: Vec<T>,
+    last: T,
+    region: Region,
+}
+
+impl<T: Parse> Parse for ImproperList<T> {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::OpenSquare)?;
+        let mut elements = Vec::new();
+        loop {
+            elements.push(T::parse(lexer)?);
+            if lexer
+                .read_expect(Or(Symbol::Comma, Symbol::VerticalBar))?
+                .is_b()
+            {
+                let last = T::parse(lexer)?;
+                let _ = lexer.read_expect(Symbol::CloseSquare)?;
+                return Ok(Self {
+                    elements,
+                    last,
+                    region: lexer.region(start),
+                });
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum List<T = Expr> {
+    Proper(ProperList<T>),
+    Improper(ImproperList<T>),
+}
+
+impl<T: Parse> Parse for List<T> {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match Either::<ProperList<T>, ImproperList<T>>::parse(lexer)? {
+            Either::A(x) => Ok(Self::Proper(x)),
+            Either::B(x) => Ok(Self::Improper(x)),
+        }
     }
 }
 
@@ -385,6 +439,7 @@ impl Parse for Try {
         let _ = lexer.read_expect(Keyword::Try)?;
         let body = Body::parse(lexer)?;
         let catch = TryCatch::try_parse(lexer);
+        let _ = lexer.read_expect(Keyword::End)?;
         Ok(Self {
             body,
             catch,
@@ -416,6 +471,7 @@ impl Parse for TryCatch {
 pub struct CatchClause {
     class: Option<CatchClass>,
     pattern: Pattern,
+    stacktrace: Option<CatchStacktrace>,
     body: Body,
     region: Region,
 }
@@ -425,12 +481,32 @@ impl Parse for CatchClause {
         let start = lexer.current_position();
         let class = CatchClass::try_parse(lexer);
         let pattern = Pattern::parse(lexer)?;
+        let stacktrace = CatchStacktrace::try_parse(lexer);
         let _ = lexer.read_expect(Symbol::RightArrow)?;
         let body = Body::parse(lexer)?;
         Ok(Self {
             class,
             pattern,
+            stacktrace,
             body,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CatchStacktrace {
+    var: VariableToken,
+    region: Region,
+}
+
+impl Parse for CatchStacktrace {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Colon)?;
+        let var = VariableToken::parse(lexer)?;
+        Ok(Self {
+            var,
             region: lexer.region(start),
         })
     }
@@ -471,7 +547,7 @@ impl Parse for Match {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tuple<T> {
+pub struct Tuple<T = Expr> {
     items: Vec<T>,
     region: Region,
 }
