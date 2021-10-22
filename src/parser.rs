@@ -1,7 +1,9 @@
 use crate::ast::Ast;
-use crate::expect::{Either, ExpectAtom, ExpectString, ExpectSymbol, ExpectVariable};
+use crate::expect::{
+    Either, ExpectAtom, ExpectInteger, ExpectString, ExpectSymbol, ExpectVariable,
+};
 use crate::{Lexer, Result};
-use erl_tokenize::tokens::{AtomToken, StringToken, VariableToken};
+use erl_tokenize::tokens::{AtomToken, IntegerToken, StringToken, VariableToken};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::LexicalToken;
 
@@ -71,6 +73,12 @@ impl Parse for VariableToken {
 impl Parse for StringToken {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         lexer.read_expect(ExpectString)
+    }
+}
+
+impl Parse for IntegerToken {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        lexer.read_expect(ExpectInteger)
     }
 }
 

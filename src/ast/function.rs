@@ -1,5 +1,5 @@
 use crate::ast::ty::Type;
-use crate::expect::{Either, ExpectAtom, ExpectNonNegInteger, ExpectVariable, Or};
+use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, IntegerToken, StringToken, VariableToken};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -11,12 +11,16 @@ pub struct NameAndArity<Name = AtomToken, Arity = IntegerToken> {
     region: Region,
 }
 
-impl Parse for NameAndArity<AtomToken, IntegerToken> {
+impl<Name, Arity> Parse for NameAndArity<Name, Arity>
+where
+    Name: Parse,
+    Arity: Parse,
+{
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
-        let name = lexer.read_expect(ExpectAtom)?;
+        let name = Name::parse(lexer)?;
         let _ = lexer.read_expect(Symbol::Slash)?;
-        let arity = lexer.read_expect(ExpectNonNegInteger)?;
+        let arity = Arity::parse(lexer)?;
         let end = lexer.current_position();
         Ok(Self {
             name,
@@ -298,8 +302,10 @@ impl Parse for Body {
 #[derive(Debug, Clone)]
 pub enum Expr {
     FunCall(Box<Call<IdLikeExpr, Expr>>),
+    Fun(Box<Fun>),
     Atom(AtomToken),
     Variable(VariableToken),
+    Integer(IntegerToken),
     String(StringToken),
     List(Box<List>),
     Tuple(Box<Tuple>),
@@ -318,6 +324,9 @@ impl Parse for Expr {
         if let Some(x) = Call::try_parse(lexer) {
             return Ok(Self::FunCall(Box::new(x)));
         }
+        if let Some(x) = Fun::try_parse(lexer) {
+            return Ok(Self::Fun(Box::new(x)));
+        }
         if let Some(x) = List::try_parse(lexer) {
             return Ok(Self::List(Box::new(x)));
         }
@@ -332,6 +341,9 @@ impl Parse for Expr {
         }
         if let Some(x) = StringToken::try_parse(lexer) {
             return Ok(Self::String(x));
+        }
+        if let Some(x) = IntegerToken::try_parse(lexer) {
+            return Ok(Self::Integer(x));
         }
         Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()?).into())
     }
@@ -565,7 +577,7 @@ impl<T: Parse> Parse for Tuple<T> {
     }
 }
 
-fn parse_comma_delimited_items<T: Parse>(lexer: &mut Lexer) -> Result<Vec<T>> {
+pub fn parse_comma_delimited_items<T: Parse>(lexer: &mut Lexer) -> Result<Vec<T>> {
     let mut items = Vec::new();
     while let Some(item) = T::try_parse(lexer) {
         items.push(item);
@@ -585,4 +597,37 @@ fn parse_clauses<T: Parse>(lexer: &mut Lexer) -> Result<Vec<T>> {
         }
     }
     Ok(items)
+}
+
+#[derive(Debug, Clone)]
+pub enum Fun {
+    Defined(DefinedFun),
+}
+
+impl Parse for Fun {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        Ok(Self::Defined(DefinedFun::parse(lexer)?))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefinedFun {
+    module: Option<ModulePrefix<Either<AtomToken, VariableToken>>>,
+    name_and_arity:
+        NameAndArity<Either<AtomToken, VariableToken>, Either<IntegerToken, VariableToken>>,
+    region: Region,
+}
+
+impl Parse for DefinedFun {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::Fun)?;
+        let module = ModulePrefix::try_parse(lexer);
+        let name_and_arity = Parse::parse(lexer)?;
+        Ok(Self {
+            module,
+            name_and_arity,
+            region: lexer.region(start),
+        })
+    }
 }

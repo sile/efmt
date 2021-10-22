@@ -107,15 +107,16 @@ impl Expect for ExpectString {
 }
 
 #[derive(Debug)]
-pub struct ExpectNonNegInteger;
+pub struct ExpectInteger;
 
-impl Expect for ExpectNonNegInteger {
+impl Expect for ExpectInteger {
     type Token = IntegerToken;
 
     fn expect(&self, token: LexicalToken) -> Result<Self::Token, LexicalToken> {
-        match token {
-            LexicalToken::Integer(token) if token.value() >= &0u32.into() => Ok(token),
-            _ => Err(token),
+        if let LexicalToken::Integer(token) = token {
+            Ok(token)
+        } else {
+            Err(token)
         }
     }
 }

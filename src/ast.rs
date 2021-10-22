@@ -1,3 +1,5 @@
+use self::function::Expr;
+use self::ty::Type;
 use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
@@ -25,6 +27,7 @@ pub enum Ast {
     WildDirective(WildDirective),
     FunSpec(self::function::FunSpec),
     FunDecl(self::function::FunDecl),
+    RecordDecl(RecordDecl),
 }
 
 impl Parse for Ast {
@@ -63,6 +66,7 @@ impl Parse for Ast {
                     return DefineDirective::parse(lexer).map(Self::DefineDirective)
                 }
                 (Symbol::Hyphen, "spec") => return Parse::parse(lexer).map(Self::FunSpec),
+                (Symbol::Hyphen, "record") => return Parse::parse(lexer).map(Self::RecordDecl),
                 (Symbol::Hyphen, _) => return Parse::parse(lexer).map(Self::WildDirective),
                 _ => {
                     todo!("{:?}", tokens);
@@ -241,6 +245,93 @@ impl Parse for DefineDirective {
             args,
             replacement,
             region: Region::new(start, lexer.current_position()),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordDecl {
+    name: AtomToken,
+    fields: Vec<RecordFieldDecl>,
+    region: Region,
+}
+
+impl Parse for RecordDecl {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Hyphen)?;
+        let _ = lexer.read_expect("record")?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let name = lexer.read_expect(ExpectAtom)?;
+        let _ = lexer.read_expect(Symbol::Comma)?;
+        let _ = lexer.read_expect(Symbol::OpenBrace)?;
+        let fields = self::function::parse_comma_delimited_items(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseBrace)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        let _ = lexer.read_expect(Symbol::Dot)?;
+        Ok(Self {
+            name,
+            fields,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldDecl {
+    name: AtomToken,
+    default: Option<RecordFieldDefault>,
+    ty: Option<RecordFieldType>,
+    region: Region,
+}
+
+impl Parse for RecordFieldDecl {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = Parse::parse(lexer)?;
+        let default = Parse::try_parse(lexer);
+        let ty = Parse::try_parse(lexer);
+        Ok(Self {
+            name,
+            default,
+            ty,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldDefault {
+    value: Expr,
+    region: Region,
+}
+
+impl Parse for RecordFieldDefault {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Match)?;
+        let value = Expr::parse(lexer)?;
+        Ok(Self {
+            value,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldType {
+    ty: Type,
+    region: Region,
+}
+
+impl Parse for RecordFieldType {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::DoubleColon)?;
+        let ty = Type::parse(lexer)?;
+        Ok(Self {
+            ty,
+            region: lexer.region(start),
         })
     }
 }
