@@ -255,23 +255,38 @@ pub enum Pattern {
     Variable(VariableToken),
     Tuple(Box<Tuple<Self>>),
     List(Box<List<Self>>),
+    Match(Box<Match<Self>>),
 }
 
 impl Parse for Pattern {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
-        if let Some(x) = Tuple::try_parse(lexer) {
-            return Ok(Self::Tuple(Box::new(x)));
+        let pattern = if let Some(x) = Tuple::try_parse(lexer) {
+            Self::Tuple(Box::new(x))
+        } else if let Some(x) = List::try_parse(lexer) {
+            Self::List(Box::new(x))
+        } else if let Some(_) = Call::<IdLikeExpr, Expr>::try_parse(lexer) {
+            // TODO
+            return Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into());
+        } else if let Some(x) = lexer.try_read_expect(ExpectVariable) {
+            Self::Variable(x)
+        } else if let Some(x) = lexer.try_read_expect(ExpectAtom) {
+            Self::Atom(x)
+        } else {
+            return Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into());
+        };
+
+        let result = lexer.with_transaction(|lexer| {
+            let _ = lexer.read_expect(Symbol::Match)?;
+            Self::parse(lexer)
+        });
+        if let Ok(right) = result {
+            Ok(Self::Match(Box::new(Match {
+                pattern,
+                expr: right,
+            })))
+        } else {
+            Ok(pattern)
         }
-        if let Some(x) = List::try_parse(lexer) {
-            return Ok(Self::List(Box::new(x)));
-        }
-        if let Some(x) = lexer.try_read_expect(ExpectVariable) {
-            return Ok(Self::Variable(x));
-        }
-        if let Some(x) = lexer.try_read_expect(ExpectAtom) {
-            return Ok(Self::Atom(x));
-        }
-        Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into())
     }
 }
 
@@ -311,6 +326,7 @@ pub enum Expr {
     Tuple(Box<Tuple>),
     Try(Box<Try>),
     Match(Box<Match>),
+    Bits(Box<Bits>),
 }
 
 impl Parse for Expr {
@@ -332,6 +348,9 @@ impl Parse for Expr {
         }
         if let Some(x) = Tuple::try_parse(lexer) {
             return Ok(Self::Tuple(Box::new(x)));
+        }
+        if let Some(x) = Bits::try_parse(lexer) {
+            return Ok(Self::Bits(Box::new(x)));
         }
         if let Some(x) = AtomToken::try_parse(lexer) {
             return Ok(Self::Atom(x));
@@ -424,6 +443,28 @@ impl Parse for IdLikeExpr {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         if let Some(x) = AtomToken::try_parse(lexer) {
             return Ok(Self::Atom(x));
+        }
+        if let Some(x) = VariableToken::try_parse(lexer) {
+            return Ok(Self::Variable(x));
+        }
+        if lexer.try_read_expect(Symbol::OpenParen).is_some() {
+            todo!();
+        }
+        Err(anyhow::anyhow!("unsupported expression").into())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum IntegerLikeExpr {
+    Integer(IntegerToken),
+    Variable(VariableToken),
+    // TODO: Parenthesized
+}
+
+impl Parse for IntegerLikeExpr {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        if let Some(x) = IntegerToken::try_parse(lexer) {
+            return Ok(Self::Integer(x));
         }
         if let Some(x) = VariableToken::try_parse(lexer) {
             return Ok(Self::Variable(x));
@@ -544,16 +585,16 @@ impl Parse for CatchClass {
 
 /// `Pattern` `=` `Expr`
 #[derive(Debug, Clone)]
-pub struct Match {
+pub struct Match<T = Expr> {
     pattern: Pattern,
-    expr: Expr,
+    expr: T,
 }
 
-impl Parse for Match {
+impl<T: Parse> Parse for Match<T> {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let pattern = Pattern::parse(lexer)?;
         let _ = lexer.read_expect(Symbol::Match)?;
-        let expr = Expr::parse(lexer)?;
+        let expr = T::parse(lexer)?;
         Ok(Self { pattern, expr })
     }
 }
@@ -629,5 +670,78 @@ impl Parse for DefinedFun {
             name_and_arity,
             region: lexer.region(start),
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Bits {
+    elementes: Vec<BitsElement>,
+    region: Region,
+}
+
+impl Parse for Bits {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::DoubleLeftAngle)?;
+        let elementes = parse_comma_delimited_items(lexer)?;
+        let _ = lexer.read_expect(Symbol::DoubleRightAngle)?;
+        Ok(Self {
+            elementes,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BitsElement {
+    value: Expr,
+    size: Option<BitsElementSize>,
+    specs: Option<BitsElementSpecs>,
+    region: Region,
+}
+
+impl Parse for BitsElement {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let value = Parse::parse(lexer)?;
+        let size = Parse::try_parse(lexer);
+        let specs = Parse::try_parse(lexer);
+        Ok(Self {
+            value,
+            size,
+            specs,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BitsElementSize {
+    size: IntegerLikeExpr,
+    region: Region,
+}
+
+impl Parse for BitsElementSize {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Colon)?;
+        let size = Parse::parse(lexer)?;
+        Ok(Self {
+            size,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BitsElementSpecs {
+    region: Region,
+}
+
+impl Parse for BitsElementSpecs {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let _ = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Slash)?;
+        todo!()
     }
 }

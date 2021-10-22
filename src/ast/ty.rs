@@ -13,7 +13,6 @@ pub enum Type {
     Annotated(Box<Annotated>),
     Tuple(Box<Tuple>),
     Map,
-    Record,
     List(Box<List>),
     Bits,
     Parenthesized(Box<Parenthesized>),
@@ -23,6 +22,7 @@ pub enum Type {
     Fun(Box<Fun>),
     Range(Box<Range>),
     Union(Box<Union>),
+    Record(Box<Record>),
 }
 
 impl Type {
@@ -47,6 +47,9 @@ impl Type {
         }
         if let Some(x) = Fun::try_parse(lexer) {
             return Ok(Self::Fun(Box::new(x)));
+        }
+        if let Some(x) = Record::try_parse(lexer) {
+            return Ok(Self::Record(Box::new(x)));
         }
         if let Some(token) = VariableToken::try_parse(lexer) {
             return Ok(Self::Variable(token));
@@ -286,6 +289,50 @@ impl Parse for Fun {
         Ok(Self {
             args,
             return_type,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Record {
+    name: AtomToken,
+    fields: Vec<RecordField>,
+    region: Region,
+}
+
+impl Parse for Record {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Sharp)?;
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::OpenBrace)?;
+        let fields = crate::ast::function::parse_comma_delimited_items(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseBrace)?;
+        Ok(Self {
+            name,
+            fields,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordField {
+    name: AtomToken,
+    ty: Type,
+    region: Region,
+}
+
+impl Parse for RecordField {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::DoubleColon)?;
+        let ty = Parse::parse(lexer)?;
+        Ok(Self {
+            name,
+            ty,
             region: lexer.region(start),
         })
     }
