@@ -1,7 +1,7 @@
 use crate::ast::ty::Type;
 use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
 use crate::{Lexer, Parse, Region, Result};
-use erl_tokenize::tokens::{AtomToken, IntegerToken, StringToken, VariableToken};
+use erl_tokenize::tokens::{AtomToken, CharToken, IntegerToken, StringToken, VariableToken};
 use erl_tokenize::values::{Keyword, Symbol};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -256,6 +256,7 @@ pub enum Pattern {
     Tuple(Box<Tuple<Self>>),
     List(Box<List<Self>>),
     Match(Box<Match<Self>>),
+    Record(Box<RecordPattern>),
 }
 
 impl Parse for Pattern {
@@ -264,6 +265,8 @@ impl Parse for Pattern {
             Self::Tuple(Box::new(x))
         } else if let Some(x) = List::try_parse(lexer) {
             Self::List(Box::new(x))
+        } else if let Some(x) = RecordPattern::try_parse(lexer) {
+            Self::Record(Box::new(x))
         } else if let Some(_) = Call::<IdLikeExpr, Expr>::try_parse(lexer) {
             // TODO
             return Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into());
@@ -321,12 +324,15 @@ pub enum Expr {
     Atom(AtomToken),
     Variable(VariableToken),
     Integer(IntegerToken),
+    Char(CharToken),
     String(StringToken),
     List(Box<List>),
     Tuple(Box<Tuple>),
     Try(Box<Try>),
     Match(Box<Match>),
     Bits(Box<Bits>),
+    Case(Box<Case>),
+    Parenthesized(Box<Parenthesized<Self>>),
 }
 
 impl Parse for Expr {
@@ -336,6 +342,12 @@ impl Parse for Expr {
         }
         if let Some(x) = Match::try_parse(lexer) {
             return Ok(Self::Match(Box::new(x)));
+        }
+        if let Some(x) = Parenthesized::try_parse(lexer) {
+            return Ok(Self::Parenthesized(Box::new(x)));
+        }
+        if let Some(x) = Case::try_parse(lexer) {
+            return Ok(Self::Case(Box::new(x)));
         }
         if let Some(x) = Call::try_parse(lexer) {
             return Ok(Self::FunCall(Box::new(x)));
@@ -363,6 +375,9 @@ impl Parse for Expr {
         }
         if let Some(x) = IntegerToken::try_parse(lexer) {
             return Ok(Self::Integer(x));
+        }
+        if let Some(x) = CharToken::try_parse(lexer) {
+            return Ok(Self::Char(x));
         }
         Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()?).into())
     }
@@ -436,7 +451,7 @@ impl<T: Parse> Parse for List<T> {
 pub enum IdLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
-    // TODO: Parenthesized
+    Parenthesized(Expr),
 }
 
 impl Parse for IdLikeExpr {
@@ -448,7 +463,9 @@ impl Parse for IdLikeExpr {
             return Ok(Self::Variable(x));
         }
         if lexer.try_read_expect(Symbol::OpenParen).is_some() {
-            todo!();
+            let expr = Expr::parse(lexer)?;
+            lexer.read_expect(Symbol::CloseParen)?;
+            return Ok(Self::Parenthesized(expr));
         }
         Err(anyhow::anyhow!("unsupported expression").into())
     }
@@ -532,11 +549,18 @@ pub struct CatchClause {
 impl Parse for CatchClause {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
+        dbg!(1);
         let class = CatchClass::try_parse(lexer);
+        dbg!(&class);
         let pattern = Pattern::parse(lexer)?;
+        dbg!(&pattern);
         let stacktrace = CatchStacktrace::try_parse(lexer);
+        dbg!(&stacktrace);
         let _ = lexer.read_expect(Symbol::RightArrow)?;
+        dbg!(2);
+        dbg!(lexer.peek_token()?);
         let body = Body::parse(lexer)?;
+        dbg!(&body);
         Ok(Self {
             class,
             pattern,
@@ -623,6 +647,17 @@ pub fn parse_comma_delimited_items<T: Parse>(lexer: &mut Lexer) -> Result<Vec<T>
     while let Some(item) = T::try_parse(lexer) {
         items.push(item);
         if lexer.try_read_expect(Symbol::Comma).is_none() {
+            break;
+        }
+    }
+    Ok(items)
+}
+
+pub fn parse_items<T: Parse>(lexer: &mut Lexer, delimiter: Symbol) -> Result<Vec<T>> {
+    let mut items = Vec::new();
+    while let Some(item) = T::try_parse(lexer) {
+        items.push(item);
+        if lexer.try_read_expect(delimiter).is_none() {
             break;
         }
     }
@@ -735,13 +770,126 @@ impl Parse for BitsElementSize {
 
 #[derive(Debug, Clone)]
 pub struct BitsElementSpecs {
+    specs: Vec<AtomToken>, // TODO
     region: Region,
 }
 
 impl Parse for BitsElementSpecs {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
-        let _ = lexer.current_position();
+        let start = lexer.current_position();
         let _ = lexer.read_expect(Symbol::Slash)?;
-        todo!()
+        let specs = parse_items(lexer, Symbol::Hyphen)?;
+        Ok(Self {
+            specs,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Case {
+    value: Expr,
+    clauses: Vec<CaseClause>,
+    region: Region,
+}
+
+impl Parse for Case {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::Case)?;
+        let value = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Keyword::Of)?;
+        let clauses = parse_clauses(lexer)?;
+        let _ = lexer.read_expect(Keyword::End)?;
+        Ok(Self {
+            value,
+            clauses,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CaseClause {
+    pattern: Pattern,
+    // TODO: guard
+    body: Body,
+    region: Region,
+}
+
+impl Parse for CaseClause {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let pattern = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::RightArrow)?;
+        let body = Parse::parse(lexer)?;
+        Ok(Self {
+            pattern,
+            body,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordPattern {
+    name: AtomToken,
+    fields: Vec<RecordFieldPattern>,
+    region: Region,
+}
+
+impl Parse for RecordPattern {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::Sharp)?;
+        let name = AtomToken::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::OpenBrace)?;
+        let fields = parse_items(lexer, Symbol::Comma)?;
+        let _ = lexer.read_expect(Symbol::CloseBrace)?;
+        Ok(Self {
+            name,
+            fields,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldPattern {
+    name: AtomToken,
+    value: Pattern,
+    region: Region,
+}
+
+impl Parse for RecordFieldPattern {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::Match)?;
+        let value = Parse::parse(lexer)?;
+        Ok(Self {
+            name,
+            value,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Parenthesized<T> {
+    item: T,
+    region: Region,
+}
+
+impl<T: Parse> Parse for Parenthesized<T> {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let item = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        Ok(Self {
+            item,
+            region: lexer.region(start),
+        })
     }
 }

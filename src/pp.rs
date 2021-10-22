@@ -88,6 +88,11 @@ impl Preprocessor {
         let mut level = 0;
         while let Some(token) = self.next_lexical_token()? {
             match &token {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
+                    let tokens = self.expand_macro()?;
+                    replacement.extend(tokens);
+                    continue;
+                }
                 LexicalToken::Symbol(x) if x.value() == Symbol::OpenParen => {
                     level += 1;
                 }
@@ -155,7 +160,8 @@ impl Preprocessor {
         while let Some(token) = self.next_lexical_token()? {
             if let LexicalToken::Symbol(x) = &token {
                 if x.value() == Symbol::Question {
-                    self.expand_macro()?;
+                    let tokens = self.expand_macro()?;
+                    self.preprocessed.tokens.extend(tokens);
                     continue;
                 } else if x.value() == Symbol::Hyphen {
                     self.try_handle_directives()?;
@@ -167,7 +173,7 @@ impl Preprocessor {
         Ok(self.preprocessed)
     }
 
-    fn expand_macro(&mut self) -> Result<()> {
+    fn expand_macro(&mut self) -> Result<Vec<LexicalToken>> {
         let position = self.tokenizer.next_position();
         let name = match self.read_expect(Or(ExpectAtom, ExpectVariable))? {
             Either::A(x) => x.value().to_owned(),
@@ -193,15 +199,10 @@ impl Preprocessor {
                 }
             }
             let _ = self.read_expect(Symbol::CloseParen)?;
-            self.preprocessed
-                .tokens
-                .extend(define.replace_variables(&args));
+            Ok(define.replace_variables(&args))
         } else {
-            self.preprocessed
-                .tokens
-                .extend(define.replacement.iter().cloned());
+            Ok(define.replacement.clone())
         }
-        Ok(())
     }
 
     fn parse_macro_arg(&mut self) -> Result<Vec<LexicalToken>> {
