@@ -1,9 +1,7 @@
-use crate::pp::Preprocessor;
 use crate::{Error, Expect, Result};
-use erl_tokenize::tokens::CommentToken;
-use erl_tokenize::{LexicalToken, PositionRange, Token, Tokenizer};
-use std::collections::BTreeMap;
+use erl_tokenize::LexicalToken;
 
+// TODO: rename
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position(usize);
 
@@ -29,22 +27,20 @@ impl Region {
     }
 }
 
+// TODO: rename
 #[derive(Debug)]
 pub struct Lexer {
-    tokenizer: Preprocessor,
-    comments: BTreeMap<Position, CommentToken>,
+    tokens: Vec<LexicalToken>,
+    index: usize,
 }
 
 impl Lexer {
-    pub fn new(text: impl AsRef<str>) -> Self {
-        Self {
-            tokenizer: Preprocessor::new(Tokenizer::new(text.as_ref().to_owned())),
-            comments: BTreeMap::new(),
-        }
+    pub fn new(tokens: Vec<LexicalToken>) -> Self {
+        Self { tokens, index: 0 }
     }
 
     pub fn current_position(&self) -> Position {
-        Position::new(self.tokenizer.next_position().offset())
+        Position::new(self.index)
     }
 
     pub fn region(&self, start: Position) -> Region {
@@ -65,10 +61,10 @@ impl Lexer {
     where
         F: FnOnce(&mut Self) -> Result<T>,
     {
-        let position = self.tokenizer.next_position();
+        let position = self.index;
         match f(self) {
             Err(e) => {
-                self.tokenizer.set_position(position);
+                self.index = position;
                 Err(e)
             }
             Ok(x) => Ok(x),
@@ -79,9 +75,9 @@ impl Lexer {
     where
         F: FnOnce(&mut Self) -> T,
     {
-        let position = self.tokenizer.next_position();
+        let position = self.index;
         let result = f(self);
-        self.tokenizer.set_position(position);
+        self.index = position;
         result
     }
 
@@ -104,24 +100,12 @@ impl Lexer {
     }
 
     pub fn read_token(&mut self) -> Result<LexicalToken> {
-        while let Some(token) = self.tokenizer.next().transpose()? {
-            match token {
-                Token::Comment(t) => {
-                    self.comments
-                        .insert(Position::new(t.start_position().offset()), t);
-                }
-                Token::Whitespace(_) => {}
-                Token::Atom(t) => return Ok(t.into()),
-                Token::Char(t) => return Ok(t.into()),
-                Token::Float(t) => return Ok(t.into()),
-                Token::Integer(t) => return Ok(t.into()),
-                Token::Keyword(t) => return Ok(t.into()),
-                Token::String(t) => return Ok(t.into()),
-                Token::Symbol(t) => return Ok(t.into()),
-                Token::Variable(t) => return Ok(t.into()),
-            }
+        if let Some(token) = self.tokens.get(self.index).cloned() {
+            self.index += 1;
+            Ok(token)
+        } else {
+            Err(Error::UnexpectedEof)
         }
-        Err(Error::UnexpectedEof)
     }
 
     pub fn read_expect<T: Expect>(&mut self, expected: T) -> Result<T::Token> {

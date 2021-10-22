@@ -3,6 +3,7 @@ use crate::expect::{Either, ExpectAtom, ExpectSymbol, ExpectVariable};
 use crate::{Lexer, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
 use erl_tokenize::values::Symbol;
+use erl_tokenize::LexicalToken;
 
 pub trait Parse: Sized {
     fn parse(lexer: &mut Lexer) -> Result<Self>;
@@ -32,9 +33,9 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(source_code: impl AsRef<str>) -> Self {
+    pub fn new(tokens: Vec<LexicalToken>) -> Self {
         Self {
-            lexer: Lexer::new(source_code),
+            lexer: Lexer::new(tokens),
         }
     }
 }

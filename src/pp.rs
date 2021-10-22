@@ -1,9 +1,11 @@
 use crate::expect::{Either, Expect, ExpectAtom, ExpectVariable, Or};
 use erl_tokenize::tokens::{AtomToken, CommentToken, VariableToken};
 use erl_tokenize::values::{Keyword, Symbol};
-use erl_tokenize::{LexicalToken, Position, PositionRange, Result, Token, Tokenizer};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use erl_tokenize::{LexicalToken, Position, PositionRange, Token, Tokenizer};
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -24,13 +26,13 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct Preprocessor2 {
+pub struct Preprocessor {
     tokenizer: Tokenizer<String>,
     macro_defines: HashMap<String, MacroDefine>,
     preprocessed: Preprocessed,
 }
 
-impl Preprocessor2 {
+impl Preprocessor {
     // TODO: user defined predefined macros
     pub fn new(tokenizer: Tokenizer<String>) -> Self {
         let preprocessed = Preprocessed {
@@ -47,7 +49,7 @@ impl Preprocessor2 {
         }
     }
 
-    fn try_handle_directives(&mut self) -> std::result::Result<(), Error> {
+    fn try_handle_directives(&mut self) -> Result<()> {
         if let Some(LexicalToken::Atom(token)) = self.next_lexical_token()? {
             match token.value() {
                 "define" => {
@@ -62,7 +64,7 @@ impl Preprocessor2 {
         Ok(())
     }
 
-    fn parse_define(&mut self) -> std::result::Result<MacroDefine, Error> {
+    fn parse_define(&mut self) -> Result<MacroDefine> {
         let _ = self.read_expect(Symbol::OpenParen)?;
         let name = self.read_expect(Or(ExpectAtom, ExpectVariable))?;
         let params = if self
@@ -117,7 +119,7 @@ impl Preprocessor2 {
         }
     }
 
-    fn read_expect<T: Expect>(&mut self, expected: T) -> std::result::Result<T::Token, Error> {
+    fn read_expect<T: Expect>(&mut self, expected: T) -> Result<T::Token> {
         if let Some(token) = self.next_lexical_token()? {
             expected.expect(token).map_err(|token| {
                 anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into()
@@ -127,7 +129,7 @@ impl Preprocessor2 {
         }
     }
 
-    fn next_lexical_token(&mut self) -> std::result::Result<Option<LexicalToken>, Error> {
+    fn next_lexical_token(&mut self) -> Result<Option<LexicalToken>> {
         while let Some(token) = self.tokenizer.next().transpose()? {
             match token {
                 Token::Whitespace(_) => {}
@@ -149,7 +151,7 @@ impl Preprocessor2 {
         Ok(None)
     }
 
-    pub fn preprocess(mut self) -> std::result::Result<Preprocessed, Error> {
+    pub fn preprocess(mut self) -> Result<Preprocessed> {
         while let Some(token) = self.next_lexical_token()? {
             if let LexicalToken::Symbol(x) = &token {
                 if x.value() == Symbol::Question {
@@ -164,7 +166,7 @@ impl Preprocessor2 {
         Ok(self.preprocessed)
     }
 
-    fn expand_macro(&mut self) -> std::result::Result<(), Error> {
+    fn expand_macro(&mut self) -> Result<()> {
         let position = self.tokenizer.next_position();
         let name = match self.read_expect(Or(ExpectAtom, ExpectVariable))? {
             Either::A(x) => x.value().to_owned(),
@@ -201,7 +203,7 @@ impl Preprocessor2 {
         Ok(())
     }
 
-    fn parse_macro_arg(&mut self) -> std::result::Result<Vec<LexicalToken>, Error> {
+    fn parse_macro_arg(&mut self) -> Result<Vec<LexicalToken>> {
         #[derive(Debug, Default)]
         struct Level {
             paren: usize,
@@ -292,209 +294,6 @@ pub struct Preprocessed {
     pub tokens: Vec<LexicalToken>,
     pub comments: BTreeMap<Position, CommentToken>,
     pub macro_calls: BTreeMap<Position, MacroCall>,
-}
-
-#[derive(Debug)]
-pub struct Preprocessor {
-    tokenizer: Tokenizer<String>,
-    visited: HashSet<Position>,
-    defines: HashMap<String, MacroDefine>,
-    expanded_tokens: Vec<Token>,
-}
-
-impl Preprocessor {
-    pub fn new(tokenizer: Tokenizer<String>) -> Self {
-        Self {
-            tokenizer,
-            visited: HashSet::new(),
-            defines: HashMap::new(),
-            expanded_tokens: Vec::new(),
-        }
-    }
-
-    pub fn next_position(&self) -> Position {
-        self.tokenizer.next_position()
-    }
-
-    pub fn set_position(&mut self, position: Position) {
-        self.tokenizer.set_position(position);
-        self.expanded_tokens.clear();
-    }
-
-    fn next_token(&mut self) -> Result<Option<Token>> {
-        if let Some(token) = self.expanded_tokens.pop() {
-            return Ok(Some(token));
-        }
-
-        let position = self.tokenizer.next_position();
-        let token = self.tokenizer.next().transpose()?;
-        if !self.visited.contains(&position) {
-            self.visited.insert(position.clone());
-            if let Some(token) = &token {
-                self.try_process_define(token);
-            }
-        }
-        if let Some(token) = &token {
-            self.try_process_macro_expansion(token);
-            if let Some(token) = self.expanded_tokens.pop() {
-                return Ok(Some(token));
-            }
-        }
-        Ok(token)
-    }
-
-    fn try_process_macro_expansion(&mut self, token: &Token) {
-        match token {
-            Token::Symbol(x) if x.value() == Symbol::Question => {}
-            _ => return,
-        }
-
-        let name = match self.try_next_lexical_token() {
-            Some(LexicalToken::Atom(x)) => x.value().to_owned(),
-            Some(LexicalToken::Variable(x)) => x.value().to_owned(),
-            token => todo!("invalid macro name: {:?}", token),
-        };
-        if let Some(define) = self.defines.get(&name) {
-            if define.params.is_none() {
-                todo!();
-            } else {
-                todo!();
-            }
-        } else {
-            todo!("undefined macro: {:?}", name);
-        }
-    }
-
-    fn try_next_lexical_token(&mut self) -> Option<LexicalToken> {
-        while let Some(token) = self.tokenizer.next().transpose().ok().flatten() {
-            match token {
-                Token::Comment(_) | Token::Whitespace(_) => {}
-                Token::Atom(t) => return Some(t.into()),
-                Token::Char(t) => return Some(t.into()),
-                Token::Float(t) => return Some(t.into()),
-                Token::Integer(t) => return Some(t.into()),
-                Token::Keyword(t) => return Some(t.into()),
-                Token::String(t) => return Some(t.into()),
-                Token::Symbol(t) => return Some(t.into()),
-                Token::Variable(t) => return Some(t.into()),
-            }
-        }
-        None
-    }
-
-    fn try_process_define(&mut self, token: &Token) {
-        if token
-            .as_symbol_token()
-            .map_or(false, |x| x.value() == Symbol::Hyphen)
-        {
-            let position = self.tokenizer.next_position();
-            if self
-                .try_next_lexical_token()
-                .filter(|x| x.as_atom_token().map_or(false, |x| x.value() == "define"))
-                .is_some()
-            {
-                if let Some(_macro_define) = self.try_parse_define() {
-                    // self.defines.insert(macro_define.name.clone(), macro_define);
-                    todo!()
-                }
-            }
-            self.tokenizer.set_position(position);
-        }
-    }
-
-    fn try_parse_define(&mut self) -> Option<MacroDefine> {
-        todo!()
-        // if self
-        //     .try_next_lexical_token()
-        //     .filter(|x| {
-        //         x.as_symbol_token()
-        //             .map_or(false, |x| x.value() == Symbol::OpenParen)
-        //     })
-        //     .is_none()
-        // {
-        //     return None;
-        // }
-
-        // let name = match self.try_next_lexical_token() {
-        //     Some(LexicalToken::Atom(x)) => x.value().to_owned(),
-        //     Some(LexicalToken::Variable(x)) => x.value().to_owned(),
-        //     _ => return None,
-        // };
-
-        // let args = match self.try_next_lexical_token() {
-        //     Some(LexicalToken::Symbol(x)) if x.value() == Symbol::Comma => None,
-        //     Some(LexicalToken::Symbol(x)) if x.value() == Symbol::OpenParen => {
-        //         let mut args = Vec::new();
-        //         loop {
-        //             match self.try_next_lexical_token() {
-        //                 Some(LexicalToken::Variable(arg)) => {
-        //                     args.push(arg);
-        //                     match self.try_next_lexical_token() {
-        //                         Some(LexicalToken::Symbol(x))
-        //                             if x.value() == Symbol::CloseParen =>
-        //                         {
-        //                             break
-        //                         }
-        //                         Some(LexicalToken::Symbol(x)) if x.value() == Symbol::Comma => {}
-        //                         _ => return None,
-        //                     }
-        //                 }
-        //                 _ => return None,
-        //             }
-        //         }
-        //         Some(args)
-        //     }
-        //     _ => return None,
-        // };
-
-        // let mut replacement = Vec::new();
-        // let mut level = 0;
-        // loop {
-        //     match self.try_next_lexical_token() {
-        //         Some(token) => {
-        //             match &token {
-        //                 LexicalToken::Symbol(x) if x.value() == Symbol::OpenParen => {
-        //                     level += 1;
-        //                 }
-        //                 LexicalToken::Symbol(x) if x.value() == Symbol::CloseParen => {
-        //                     if level == 0 {
-        //                         break;
-        //                     } else {
-        //                         level -= 1;
-        //                     }
-        //                 }
-        //                 _ => {}
-        //             }
-        //             replacement.push(token.into());
-        //         }
-        //         None => return None,
-        //     }
-        // }
-        // if self
-        //     .try_next_lexical_token()
-        //     .filter(|x| {
-        //         x.as_symbol_token()
-        //             .map_or(false, |x| x.value() == Symbol::Dot)
-        //     })
-        //     .is_none()
-        // {
-        //     return None;
-        // }
-
-        // Some(MacroDefine {
-        //     name,
-        //     args,
-        //     replacement,
-        // })
-    }
-}
-
-impl Iterator for Preprocessor {
-    type Item = Result<Token>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_token().transpose()
-    }
 }
 
 #[derive(Debug, Clone)]

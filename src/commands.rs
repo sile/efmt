@@ -1,5 +1,5 @@
 use crate::parser::Parser;
-use crate::pp::Preprocessor2;
+use crate::pp::Preprocessor;
 use erl_tokenize::Tokenizer;
 use std::fs::File;
 use std::io::Read as _;
@@ -15,7 +15,9 @@ impl ParseOpt {
     pub fn run(&self) -> anyhow::Result<()> {
         let mut buf = String::new();
         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
-        let parser = Parser::new(buf);
+
+        let pp = Preprocessor::new(Tokenizer::new(buf));
+        let parser = Parser::new(pp.preprocess()?.tokens);
         for ast in parser {
             println!("{:?}", ast?);
         }
@@ -34,7 +36,7 @@ impl PreprocessOpt {
         let mut buf = String::new();
         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
         let tokenizer = Tokenizer::new(buf);
-        let pp = Preprocessor2::new(tokenizer);
+        let pp = Preprocessor::new(tokenizer);
         for token in pp.preprocess()?.tokens {
             println!("{:?}", token);
         }
