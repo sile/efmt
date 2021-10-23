@@ -355,5 +355,5 @@ impl MacroDefine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MacroCall {}
