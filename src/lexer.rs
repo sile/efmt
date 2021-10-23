@@ -1,9 +1,10 @@
 use crate::{Error, Expect, Result};
 use erl_tokenize::LexicalToken;
+use std::collections::HashSet;
 
 // TODO: rename
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Position(usize);
+pub struct Position(pub usize);
 
 impl Position {
     pub const fn new(n: usize) -> Self {
@@ -32,15 +33,42 @@ impl Region {
 pub struct Lexer {
     tokens: Vec<LexicalToken>,
     index: usize,
+    visited: HashSet<(Position, &'static str, u32)>,
 }
 
 impl Lexer {
     pub fn new(tokens: Vec<LexicalToken>) -> Self {
-        Self { tokens, index: 0 }
+        Self {
+            tokens,
+            index: 0,
+            visited: HashSet::new(),
+        }
     }
 
     pub fn current_position(&self) -> Position {
         Position::new(self.index)
+    }
+
+    pub fn check_visited(&mut self, pos: Position, path: &'static str, line: u32) -> Result<()> {
+        if self.visited.contains(&(pos.clone(), path, line)) {
+            return Err(anyhow::anyhow!(
+                "already tried to parse: pos={:?}, path={:?}, line={}",
+                pos,
+                path,
+                line
+            )
+            .into());
+        }
+        self.visited.insert((pos, path, line));
+        Ok(())
+    }
+
+    pub fn clear_visited(&mut self, pos: Position, path: &'static str, line: u32) {
+        self.visited.remove(&(pos, path, line));
+    }
+
+    pub fn set_possition(&mut self, position: Position) {
+        self.index = position.0;
     }
 
     pub fn region(&self, start: Position) -> Region {

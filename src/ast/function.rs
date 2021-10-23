@@ -1,8 +1,9 @@
 use crate::ast::ty::Type;
 use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
-use crate::{Lexer, Parse, Region, Result};
+use crate::{Lexer, Parse, Region, Result, ResumeParse};
 use erl_tokenize::tokens::{AtomToken, CharToken, IntegerToken, StringToken, VariableToken};
 use erl_tokenize::values::{Keyword, Symbol};
+use erl_tokenize::LexicalToken;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NameAndArity<Name = AtomToken, Arity = IntegerToken> {
@@ -112,6 +113,27 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DirectiveFunSpec {
+    name: AtomToken,
+    arity: IntegerToken,
+    region: Region,
+}
+
+impl Parse for DirectiveFunSpec {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::Slash)?;
+        let arity = Parse::parse(lexer)?;
+        Ok(Self {
+            name,
+            arity,
+            region: lexer.region(start),
+        })
+    }
+}
+
 /// `-` `spec` `Option<ModulePrefix>` `AtomToken` `Clauses<SpecClause>` `.`
 #[derive(Debug, Clone)]
 pub struct FunSpec {
@@ -213,7 +235,7 @@ impl Parse for FunDecl {
 pub struct FunDeclClause {
     name: AtomToken,
     args: Vec<Pattern>,
-    // Optional<WhenGuard>
+    guard: Option<CaseGuard>,
     body: Body,
     region: Region,
 }
@@ -223,11 +245,13 @@ impl Parse for FunDeclClause {
         let start = lexer.current_position();
         let name = lexer.read_expect(ExpectAtom)?;
         let args = Vec::<Pattern>::parse(lexer)?;
+        let guard = Parse::try_parse(lexer);
         let _ = lexer.read_expect(Symbol::RightArrow)?;
         let body = Body::parse(lexer)?;
         Ok(Self {
             name,
             args,
+            guard,
             body,
             region: lexer.region(start),
         })
@@ -253,20 +277,28 @@ impl Parse for Vec<Pattern> {
 pub enum Pattern {
     Atom(AtomToken),
     Variable(VariableToken),
+    Integer(IntegerToken),
+    Char(CharToken),
+    String(StringToken),
     Tuple(Box<Tuple<Self>>),
     List(Box<List<Self>>),
-    Match(Box<Match<Self>>),
+    Match(Box<Match>),
     Record(Box<RecordPattern>),
+    Bits(Box<Bits<Self>>),
+    BinaryOp(Box<BinaryOp<Self>>),
 }
 
 impl Parse for Pattern {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
         let pattern = if let Some(x) = Tuple::try_parse(lexer) {
             Self::Tuple(Box::new(x))
         } else if let Some(x) = List::try_parse(lexer) {
             Self::List(Box::new(x))
         } else if let Some(x) = RecordPattern::try_parse(lexer) {
             Self::Record(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::Bits(Box::new(x))
         } else if let Some(_) = Call::<IdLikeExpr, Expr>::try_parse(lexer) {
             // TODO
             return Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into());
@@ -274,13 +306,23 @@ impl Parse for Pattern {
             Self::Variable(x)
         } else if let Some(x) = lexer.try_read_expect(ExpectAtom) {
             Self::Atom(x)
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::Integer(x)
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::Char(x)
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::String(x)
         } else {
             return Err(anyhow::anyhow!("next: {:?}", lexer.read_token()?).into());
         };
 
+        if let Some(x) = ResumeParse::try_resume_parse(lexer, start, pattern.clone()) {
+            return Ok(Self::BinaryOp(Box::new(x)));
+        }
+
         let result = lexer.with_transaction(|lexer| {
             let _ = lexer.read_expect(Symbol::Match)?;
-            Self::parse(lexer)
+            Expr::parse(lexer) // TODO
         });
         if let Ok(right) = result {
             Ok(Self::Match(Box::new(Match {
@@ -321,6 +363,7 @@ impl Parse for Body {
 pub enum Expr {
     FunCall(Box<Call<IdLikeExpr, Expr>>),
     Fun(Box<Fun>),
+    DirectiveFunSpec(DirectiveFunSpec),
     Atom(AtomToken),
     Variable(VariableToken),
     Integer(IntegerToken),
@@ -332,54 +375,71 @@ pub enum Expr {
     Match(Box<Match>),
     Bits(Box<Bits>),
     Case(Box<Case>),
+    If(Box<If>),
+    BinaryOp(Box<BinaryOp>),
+    UnaryOp(Box<UnaryOp>),
+    RecordPattern(Box<RecordPattern>), // TODO
     Parenthesized(Box<Parenthesized<Self>>),
+    RecordFieldAccess(Box<RecordFieldAccess>),
+    RecordFieldUpdate(Box<RecordFieldUpdate>),
 }
 
 impl Parse for Expr {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
-        if lexer.try_peek_expect(Keyword::Try).is_some() {
-            return Parse::parse(lexer).map(|x| Self::Try(Box::new(x)));
+        let start = lexer.current_position();
+        let expr = if lexer.try_peek_expect(Keyword::Try).is_some() {
+            Parse::parse(lexer).map(|x| Self::Try(Box::new(x)))?
+        } else if let Some(x) = Match::try_parse(lexer) {
+            Self::Match(Box::new(x))
+        } else if let Some(x) = Parenthesized::try_parse(lexer) {
+            Self::Parenthesized(Box::new(x))
+        } else if let Some(x) = Case::try_parse(lexer) {
+            Self::Case(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::If(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::RecordFieldAccess(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::RecordPattern(Box::new(x))
+        } else if let Some(x) = Call::try_parse(lexer) {
+            Self::FunCall(Box::new(x))
+        } else if let Some(x) = Fun::try_parse(lexer) {
+            Self::Fun(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::DirectiveFunSpec(x)
+        } else if let Some(x) = List::try_parse(lexer) {
+            Self::List(Box::new(x))
+        } else if let Some(x) = Tuple::try_parse(lexer) {
+            Self::Tuple(Box::new(x))
+        } else if let Some(x) = Bits::try_parse(lexer) {
+            Self::Bits(Box::new(x))
+        } else if let Some(x) = Parse::try_parse(lexer) {
+            Self::UnaryOp(Box::new(x))
+        } else if let Some(x) = AtomToken::try_parse(lexer) {
+            Self::Atom(x)
+        } else if let Some(x) = VariableToken::try_parse(lexer) {
+            Self::Variable(x)
+        } else if let Some(x) = StringToken::try_parse(lexer) {
+            Self::String(x)
+        } else if let Some(x) = IntegerToken::try_parse(lexer) {
+            Self::Integer(x)
+        } else if let Some(x) = CharToken::try_parse(lexer) {
+            Self::Char(x)
+        } else {
+            return Err(anyhow::anyhow!(
+                "[{}] not yet implemented: next={:?}",
+                line!(),
+                lexer.read_token()?
+            )
+            .into());
+        };
+        if let Some(x) = ResumeParse::try_resume_parse(lexer, start, expr.clone()) {
+            return Ok(Self::BinaryOp(Box::new(x)));
+        } else if let Some(x) = ResumeParse::try_resume_parse(lexer, start, expr.clone()) {
+            return Ok(Self::RecordFieldUpdate(Box::new(x)));
         }
-        if let Some(x) = Match::try_parse(lexer) {
-            return Ok(Self::Match(Box::new(x)));
-        }
-        if let Some(x) = Parenthesized::try_parse(lexer) {
-            return Ok(Self::Parenthesized(Box::new(x)));
-        }
-        if let Some(x) = Case::try_parse(lexer) {
-            return Ok(Self::Case(Box::new(x)));
-        }
-        if let Some(x) = Call::try_parse(lexer) {
-            return Ok(Self::FunCall(Box::new(x)));
-        }
-        if let Some(x) = Fun::try_parse(lexer) {
-            return Ok(Self::Fun(Box::new(x)));
-        }
-        if let Some(x) = List::try_parse(lexer) {
-            return Ok(Self::List(Box::new(x)));
-        }
-        if let Some(x) = Tuple::try_parse(lexer) {
-            return Ok(Self::Tuple(Box::new(x)));
-        }
-        if let Some(x) = Bits::try_parse(lexer) {
-            return Ok(Self::Bits(Box::new(x)));
-        }
-        if let Some(x) = AtomToken::try_parse(lexer) {
-            return Ok(Self::Atom(x));
-        }
-        if let Some(x) = VariableToken::try_parse(lexer) {
-            return Ok(Self::Variable(x));
-        }
-        if let Some(x) = StringToken::try_parse(lexer) {
-            return Ok(Self::String(x));
-        }
-        if let Some(x) = IntegerToken::try_parse(lexer) {
-            return Ok(Self::Integer(x));
-        }
-        if let Some(x) = CharToken::try_parse(lexer) {
-            return Ok(Self::Char(x));
-        }
-        Err(anyhow::anyhow!("not yet implemented: next={:?}", lexer.read_token()?).into())
+
+        Ok(expr)
     }
 }
 
@@ -497,7 +557,7 @@ impl Parse for IntegerLikeExpr {
 #[derive(Debug, Clone)]
 pub struct Try {
     body: Body,
-    // branch: Option<TryOf>,
+    branch: Option<TryOf>,
     catch: Option<TryCatch>,
     // after: Option<TryAfter>,
     region: Region,
@@ -508,11 +568,31 @@ impl Parse for Try {
         let start = lexer.current_position();
         let _ = lexer.read_expect(Keyword::Try)?;
         let body = Body::parse(lexer)?;
+        let branch = Parse::try_parse(lexer);
         let catch = TryCatch::try_parse(lexer);
         let _ = lexer.read_expect(Keyword::End)?;
         Ok(Self {
             body,
+            branch,
             catch,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TryOf {
+    clauses: Vec<CaseClause>,
+    region: Region,
+}
+
+impl Parse for TryOf {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::Of)?;
+        let clauses = parse_clauses(lexer)?;
+        Ok(Self {
+            clauses,
             region: lexer.region(start),
         })
     }
@@ -549,18 +629,11 @@ pub struct CatchClause {
 impl Parse for CatchClause {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
-        dbg!(1);
         let class = CatchClass::try_parse(lexer);
-        dbg!(&class);
         let pattern = Pattern::parse(lexer)?;
-        dbg!(&pattern);
         let stacktrace = CatchStacktrace::try_parse(lexer);
-        dbg!(&stacktrace);
         let _ = lexer.read_expect(Symbol::RightArrow)?;
-        dbg!(2);
-        dbg!(lexer.peek_token()?);
         let body = Body::parse(lexer)?;
-        dbg!(&body);
         Ok(Self {
             class,
             pattern,
@@ -609,17 +682,24 @@ impl Parse for CatchClass {
 
 /// `Pattern` `=` `Expr`
 #[derive(Debug, Clone)]
-pub struct Match<T = Expr> {
+pub struct Match {
     pattern: Pattern,
-    expr: T,
+    expr: Expr,
 }
 
-impl<T: Parse> Parse for Match<T> {
+impl Parse for Match {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let pattern = Pattern::parse(lexer)?;
-        let _ = lexer.read_expect(Symbol::Match)?;
-        let expr = T::parse(lexer)?;
-        Ok(Self { pattern, expr })
+        if let Pattern::Match(x) = pattern {
+            Ok(Self {
+                pattern: x.pattern.clone(),
+                expr: x.expr.clone(),
+            })
+        } else {
+            let _ = lexer.read_expect(Symbol::Match)?;
+            let expr = Expr::parse(lexer)?;
+            Ok(Self { pattern, expr })
+        }
     }
 }
 
@@ -678,11 +758,41 @@ fn parse_clauses<T: Parse>(lexer: &mut Lexer) -> Result<Vec<T>> {
 #[derive(Debug, Clone)]
 pub enum Fun {
     Defined(DefinedFun),
+    Anonymous(AnonymousFun),
 }
 
 impl Parse for Fun {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
-        Ok(Self::Defined(DefinedFun::parse(lexer)?))
+        if let Some(x) = Parse::try_parse(lexer) {
+            Ok(Self::Defined(x))
+        } else {
+            Ok(Self::Anonymous(Parse::parse(lexer)?))
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AnonymousFun {
+    args: Vec<Pattern>,
+    body: Body,
+    region: Region,
+}
+
+impl Parse for AnonymousFun {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::Fun)?;
+        let _ = lexer.read_expect(Symbol::OpenParen)?;
+        let args = parse_comma_delimited_items(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseParen)?;
+        let _ = lexer.read_expect(Symbol::RightArrow)?;
+        let body = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Keyword::End)?;
+        Ok(Self {
+            args,
+            body,
+            region: lexer.region(start),
+        })
     }
 }
 
@@ -709,12 +819,12 @@ impl Parse for DefinedFun {
 }
 
 #[derive(Debug, Clone)]
-pub struct Bits {
-    elementes: Vec<BitsElement>,
+pub struct Bits<T = Expr> {
+    elementes: Vec<BitsElement<T>>,
     region: Region,
 }
 
-impl Parse for Bits {
+impl<T: Parse> Parse for Bits<T> {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let _ = lexer.read_expect(Symbol::DoubleLeftAngle)?;
@@ -728,14 +838,14 @@ impl Parse for Bits {
 }
 
 #[derive(Debug, Clone)]
-pub struct BitsElement {
-    value: Expr,
+pub struct BitsElement<T> {
+    value: T,
     size: Option<BitsElementSize>,
     specs: Option<BitsElementSpecs>,
     region: Region,
 }
 
-impl Parse for BitsElement {
+impl<T: Parse> Parse for BitsElement<T> {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let value = Parse::parse(lexer)?;
@@ -812,7 +922,7 @@ impl Parse for Case {
 #[derive(Debug, Clone)]
 pub struct CaseClause {
     pattern: Pattern,
-    // TODO: guard
+    guard: Option<CaseGuard>,
     body: Body,
     region: Region,
 }
@@ -821,11 +931,49 @@ impl Parse for CaseClause {
     fn parse(lexer: &mut Lexer) -> Result<Self> {
         let start = lexer.current_position();
         let pattern = Parse::parse(lexer)?;
+        let guard = Parse::try_parse(lexer);
         let _ = lexer.read_expect(Symbol::RightArrow)?;
         let body = Parse::parse(lexer)?;
         Ok(Self {
             pattern,
+            guard,
             body,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GuardCondition {
+    Or(Expr),
+    And(Expr),
+    Last(Expr),
+}
+
+#[derive(Debug, Clone)]
+pub struct CaseGuard {
+    exprs: Vec<GuardCondition>,
+    region: Region,
+}
+
+impl Parse for CaseGuard {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::When)?;
+        let mut exprs = Vec::new();
+        loop {
+            let expr = Expr::parse(lexer)?;
+            if lexer.try_read_expect(Symbol::Semicolon).is_some() {
+                exprs.push(GuardCondition::Or(expr));
+            } else if lexer.try_read_expect(Symbol::Comma).is_some() {
+                exprs.push(GuardCondition::And(expr));
+            } else {
+                exprs.push(GuardCondition::Last(expr));
+                break;
+            }
+        }
+        Ok(Self {
+            exprs,
             region: lexer.region(start),
         })
     }
@@ -889,6 +1037,173 @@ impl<T: Parse> Parse for Parenthesized<T> {
         let _ = lexer.read_expect(Symbol::CloseParen)?;
         Ok(Self {
             item,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldAccess {
+    value: Expr,
+    record_name: AtomToken,
+    field_name: AtomToken,
+    region: Region,
+}
+
+impl Parse for RecordFieldAccess {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        lexer.check_visited(start, "record-field-access", 0)?;
+        let value = Parse::parse(lexer)?;
+        lexer.clear_visited(start, "record-field-access", 0);
+        let _ = lexer.read_expect(Symbol::Sharp)?;
+        let record_name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::Dot)?;
+        let field_name = Parse::parse(lexer)?;
+        Ok(Self {
+            value,
+            record_name,
+            field_name,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BinaryOp<T = Expr> {
+    left: T,
+    op: LexicalToken, // TODO
+    right: Expr,
+}
+
+impl<T: Parse> Parse for BinaryOp<T> {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        lexer.check_visited(start, "binary-op", 0)?;
+        let left = Parse::parse(lexer)?;
+        lexer.clear_visited(start, "binary-op", 0);
+        let op = lexer
+            .read_expect(Or(Keyword::Andalso, Or(Keyword::Orelse, Symbol::GreaterEq)))?
+            .into();
+        let right = Parse::parse(lexer)?;
+        Ok(Self { left, op, right })
+    }
+}
+
+impl<T: Parse> ResumeParse<T> for BinaryOp<T> {
+    fn resume_parse(lexer: &mut Lexer, _start: crate::lexer::Position, left: T) -> Result<Self> {
+        let op = lexer
+            .read_expect(Or(
+                Or(
+                    Or(Or(Keyword::Andalso, Symbol::Multiply), Symbol::Greater),
+                    Or(Or(Keyword::Orelse, Symbol::Slash), Symbol::GreaterEq),
+                ),
+                Or(
+                    Or(Or(Symbol::Hyphen, Symbol::Plus), Keyword::Div),
+                    Or(
+                        Or(Keyword::Rem, Symbol::ExactEq),
+                        Or(
+                            Or(Symbol::ExactNotEq, Keyword::Band),
+                            Or(Or(Symbol::Less, Symbol::LessEq), Keyword::Bsr),
+                        ),
+                    ),
+                ),
+            ))?
+            .into();
+        let right = Parse::parse(lexer)?;
+        Ok(Self { left, op, right })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryOp {
+    op: LexicalToken,
+    value: Expr,
+    region: Region,
+}
+
+impl Parse for UnaryOp {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let op = lexer
+            .read_expect(Or(Symbol::Hyphen, Or(Symbol::Plus, Keyword::Not)))?
+            .into();
+        let value = Parse::parse(lexer)?;
+        Ok(Self {
+            op,
+            value,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct If {
+    clauses: Vec<CaseClause>,
+    region: Region,
+}
+
+impl Parse for If {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let _ = lexer.read_expect(Keyword::If)?;
+        let clauses = parse_clauses(lexer)?;
+        let _ = lexer.read_expect(Keyword::End)?;
+        Ok(Self {
+            clauses,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordFieldUpdate {
+    value: Expr,
+    name: AtomToken,
+    fields: Vec<UpdateField>,
+    region: Region,
+}
+
+impl Parse for RecordFieldUpdate {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let value = Parse::parse(lexer)?;
+        Self::resume_parse(lexer, start, value)
+    }
+}
+
+impl ResumeParse<Expr> for RecordFieldUpdate {
+    fn resume_parse(lexer: &mut Lexer, start: crate::lexer::Position, value: Expr) -> Result<Self> {
+        let _ = lexer.read_expect(Symbol::Sharp);
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::OpenBrace)?;
+        let fields = parse_comma_delimited_items(lexer)?;
+        let _ = lexer.read_expect(Symbol::CloseBrace)?;
+        Ok(Self {
+            value,
+            name,
+            fields,
+            region: lexer.region(start),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateField {
+    name: AtomToken,
+    value: Expr,
+    region: Region,
+}
+
+impl Parse for UpdateField {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        let start = lexer.current_position();
+        let name = Parse::parse(lexer)?;
+        let _ = lexer.read_expect(Symbol::Match)?;
+        let value = Parse::parse(lexer)?;
+        Ok(Self {
+            name,
+            value,
             region: lexer.region(start),
         })
     }

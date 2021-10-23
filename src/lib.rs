@@ -10,6 +10,6 @@ mod error;
 pub use self::error::Error;
 pub use self::expect::Expect;
 pub use self::lexer::{Lexer, Region};
-pub use self::parser::Parse;
+pub use self::parser::{Parse, ResumeParse};
 
 pub type Result<T> = std::result::Result<T, Error>;

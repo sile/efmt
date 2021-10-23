@@ -14,7 +14,7 @@ pub enum Type {
     Tuple(Box<Tuple>),
     Map,
     List(Box<List>),
-    Bits,
+    //    Bits(Box<Bits>),
     Parenthesized(Box<Parenthesized>),
     TypeCall(Box<Call<AtomToken, Type>>),
     UnaryOpCall(Box<UnaryOpCall>),
@@ -36,6 +36,9 @@ impl Type {
         if let Some(x) = List::try_parse(lexer) {
             return Ok(Self::List(Box::new(x)));
         }
+        // if let Some(x) = Parse::try_parse(lexer) {
+        //     return Ok(Self::Bits(Box::new(x)));
+        // }
         if let Some(x) = Tuple::try_parse(lexer) {
             return Ok(Self::Tuple(Box::new(x)));
         }
@@ -335,6 +338,17 @@ impl Parse for RecordField {
             ty,
             region: lexer.region(start),
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Bits {
+    //region: Region,
+}
+
+impl Parse for Bits {
+    fn parse(_lexer: &mut Lexer) -> Result<Self> {
+        todo!()
     }
 }
 

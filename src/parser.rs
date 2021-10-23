@@ -29,6 +29,20 @@ pub trait Parse: Sized {
     }
 }
 
+pub trait ResumeParse<T>: Parse {
+    fn resume_parse(lexer: &mut Lexer, start: crate::lexer::Position, parsed: T) -> Result<Self>;
+
+    fn try_resume_parse(
+        lexer: &mut Lexer,
+        start: crate::lexer::Position,
+        parsed: T,
+    ) -> Option<Self> {
+        lexer
+            .with_transaction(|lexer| Self::resume_parse(lexer, start, parsed))
+            .ok()
+    }
+}
+
 #[derive(Debug)]
 pub struct Parser {
     lexer: Lexer,
