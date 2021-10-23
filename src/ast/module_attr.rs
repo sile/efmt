@@ -9,7 +9,7 @@ use erl_tokenize::values::Symbol;
 #[derive(Debug, Clone)]
 pub struct ModuleAttr {
     module_name: AtomToken,
-    region: Region,
+    pub region: Region,
 }
 
 impl ModuleAttr {

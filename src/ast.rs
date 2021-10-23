@@ -1,10 +1,12 @@
 use self::function::Expr;
 use self::ty::Type;
 use crate::expect::{Either, ExpectAtom, ExpectVariable, Or};
+use crate::formatter::{Context, Format, Result as FormatResult};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::LexicalToken;
+use std::io::Write;
 
 pub mod export_attr;
 pub mod export_type_attr;
@@ -28,6 +30,24 @@ pub enum Ast {
     FunSpec(self::function::FunSpec),
     FunDecl(self::function::FunDecl),
     RecordDecl(RecordDecl),
+}
+
+impl Format for Ast {
+    fn format(&self, writer: &mut impl Write, context: &mut Context) -> FormatResult<()> {
+        todo!()
+        // match self {
+        //     Self::ModuleAttr
+        //     _ =>
+        //         todo!("{:?}", self)
+        // }
+    }
+
+    fn region(&self) -> Region {
+        match self {
+            Self::ModuleAttr(x) => x.region,
+            _ => todo!("{:?}", self),
+        }
+    }
 }
 
 impl Parse for Ast {

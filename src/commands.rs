@@ -16,14 +16,14 @@ impl FormatOpt {
         let mut buf = String::new();
         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
 
-        let pp = Preprocessor::new(Tokenizer::new(buf));
+        let pp = Preprocessor::new(Tokenizer::new(buf.clone()));
         let preprocessed = pp.preprocess()?;
-        let parser = Parser::new(preprocessed.tokens);
-        let context = Context::new(preprocessed.comments, preprocessed.macro_calls);
+        let parser = Parser::new(preprocessed.tokens.clone());
+        let context = Context::new(preprocessed);
+        let stdout = std::io::stdout();
+        let mut formatter = Formatter::new(context, stdout.lock());
         for ast in parser {
-            let stdout = std::io::stdout();
-            let formatter = Formatter::new(ast?, context.clone(), stdout.lock());
-            formatter.format()?;
+            formatter.format(ast?)?;
         }
         Ok(())
     }

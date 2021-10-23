@@ -290,7 +290,7 @@ impl Preprocessor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Preprocessed {
     pub file: Option<PathBuf>,
     pub text: String,
