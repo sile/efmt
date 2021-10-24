@@ -352,17 +352,17 @@ impl Parse for Bits {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn parse_works() {
-        let mut lexer = Lexer::new("{scientific, Decimals :: 0..249}");
-        let _ = Type::parse(&mut lexer).unwrap();
+//     #[test]
+//     fn parse_works() {
+//         let mut lexer = Lexer::new("{scientific, Decimals :: 0..249}");
+//         let _ = Type::parse(&mut lexer).unwrap();
 
-        let text = "fun ((term()) -> {ok, json_value()} | error)";
-        let mut lexer = Lexer::new(text);
-        let _ = Type::parse(&mut lexer).unwrap();
-    }
-}
+//         let text = "fun ((term()) -> {ok, json_value()} | error)";
+//         let mut lexer = Lexer::new(text);
+//         let _ = Type::parse(&mut lexer).unwrap();
+//     }
+// }

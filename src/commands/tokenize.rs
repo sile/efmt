@@ -13,8 +13,11 @@ impl TokenizeOpt {
         let mut buf = String::new();
         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
 
+        let mut lexer = Lexer::new(buf);
+        lexer.set_filepath(&self.source_code_path);
+
         let mut last_line = 0;
-        for token in Lexer::new(buf) {
+        for token in lexer {
             let token = token?;
             if last_line != token.start_position().line() {
                 println!();

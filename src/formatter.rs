@@ -1,6 +1,6 @@
 use crate::ast::Ast;
 use crate::lexer::Region;
-use crate::pp::Preprocessed;
+use crate::pp::PreprocessedText;
 use erl_tokenize::{Position, PositionRange};
 use std::io::Write;
 
@@ -74,11 +74,11 @@ where
 
 #[derive(Debug, Clone)]
 pub struct Context {
-    pp: Preprocessed,
+    pp: PreprocessedText,
 }
 
 impl Context {
-    pub fn new(pp: Preprocessed) -> Self {
+    pub fn new(pp: PreprocessedText) -> Self {
         Self { pp }
     }
 

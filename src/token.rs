@@ -1,9 +1,9 @@
 pub use erl_tokenize::tokens::{
-    AtomToken, CharToken, FloatToken, IntegerToken, KeywordToken, StringToken, SymbolToken,
-    VariableToken,
+    AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, StringToken,
+    SymbolToken, VariableToken, WhitespaceToken,
 };
 pub use erl_tokenize::values::{Keyword, Symbol};
-pub use erl_tokenize::LexicalToken;
+pub use erl_tokenize::{LexicalToken, Token};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TokenIndex(usize);

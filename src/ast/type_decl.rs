@@ -49,16 +49,16 @@ impl Parse for TypeDecl {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn parse_works() {
-        let mut lexer = Lexer::new("-type foo() :: atom().");
-        let _decl = TypeDecl::parse(&mut lexer).unwrap();
+//     #[test]
+//     fn parse_works() {
+//         let mut lexer = Lexer::new("-type foo() :: atom().");
+//         let _decl = TypeDecl::parse(&mut lexer).unwrap();
 
-        let mut lexer = Lexer::new("-opaque foo(A) :: list(A).");
-        let _decl = TypeDecl::parse(&mut lexer).unwrap();
-    }
-}
+//         let mut lexer = Lexer::new("-opaque foo(A) :: list(A).");
+//         let _decl = TypeDecl::parse(&mut lexer).unwrap();
+//     }
+// }

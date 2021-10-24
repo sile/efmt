@@ -49,18 +49,18 @@ impl Parse for ExportAttr {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn parse_works() {
-        let mut lexer = Lexer::new("-export([foo/3, bar/0]).");
-        let attr = ExportAttr::parse(&mut lexer).unwrap();
-        assert_eq!(attr.exports().len(), 2);
+//     #[test]
+//     fn parse_works() {
+//         let mut lexer = Lexer::new("-export([foo/3, bar/0]).");
+//         let attr = ExportAttr::parse(&mut lexer).unwrap();
+//         assert_eq!(attr.exports().len(), 2);
 
-        let mut lexer = Lexer::new("-export([]).");
-        let attr = ExportAttr::parse(&mut lexer).unwrap();
-        assert_eq!(attr.exports().len(), 0);
-    }
-}
+//         let mut lexer = Lexer::new("-export([]).");
+//         let attr = ExportAttr::parse(&mut lexer).unwrap();
+//         assert_eq!(attr.exports().len(), 0);
+//     }
+// }
