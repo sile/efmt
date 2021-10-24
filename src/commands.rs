@@ -1,55 +1,55 @@
-use crate::formatter::{Context, Formatter};
-use crate::parser::Parser;
-use crate::pp::Preprocessor;
-use erl_tokenize::Tokenizer;
-use std::fs::File;
-use std::io::Read as _;
-use std::path::PathBuf;
+// use crate::formatter::{Context, Formatter};
+// use crate::parser::Parser;
+// use crate::pp::Preprocessor;
+// use erl_tokenize::Tokenizer;
+// use std::fs::File;
+// use std::io::Read as _;
+// use std::path::PathBuf;
 
 pub mod pp;
 pub mod tokenize;
 
-#[derive(Debug, structopt::StructOpt)]
-pub struct FormatOpt {
-    pub source_code_path: PathBuf,
-}
+// #[derive(Debug, structopt::StructOpt)]
+// pub struct FormatOpt {
+//     pub source_code_path: PathBuf,
+// }
 
-impl FormatOpt {
-    pub fn run(&self) -> anyhow::Result<()> {
-        let mut buf = String::new();
-        File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
+// impl FormatOpt {
+//     pub fn run(&self) -> anyhow::Result<()> {
+//         let mut buf = String::new();
+//         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
 
-        let pp = Preprocessor::new(Tokenizer::new(buf.clone()));
-        let preprocessed = pp.preprocess()?;
-        let parser = Parser::new(preprocessed.tokens.clone());
-        let context = Context::new(preprocessed);
-        let stdout = std::io::stdout();
-        let mut formatter = Formatter::new(context, stdout.lock());
-        for ast in parser {
-            formatter.format(ast?)?;
-        }
-        formatter.print_trailing_comments()?;
-        Ok(())
-    }
-}
+//         let pp = Preprocessor::new(Tokenizer::new(buf.clone()));
+//         let preprocessed = pp.preprocess()?;
+//         let parser = Parser::new(preprocessed.tokens.clone());
+//         let context = Context::new(preprocessed);
+//         let stdout = std::io::stdout();
+//         let mut formatter = Formatter::new(context, stdout.lock());
+//         for ast in parser {
+//             formatter.format(ast?)?;
+//         }
+//         formatter.print_trailing_comments()?;
+//         Ok(())
+//     }
+// }
 
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(rename_all = "kebab-case")]
-pub struct ParseOpt {
-    pub source_code_path: PathBuf,
-}
+// #[derive(Debug, structopt::StructOpt)]
+// #[structopt(rename_all = "kebab-case")]
+// pub struct ParseOpt {
+//     pub source_code_path: PathBuf,
+// }
 
-impl ParseOpt {
-    pub fn run(&self) -> anyhow::Result<()> {
-        let mut buf = String::new();
-        File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
+// impl ParseOpt {
+//     pub fn run(&self) -> anyhow::Result<()> {
+//         let mut buf = String::new();
+//         File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
 
-        let pp = Preprocessor::new(Tokenizer::new(buf));
-        let preprocessed = pp.preprocess()?;
-        let parser = Parser::new(preprocessed.tokens);
-        for ast in parser {
-            println!("{:?}", ast?);
-        }
-        Ok(())
-    }
-}
+//         let pp = Preprocessor::new(Tokenizer::new(buf));
+//         let preprocessed = pp.preprocess()?;
+//         let parser = Parser::new(preprocessed.tokens);
+//         for ast in parser {
+//             println!("{:?}", ast?);
+//         }
+//         Ok(())
+//     }
+// }
