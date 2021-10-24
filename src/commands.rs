@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::Read as _;
 use std::path::PathBuf;
 
+pub mod pp;
 pub mod tokenize;
 
 #[derive(Debug, structopt::StructOpt)]
@@ -48,25 +49,6 @@ impl ParseOpt {
         let parser = Parser::new(preprocessed.tokens);
         for ast in parser {
             println!("{:?}", ast?);
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(rename_all = "kebab-case")]
-pub struct PreprocessOpt {
-    pub source_code_path: PathBuf,
-}
-
-impl PreprocessOpt {
-    pub fn run(&self) -> anyhow::Result<()> {
-        let mut buf = String::new();
-        File::open(&self.source_code_path)?.read_to_string(&mut buf)?;
-        let tokenizer = Tokenizer::new(buf);
-        let pp = Preprocessor::new(tokenizer);
-        for token in pp.preprocess()?.tokens {
-            println!("{:?}", token);
         }
         Ok(())
     }

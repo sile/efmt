@@ -89,7 +89,7 @@ impl Preprocessor {
         while let Some(token) = self.next_lexical_token()? {
             match &token {
                 LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
-                    let (tokens, _) = self.expand_macro()?;
+                    let (tokens, _) = self.expand_macro(x.start_position())?;
                     replacement.extend(tokens);
                     continue;
                 }
@@ -160,7 +160,7 @@ impl Preprocessor {
         while let Some(token) = self.next_lexical_token()? {
             if let LexicalToken::Symbol(x) = &token {
                 if x.value() == Symbol::Question {
-                    let (tokens, macro_call) = self.expand_macro()?;
+                    let (tokens, macro_call) = self.expand_macro(x.start_position())?;
                     let token_range = TokenRange {
                         start: self.preprocessed.tokens.len(),
                         end: self.preprocessed.tokens.len() + tokens.len(),
@@ -180,11 +180,11 @@ impl Preprocessor {
         Ok(self.preprocessed)
     }
 
-    fn expand_macro(&mut self) -> Result<(Vec<LexicalToken>, MacroCall)> {
+    fn expand_macro(&mut self, start_position: Position) -> Result<(Vec<LexicalToken>, MacroCall)> {
         let position = self.tokenizer.next_position();
-        let name = match self.read_expect(Or(ExpectAtom, ExpectVariable))? {
-            Either::A(x) => x.value().to_owned(),
-            Either::B(x) => x.value().to_owned(),
+        let (name, end_position) = match self.read_expect(Or(ExpectAtom, ExpectVariable))? {
+            Either::A(x) => (x.value().to_owned(), x.end_position()),
+            Either::B(x) => (x.value().to_owned(), x.end_position()),
         };
         let define =
             self.macro_defines
@@ -207,14 +207,21 @@ impl Preprocessor {
                     self.read_expect(Symbol::Comma)?;
                 }
             }
-            let _ = self.read_expect(Symbol::CloseParen)?;
+            let end_position = self.read_expect(Symbol::CloseParen)?.end_position();
             let macro_call = MacroCall {
                 name,
                 args: Some(args_vec),
+                start_position,
+                end_position,
             };
             Ok((define.replace_variables(&args), macro_call))
         } else {
-            let macro_call = MacroCall { name, args: None };
+            let macro_call = MacroCall {
+                name,
+                args: None,
+                start_position,
+                end_position,
+            };
             Ok((define.replacement.clone(), macro_call))
         }
     }
@@ -305,7 +312,7 @@ impl Preprocessor {
 }
 
 // TODO: Region
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TokenRange {
     pub start: usize,
     pub end: usize,
@@ -318,6 +325,28 @@ pub struct Preprocessed {
     pub tokens: Vec<LexicalToken>,
     pub comments: BTreeMap<Position, CommentToken>,
     pub macro_calls: BTreeMap<TokenRange, MacroCall>,
+}
+
+impl Preprocessed {
+    // TODO: rename
+    pub fn actual_position(&self, token_index: usize) -> Position {
+        let pivot = TokenRange {
+            start: token_index,
+            end: token_index,
+        };
+        for (r, m) in self
+            .macro_calls
+            .range(..pivot)
+            .rev()
+            .take(1)
+            .chain(self.macro_calls.range(pivot..).take(1))
+        {
+            if r.start <= token_index && token_index < r.end {
+                return m.start_position.clone();
+            }
+        }
+        self.tokens[token_index].start_position()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -380,4 +409,6 @@ impl MacroDefine {
 pub struct MacroCall {
     name: String,
     args: Option<Vec<Vec<LexicalToken>>>,
+    start_position: Position,
+    end_position: Position,
 }

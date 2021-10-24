@@ -3,7 +3,7 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 enum Opt {
     Tokenize(efmt::commands::tokenize::TokenizeOpt),
-    Pp(efmt::commands::PreprocessOpt),
+    Pp(efmt::commands::pp::PreprocessOpt),
     Parse(efmt::commands::ParseOpt),
     Format(efmt::commands::FormatOpt),
 }
