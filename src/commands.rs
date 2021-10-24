@@ -6,6 +6,8 @@ use std::fs::File;
 use std::io::Read as _;
 use std::path::PathBuf;
 
+pub mod tokenize;
+
 #[derive(Debug, structopt::StructOpt)]
 pub struct FormatOpt {
     pub source_code_path: PathBuf,

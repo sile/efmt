@@ -2,6 +2,7 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 enum Opt {
+    Tokenize(efmt::commands::tokenize::TokenizeOpt),
     Pp(efmt::commands::PreprocessOpt),
     Parse(efmt::commands::ParseOpt),
     Format(efmt::commands::FormatOpt),
@@ -10,6 +11,7 @@ enum Opt {
 fn main() -> anyhow::Result<()> {
     let opt = Opt::from_args();
     match opt {
+        Opt::Tokenize(opt) => opt.run()?,
         Opt::Pp(opt) => opt.run()?,
         Opt::Parse(opt) => opt.run()?,
         Opt::Format(opt) => opt.run()?,
