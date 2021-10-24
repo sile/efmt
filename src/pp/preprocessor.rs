@@ -117,7 +117,7 @@ impl Preprocessor {
 
     fn try_read_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
         let position = self.tokenizer.next_position();
-        if let Some(token) = self.read_expect(expected).ok() {
+        if let Ok(token) = self.read_expect(expected) {
             Some(token)
         } else {
             self.tokenizer.set_position(position);
