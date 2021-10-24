@@ -89,7 +89,7 @@ impl Preprocessor {
         while let Some(token) = self.next_lexical_token()? {
             match &token {
                 LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
-                    let tokens = self.expand_macro()?;
+                    let (tokens, _) = self.expand_macro()?;
                     replacement.extend(tokens);
                     continue;
                 }
@@ -160,8 +160,15 @@ impl Preprocessor {
         while let Some(token) = self.next_lexical_token()? {
             if let LexicalToken::Symbol(x) = &token {
                 if x.value() == Symbol::Question {
-                    let tokens = self.expand_macro()?;
+                    let (tokens, macro_call) = self.expand_macro()?;
+                    let token_range = TokenRange {
+                        start: self.preprocessed.tokens.len(),
+                        end: self.preprocessed.tokens.len() + tokens.len(),
+                    };
                     self.preprocessed.tokens.extend(tokens);
+                    self.preprocessed
+                        .macro_calls
+                        .insert(token_range, macro_call);
                     continue;
                 } else if x.value() == Symbol::Hyphen {
                     self.try_handle_directives()?;
@@ -173,7 +180,7 @@ impl Preprocessor {
         Ok(self.preprocessed)
     }
 
-    fn expand_macro(&mut self) -> Result<Vec<LexicalToken>> {
+    fn expand_macro(&mut self) -> Result<(Vec<LexicalToken>, MacroCall)> {
         let position = self.tokenizer.next_position();
         let name = match self.read_expect(Or(ExpectAtom, ExpectVariable))? {
             Either::A(x) => x.value().to_owned(),
@@ -191,17 +198,24 @@ impl Preprocessor {
         if let Some(params) = &define.params {
             let _ = self.read_expect(Symbol::OpenParen)?;
             let mut args = HashMap::new();
+            let mut args_vec = Vec::new();
             for (i, param) in params.iter().enumerate() {
                 let arg = self.parse_macro_arg()?;
+                args_vec.push(arg.clone());
                 args.insert(param.value(), arg);
                 if i + 1 < params.len() {
                     self.read_expect(Symbol::Comma)?;
                 }
             }
             let _ = self.read_expect(Symbol::CloseParen)?;
-            Ok(define.replace_variables(&args))
+            let macro_call = MacroCall {
+                name,
+                args: Some(args_vec),
+            };
+            Ok((define.replace_variables(&args), macro_call))
         } else {
-            Ok(define.replacement.clone())
+            let macro_call = MacroCall { name, args: None };
+            Ok((define.replacement.clone(), macro_call))
         }
     }
 
@@ -290,13 +304,20 @@ impl Preprocessor {
     }
 }
 
+// TODO: Region
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TokenRange {
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct Preprocessed {
     pub file: Option<PathBuf>,
     pub text: String,
     pub tokens: Vec<LexicalToken>,
     pub comments: BTreeMap<Position, CommentToken>,
-    pub macro_calls: BTreeMap<Position, MacroCall>,
+    pub macro_calls: BTreeMap<TokenRange, MacroCall>,
 }
 
 #[derive(Debug, Clone)]
@@ -356,4 +377,7 @@ impl MacroDefine {
 }
 
 #[derive(Debug, Clone)]
-pub struct MacroCall {}
+pub struct MacroCall {
+    name: String,
+    args: Option<Vec<Vec<LexicalToken>>>,
+}

@@ -5,7 +5,7 @@ use crate::formatter::{Context, Format, Result as FormatResult};
 use crate::{Lexer, Parse, Region, Result};
 use erl_tokenize::tokens::{AtomToken, VariableToken};
 use erl_tokenize::values::Symbol;
-use erl_tokenize::LexicalToken;
+use erl_tokenize::{LexicalToken, PositionRange};
 use std::io::Write;
 
 pub mod export_attr;
@@ -33,18 +33,18 @@ pub enum Ast {
 }
 
 impl Format for Ast {
-    fn format(&self, writer: &mut impl Write, context: &mut Context) -> FormatResult<()> {
-        todo!()
-        // match self {
-        //     Self::ModuleAttr
-        //     _ =>
-        //         todo!("{:?}", self)
-        // }
+    fn do_format(&self, writer: &mut impl Write, context: &mut Context) -> FormatResult<()> {
+        match self {
+            Self::ModuleAttr(x) => x.format(writer, context),
+            Self::DefineDirective(x) => x.format(writer, context),
+            _ => todo!("{:?}", self),
+        }
     }
 
     fn region(&self) -> Region {
         match self {
-            Self::ModuleAttr(x) => x.region,
+            Self::ModuleAttr(x) => x.region(),
+            Self::DefineDirective(x) => x.region(),
             _ => todo!("{:?}", self),
         }
     }
@@ -217,9 +217,39 @@ impl Parse for WildDirective {
 #[derive(Debug, Clone)]
 pub struct DefineDirective {
     name: Either<AtomToken, VariableToken>,
-    args: Vec<VariableToken>,
+    args: Option<Vec<VariableToken>>,
     replacement: Vec<LexicalToken>,
     region: Region,
+}
+
+impl Format for DefineDirective {
+    fn do_format(&self, writer: &mut impl Write, context: &mut Context) -> FormatResult<()> {
+        let name = match &self.name {
+            Either::A(x) => x.text(),
+            Either::B(x) => x.text(),
+        };
+        write!(writer, "-define({}", name)?;
+        if let Some(args) = &self.args {
+            write!(
+                writer,
+                "({})",
+                args.iter().map(|x| x.text()).collect::<Vec<_>>().join(", ")
+            )?;
+        }
+        write!(writer, ", ")?;
+        if !self.replacement.is_empty() {
+            // TODO: try parsing replacement as an expr and format it if possible.
+            let start = self.replacement[0].start_position();
+            let end = self.replacement[self.replacement.len() - 1].end_position();
+            context.print_original_text(writer, start, end)?;
+        }
+        write!(writer, ").")?;
+        Ok(())
+    }
+
+    fn region(&self) -> Region {
+        self.region
+    }
 }
 
 impl Parse for DefineDirective {
@@ -230,8 +260,8 @@ impl Parse for DefineDirective {
         let _ = lexer.read_expect(Symbol::OpenParen)?;
         let name = lexer.read_expect(Or(ExpectAtom, ExpectVariable))?;
 
-        let mut args = Vec::new();
-        if lexer.try_read_expect(Symbol::OpenParen).is_some() {
+        let args = if lexer.try_read_expect(Symbol::OpenParen).is_some() {
+            let mut args = Vec::new();
             loop {
                 let arg = lexer.read_expect(ExpectVariable)?;
                 args.push(arg);
@@ -240,7 +270,10 @@ impl Parse for DefineDirective {
                 }
             }
             let _ = lexer.read_expect(Symbol::CloseParen)?;
-        }
+            Some(args)
+        } else {
+            None
+        };
         let _ = lexer.read_expect(Symbol::Comma)?;
 
         let mut replacement = Vec::new();

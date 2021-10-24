@@ -25,6 +25,7 @@ impl FormatOpt {
         for ast in parser {
             formatter.format(ast?)?;
         }
+        formatter.print_trailing_comments()?;
         Ok(())
     }
 }
