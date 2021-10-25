@@ -1,3 +1,4 @@
+pub mod cst;
 //pub mod ast;
 pub mod commands;
 pub mod expect;
