@@ -6,6 +6,19 @@ pub use erl_tokenize::values::{Keyword, Symbol};
 pub use erl_tokenize::{LexicalToken, Token};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TokenOffset(usize);
+
+impl TokenOffset {
+    pub const fn new(offset: usize) -> Self {
+        Self(offset)
+    }
+
+    pub const fn get(self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TokenIndex(usize);
 
 impl TokenIndex {

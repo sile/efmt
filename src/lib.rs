@@ -18,8 +18,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Read as _;
     use std::path::PathBuf;
 
     pub fn load_before_and_after_files(before_path: PathBuf) -> (String, String) {
@@ -30,16 +28,10 @@ mod tests {
             .unwrap()
             .join(format!("{}.erl", after_name));
 
-        let mut before = String::new();
-        let mut after = String::new();
-        File::open(before_path)
-            .unwrap()
-            .read_to_string(&mut before)
-            .unwrap();
-        File::open(after_path)
-            .unwrap()
-            .read_to_string(&mut after)
-            .unwrap();
+        let before = std::fs::read_to_string(&before_path)
+            .expect(&format!("failed to read {:?}", before_path));
+        let after = std::fs::read_to_string(&after_path)
+            .expect(&format!("failed to read {:?}", after_path));
         (before, after)
     }
 }
