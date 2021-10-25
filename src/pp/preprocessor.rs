@@ -1,5 +1,5 @@
 use crate::pp::{MacroCall, MacroDefine, Result};
-use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenIndex, TokenRange};
+use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenIndex, TokenRegion};
 use erl_tokenize::{Position, PositionRange, Tokenizer};
 use std::collections::{BTreeMap, HashMap};
 
@@ -31,10 +31,11 @@ impl Preprocessor {
                 if x.value() == Symbol::Question {
                     let (tokens, macro_call) =
                         self.expand_macro(TokenIndex::new(self.preprocessed.tokens.len()))?;
-                    let token_range = TokenRange::new(
+                    let token_range = TokenRegion::new(
                         TokenIndex::new(self.preprocessed.tokens.len()),
                         TokenIndex::new(self.preprocessed.tokens.len() + tokens.len()),
-                    );
+                    )
+                    .expect("unreachable");
                     self.preprocessed.tokens.extend(tokens);
                     self.preprocessed
                         .macro_calls

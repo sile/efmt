@@ -1,5 +1,5 @@
 use crate::expect::Either;
-use crate::token::{AtomToken, LexicalToken, TokenRange, VariableToken};
+use crate::token::{AtomToken, LexicalToken, TokenRegion, VariableToken};
 use erl_tokenize::Position;
 use std::collections::HashMap;
 
@@ -65,6 +65,6 @@ pub struct MacroCall {
     // TODO: make private
     pub name: String,
     pub args: Option<Vec<Vec<LexicalToken>>>,
-    pub range: TokenRange,        // TODO: rename
+    pub range: TokenRegion,   // TODO: rename
     pub start_position: Position, // TODO: start_position, end_position
 }
