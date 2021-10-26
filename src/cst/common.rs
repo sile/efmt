@@ -9,6 +9,12 @@ pub struct Atom {
     region: TokenRegion,
 }
 
+impl Atom {
+    pub fn token(&self) -> &AtomToken {
+        &self.token
+    }
+}
+
 impl Region for Atom {
     fn region(&self) -> TokenRegion {
         self.region
@@ -36,6 +42,12 @@ impl Format for Atom {
 pub struct Variable {
     token: VariableToken,
     region: TokenRegion,
+}
+
+impl Variable {
+    pub fn token(&self) -> &VariableToken {
+        &self.token
+    }
 }
 
 impl Region for Variable {

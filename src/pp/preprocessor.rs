@@ -1,6 +1,6 @@
-use crate::cst::attributes::Attr;
+use crate::cst::attributes::{Attr, DefineAttr};
 use crate::parse::{Parse, TokenReader};
-use crate::pp::{MacroCall, MacroDefine, Result};
+use crate::pp::{MacroCall, Result};
 use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenIndex, TokenRegion};
 use erl_tokenize::{Position, PositionRange, Tokenizer};
 use std::collections::{BTreeMap, HashMap};
@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 #[derive(Debug)]
 pub struct Preprocessor {
     tokenizer: Tokenizer<String>,
-    macro_defines: HashMap<String, MacroDefine>,
+    macro_defines: HashMap<String, DefineAttr>,
     preprocessed: PreprocessedText,
 }
 
@@ -22,7 +22,7 @@ impl Preprocessor {
         };
         Self {
             tokenizer,
-            macro_defines: MacroDefine::predefined(),
+            macro_defines: HashMap::new(),
             preprocessed,
         }
     }
@@ -73,85 +73,15 @@ impl Preprocessor {
                 let attr = Attr::parse(&mut tokens)?;
                 match attr {
                     Attr::Define(x) => {
-                        todo!("{:?}", x);
+                        self.macro_defines.insert(x.macro_name().to_owned(), x);
                     }
                 }
-                // break;
+                break;
             }
         }
 
         Ok(())
     }
-
-    // fn parse_define(&mut self) -> Result<MacroDefine> {
-    //     let _ = self.read_expect(Symbol::OpenParen)?;
-    //     let name = self.read_expect(Or(ExpectAtom, ExpectVariable))?;
-    //     let params = if self
-    //         .read_expect(Or(Symbol::Comma, Symbol::OpenParen))?
-    //         .is_a()
-    //     {
-    //         None
-    //     } else {
-    //         let mut params = Vec::new();
-    //         while let Some(param) = self.try_read_expect(ExpectVariable) {
-    //             params.push(param);
-    //             if self.try_read_expect(Symbol::Comma).is_none() {
-    //                 break;
-    //             }
-    //         }
-    //         let _ = self.read_expect(Symbol::CloseParen)?;
-    //         let _ = self.read_expect(Symbol::Comma)?;
-    //         Some(params)
-    //     };
-    //     let mut replacement = Vec::new();
-    //     let mut level = 0;
-    //     while let Some(token) = self.next_lexical_token()? {
-    //         match &token {
-    //             LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
-    //                 let (tokens, _) = self.expand_macro(x.start_position())?;
-    //                 replacement.extend(tokens);
-    //                 continue;
-    //             }
-    //             LexicalToken::Symbol(x) if x.value() == Symbol::OpenParen => {
-    //                 level += 1;
-    //             }
-    //             LexicalToken::Symbol(x) if x.value() == Symbol::CloseParen => {
-    //                 if level == 0 {
-    //                     break;
-    //                 }
-    //                 level -= 1;
-    //             }
-    //             _ => {}
-    //         }
-    //         replacement.push(token);
-    //     }
-    //     let _ = self.read_expect(Symbol::Dot)?;
-    //     Ok(MacroDefine {
-    //         name,
-    //         params,
-    //         replacement,
-    //     })
-    // }
-
-    // fn try_read_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
-    //     let position = self.tokenizer.next_position();
-    //     if let Ok(token) = self.read_expect(expected) {
-    //         Some(token)
-    //     } else {
-    //         self.tokenizer.set_position(position);
-    //         None
-    //     }
-    // }
-
-    // fn read_expect<T: Expect>(&mut self, expected: T) -> Result<T::Token> {
-    //     if let Some(token) = self.next_lexical_token()? {
-    //         expected.expect(token).map_err(|token| {
-    //             anyhow::anyhow!("expected {:?}, but got {:?}", expected, token).into()
-    //         })
-    //     } else {
-    //         Err(Error::UnexpectedEof)
-    //     }
-    // }
 
     fn next_lexical_token(&mut self) -> Result<Option<LexicalToken>> {
         while let Some(token) = self.tokenizer.next().transpose()? {

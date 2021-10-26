@@ -43,7 +43,7 @@ mod tests {
         let formatted = String::from_utf8_lossy(&buf);
         anyhow::ensure!(
             formatted == expected.trim(),
-            "unexpected formatted code.\n[ACTUAL]\n{}\n[EXPECTED]\n{}",
+            "unexpected formatted code.\n[ACTUAL]\n{}\n\n[EXPECTED]\n{}",
             formatted,
             expected
         );

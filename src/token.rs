@@ -53,6 +53,10 @@ impl TokenRegion {
     pub const fn end(self) -> TokenIndex {
         self.end
     }
+
+    pub fn is_empty(self) -> bool {
+        self.start == self.end
+    }
 }
 
 pub trait Region {

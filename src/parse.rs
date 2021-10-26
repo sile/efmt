@@ -111,6 +111,31 @@ pub trait Parse: Sized {
     fn try_parse(tokens: &mut TokenReader) -> Option<Self> {
         tokens.with_transaction(|tokens| Self::parse(tokens))
     }
+
+    fn parse_items(tokens: &mut TokenReader, delimiter: Symbol) -> Result<Vec<Self>> {
+        let mut items = if let Some(item) = Self::try_parse(tokens) {
+            vec![item]
+        } else {
+            return Ok(Vec::new());
+        };
+        while delimiter.try_expect(tokens).is_some() {
+            let item = Self::parse(tokens)?;
+            items.push(item);
+        }
+        Ok(items)
+    }
+
+    fn parse_non_empty_items(tokens: &mut TokenReader, delimiter: Symbol) -> Result<Vec<Self>> {
+        let mut items = Vec::new();
+        loop {
+            let item = Self::parse(tokens)?;
+            items.push(item);
+            if delimiter.try_expect(tokens).is_none() {
+                break;
+            }
+        }
+        Ok(items)
+    }
 }
 
 pub trait ResumeParse<T>: Parse
@@ -128,6 +153,10 @@ pub trait Expect {
     type Token: Into<LexicalToken>;
 
     fn expect(&self, tokens: &mut TokenReader) -> Result<Self::Token>;
+
+    fn try_expect(&self, tokens: &mut TokenReader) -> Option<Self::Token> {
+        tokens.with_transaction(|tokens| self.expect(tokens))
+    }
 }
 
 impl Parse for AtomToken {
