@@ -26,25 +26,7 @@ mod tests {
     use crate::pp::Preprocessor;
     use anyhow::Context;
     use erl_tokenize::Tokenizer;
-    use std::path::PathBuf;
 
-    // TODO: delete
-    pub fn load_before_and_after_files(before_path: PathBuf) -> (String, String) {
-        let before_name = before_path.file_stem().unwrap().to_str().unwrap();
-        let after_name = before_name.replace("_before", "_after");
-        let after_path = before_path
-            .parent()
-            .unwrap()
-            .join(format!("{}.erl", after_name));
-
-        let before = std::fs::read_to_string(&before_path)
-            .expect(&format!("failed to read {:?}", before_path));
-        let after = std::fs::read_to_string(&after_path)
-            .expect(&format!("failed to read {:?}", after_path));
-        (before, after)
-    }
-
-    #[inline]
     pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
         let (text, expected) = load_testdata(testname).with_context(|| "cannot load testdata")?;
         let tokenizer = Tokenizer::new(text);
@@ -68,7 +50,7 @@ mod tests {
         Ok(())
     }
 
-    fn load_testdata(testname: &str) -> anyhow::Result<(String, String)> {
+    pub fn load_testdata(testname: &str) -> anyhow::Result<(String, String)> {
         let before_path = format!("testdata/{}-before.erl", testname);
         let after_path = format!("testdata/{}-after.erl", testname);
         let before = std::fs::read_to_string(&before_path)

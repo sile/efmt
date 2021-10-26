@@ -358,21 +358,27 @@ impl std::fmt::Display for PreprocessedText {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Context;
     use erl_tokenize::Tokenizer;
 
     #[test]
-    fn preprocess_works() {
-        let mut count = 0;
-        for entry in glob::glob("testdata/pp/*_before.erl").unwrap() {
-            let path = entry.unwrap();
-            println!("[INPUT FILE] {:?}", path);
-
-            let (before, after) = crate::tests::load_before_and_after_files(path);
+    fn preprocess_works() -> anyhow::Result<()> {
+        let testnames = ["nomacro"];
+        for testname in testnames {
+            let (before, after_expected) = crate::tests::load_testdata(&format!("pp/{}", testname))
+                .with_context(|| format!("[{}] cannot load testdata", testname))?;
             let pp = Preprocessor::new(Tokenizer::new(before));
-            let preprocessed = pp.preprocess().unwrap();
-            assert_eq!(preprocessed.to_string(), after);
-            count += 1;
+            let preprocessed = pp
+                .preprocess()
+                .with_context(|| format!("[{}] cannot preprocess", testname))?;
+            let after_actual = preprocessed.to_string();
+            anyhow::ensure!(
+                after_actual == after_expected,
+                "unexpected preprocessed result.\n[ACTUAL]\n{}\n[EXPECTED]\n{}",
+                after_actual,
+                after_expected
+            );
         }
-        assert_ne!(count, 0);
+        Ok(())
     }
 }
