@@ -101,7 +101,7 @@ impl TokenReader {
 
     pub fn region(&self, start: TokenIndex) -> Result<TokenRegion> {
         let end = self.current;
-        TokenRegion::new(start, end).ok_or_else(|| Error::InvaildRegion { start, end })
+        TokenRegion::new(start, end).ok_or(Error::InvaildRegion { start, end })
     }
 }
 
