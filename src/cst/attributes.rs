@@ -1,3 +1,4 @@
+use crate::cst::common::Atom;
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, TokenReader};
 use crate::token::{Region, Symbol, TokenRegion};
@@ -36,6 +37,7 @@ impl Format for Attr {
 
 #[derive(Debug, Clone)]
 pub struct DefineAttr {
+    macro_name: Atom,
     region: TokenRegion,
 }
 
@@ -51,10 +53,14 @@ impl Parse for DefineAttr {
         let _ = Symbol::Hyphen.expect(tokens)?;
         let _ = "define".expect(tokens)?;
         let _ = Symbol::OpenParen.expect(tokens)?;
-        // TODO
+        let macro_name = Parse::parse(tokens)?;
+        // TODO: try parsing args
+        let _ = Symbol::Comma.expect(tokens)?;
+        // TODO: replacement
         let _ = Symbol::CloseParen.expect(tokens)?;
         let _ = Symbol::Dot.expect(tokens)?;
         Ok(Self {
+            macro_name,
             region: tokens.region(start)?,
         })
     }
@@ -62,6 +68,12 @@ impl Parse for DefineAttr {
 
 impl Format for DefineAttr {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        todo!()
+        write!(fmt, "-define(")?;
+        fmt.format(&self.macro_name)?;
+        // TODO: ags
+        write!(fmt, ",")?;
+        // TODO: replacement
+        write!(fmt, ").")?;
+        Ok(())
     }
 }
