@@ -5,6 +5,7 @@ use std::io::Write;
 
 pub mod attributes;
 pub mod common;
+pub mod macros;
 // pub mod types;
 // pub mod expressions;
 // pub mod attributes;

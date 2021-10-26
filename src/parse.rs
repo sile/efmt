@@ -1,4 +1,6 @@
-use crate::token::{AtomToken, LexicalToken, Region, Symbol, SymbolToken, TokenIndex, TokenRegion};
+use crate::token::{
+    AtomToken, LexicalToken, Region, Symbol, SymbolToken, TokenIndex, TokenRegion, VariableToken,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -184,6 +186,19 @@ impl Expect for Symbol {
                 token: token.into(),
                 expected: format!("{:?}", self),
             })
+        }
+    }
+}
+
+impl Parse for VariableToken {
+    fn parse(tokens: &mut TokenReader) -> Result<Self> {
+        match tokens.read_token()? {
+            LexicalToken::Variable(token) => Ok(token),
+            token => Err(Error::UnexpectedToken {
+                index: TokenIndex::new(tokens.current_index().get() - 1),
+                token,
+                expected: "VariableToken",
+            }),
         }
     }
 }

@@ -12,6 +12,9 @@ pub enum Error {
     MalformedMacroArg { position: Position },
 
     #[error(transparent)]
+    ParseError(#[from] crate::parse::Error),
+
+    #[error(transparent)]
     TokenizeError(#[from] erl_tokenize::Error),
 
     #[error(transparent)]

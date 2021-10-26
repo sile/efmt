@@ -1,3 +1,5 @@
+use crate::cst::attributes::Attr;
+use crate::parse::{Parse, TokenReader};
 use crate::pp::{MacroCall, MacroDefine, Result};
 use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenIndex, TokenRegion};
 use erl_tokenize::{Position, PositionRange, Tokenizer};
@@ -42,7 +44,7 @@ impl Preprocessor {
                         .insert(token_range.start(), macro_call);
                     continue;
                 } else if x.value() == Symbol::Hyphen {
-                    self.try_handle_directives()?;
+                    self.try_handle_directives(x.clone().into())?;
                     self.tokenizer.set_position(x.end_position());
                 }
             }
@@ -51,19 +53,33 @@ impl Preprocessor {
         Ok(self.preprocessed)
     }
 
-    fn try_handle_directives(&mut self) -> Result<()> {
+    fn try_handle_directives(&mut self, hyphen: LexicalToken) -> Result<()> {
+        let mut tokens = vec![hyphen];
         if let Some(LexicalToken::Atom(token)) = self.next_lexical_token()? {
-            match token.value() {
-                "define" => {
-                    todo!();
-                    // let define = self.parse_define()?;
-                    // self.macro_defines.insert(define.name().to_owned(), define);
-                }
-                "include" => todo!(),
-                "include_lib" => todo!(),
-                _ => {}
+            if matches!(token.value(), "define" | "include" | "include_lib") {
+                tokens.push(token.into());
+            } else {
+                return Ok(());
             }
         }
+
+        while let Some(token) = self.next_lexical_token()? {
+            tokens.push(token.clone());
+            if token
+                .as_symbol_token()
+                .map_or(false, |x| x.value() == Symbol::Dot)
+            {
+                let mut tokens = TokenReader::new(tokens);
+                let attr = Attr::parse(&mut tokens)?;
+                match attr {
+                    Attr::Define(x) => {
+                        todo!("{:?}", x);
+                    }
+                }
+                // break;
+            }
+        }
+
         Ok(())
     }
 

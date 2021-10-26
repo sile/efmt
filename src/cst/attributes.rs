@@ -1,4 +1,4 @@
-use crate::cst::common::Atom;
+use crate::cst::macros::MacroName;
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, TokenReader};
 use crate::token::{Region, Symbol, TokenRegion};
@@ -37,7 +37,7 @@ impl Format for Attr {
 
 #[derive(Debug, Clone)]
 pub struct DefineAttr {
-    macro_name: Atom,
+    macro_name: MacroName,
     region: TokenRegion,
 }
 
