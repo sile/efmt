@@ -1,0 +1,1 @@
+-include_lib("path/to/foo.hrl").

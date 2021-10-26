@@ -1,6 +1,6 @@
-use crate::cst::common::Variable;
+use crate::cst::common::{Atom, String, Variable};
+use crate::cst::expressions::Expr;
 use crate::cst::macros::MacroName;
-use crate::cst::Cst;
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, TokenReader};
 use crate::token::{LexicalToken, Region, Symbol, TokenRegion};
@@ -9,12 +9,18 @@ use std::io::Write;
 #[derive(Debug, Clone)]
 pub enum Attr {
     Define(DefineAttr),
+    Include(IncludeAttr),
+    IncludeLib(IncludeLibAttr),
+    General(GeneralAttr),
 }
 
 impl Region for Attr {
     fn region(&self) -> TokenRegion {
         match self {
             Self::Define(x) => x.region(),
+            Self::Include(x) => x.region(),
+            Self::IncludeLib(x) => x.region(),
+            Self::General(x) => x.region(),
         }
     }
 }
@@ -23,6 +29,12 @@ impl Parse for Attr {
     fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
         if let Some(x) = Parse::try_parse(tokens) {
             Ok(Self::Define(x))
+        } else if let Some(x) = Parse::try_parse(tokens) {
+            Ok(Self::Include(x))
+        } else if let Some(x) = Parse::try_parse(tokens) {
+            Ok(Self::IncludeLib(x))
+        } else if let Some(x) = Parse::try_parse(tokens) {
+            Ok(Self::General(x))
         } else {
             Err(tokens.take_last_error().expect("unreachable"))
         }
@@ -33,7 +45,133 @@ impl Format for Attr {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         match self {
             Self::Define(x) => x.format(fmt),
+            Self::Include(x) => x.format(fmt),
+            Self::IncludeLib(x) => x.format(fmt),
+            Self::General(x) => x.format(fmt),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GeneralAttr {
+    name: Atom,
+    items: Option<Vec<Expr>>,
+    region: TokenRegion,
+}
+
+impl Region for GeneralAttr {
+    fn region(&self) -> TokenRegion {
+        self.region
+    }
+}
+
+impl Parse for GeneralAttr {
+    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
+        let start = tokens.current_index();
+        let _ = Symbol::Hyphen.expect(tokens)?;
+        let name = Atom::parse(tokens)?;
+
+        let items = if Symbol::OpenParen.try_expect(tokens).is_some() {
+            let items = Expr::parse_items(tokens, Symbol::Comma)?;
+            let _ = Symbol::CloseParen.expect(tokens)?;
+            Some(items)
+        } else {
+            None
+        };
+        let _ = Symbol::Dot.expect(tokens)?;
+        Ok(Self {
+            name,
+            items,
+            region: tokens.region(start)?,
+        })
+    }
+}
+
+impl Format for GeneralAttr {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "-")?;
+        fmt.format(&self.name)?;
+        if let Some(items) = &self.items {
+            write!(fmt, "(")?;
+            fmt.format_children(items, ",")?;
+            write!(fmt, ")")?;
+        }
+        write!(fmt, ".")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IncludeAttr {
+    file: String,
+    region: TokenRegion,
+}
+
+impl Region for IncludeAttr {
+    fn region(&self) -> TokenRegion {
+        self.region
+    }
+}
+
+impl Parse for IncludeAttr {
+    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
+        let start = tokens.current_index();
+        let _ = Symbol::Hyphen.expect(tokens)?;
+        let _ = "include".expect(tokens)?;
+        let _ = Symbol::OpenParen.expect(tokens)?;
+        let file = String::parse(tokens)?;
+        let _ = Symbol::CloseParen.expect(tokens)?;
+        let _ = Symbol::Dot.expect(tokens)?;
+        Ok(Self {
+            file,
+            region: tokens.region(start)?,
+        })
+    }
+}
+
+impl Format for IncludeAttr {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "-include(")?;
+        fmt.format_child(&self.file)?;
+        write!(fmt, ").")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IncludeLibAttr {
+    file: String,
+    region: TokenRegion,
+}
+
+impl Region for IncludeLibAttr {
+    fn region(&self) -> TokenRegion {
+        self.region
+    }
+}
+
+impl Parse for IncludeLibAttr {
+    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
+        let start = tokens.current_index();
+        let _ = Symbol::Hyphen.expect(tokens)?;
+        let _ = "include_lib".expect(tokens)?;
+        let _ = Symbol::OpenParen.expect(tokens)?;
+        let file = String::parse(tokens)?;
+        let _ = Symbol::CloseParen.expect(tokens)?;
+        let _ = Symbol::Dot.expect(tokens)?;
+        Ok(Self {
+            file,
+            region: tokens.region(start)?,
+        })
+    }
+}
+
+impl Format for IncludeLibAttr {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "-include_lib(")?;
+        fmt.format_child(&self.file)?;
+        write!(fmt, ").")?;
+        Ok(())
     }
 }
 
@@ -125,12 +263,12 @@ impl Format for DefineAttr {
             fmt.format_children(vars, ",")?;
             write!(fmt, ")")?;
         }
-        write!(fmt, ", ")?;
+        write!(fmt, ",")?;
 
         if !self.replacement.is_empty() {
             let mut tokens = TokenReader::new(self.replacement.clone());
-            if let Some(cst) = Cst::try_parse(&mut tokens) {
-                fmt.format(&cst)?;
+            if let Some(expr) = Expr::try_parse(&mut tokens) {
+                fmt.format_child(&expr)?;
             } else {
                 fmt.write_original_text(self.replacement_region)?;
             }
@@ -151,6 +289,29 @@ mod tests {
         for testname in testnames {
             test_parse_and_format::<DefineAttr>(&format!(
                 "cst/attributes/define-attr-{}",
+                testname
+            ))
+            .expect(testname);
+        }
+    }
+
+    #[test]
+    fn include_attr_works() {
+        test_parse_and_format::<IncludeAttr>("cst/attributes/include-attr").expect("include");
+    }
+
+    #[test]
+    fn include_lib_attr_works() {
+        test_parse_and_format::<IncludeLibAttr>("cst/attributes/include-lib-attr")
+            .expect("include-lib");
+    }
+
+    #[test]
+    fn general_attr_works() {
+        let testnames = ["module"];
+        for testname in testnames {
+            test_parse_and_format::<GeneralAttr>(&format!(
+                "cst/attributes/general-attr-{}",
                 testname
             ))
             .expect(testname);

@@ -75,6 +75,13 @@ impl Preprocessor {
                     Attr::Define(x) => {
                         self.macro_defines.insert(x.macro_name().to_owned(), x);
                     }
+                    Attr::Include(_x) => {
+                        // TODO
+                    }
+                    Attr::IncludeLib(_x) => {
+                        // TODO
+                    }
+                    Attr::General(_) => {}
                 }
                 break;
             }
@@ -295,8 +302,9 @@ mod tests {
     fn preprocess_works() -> anyhow::Result<()> {
         let testnames = ["nomacro"];
         for testname in testnames {
-            let (before, after_expected) = crate::tests::load_testdata(&format!("pp/{}", testname))
-                .with_context(|| format!("[{}] cannot load testdata", testname))?;
+            let (before_path, before, after_path, after_expected) =
+                crate::tests::load_testdata(&format!("pp/{}", testname))
+                    .with_context(|| format!("[{}] cannot load testdata", testname))?;
             let pp = Preprocessor::new(Tokenizer::new(before));
             let preprocessed = pp
                 .preprocess()
@@ -304,8 +312,10 @@ mod tests {
             let after_actual = preprocessed.to_string();
             anyhow::ensure!(
                 after_actual == after_expected,
-                "unexpected preprocessed result.\n[ACTUAL]\n{}\n[EXPECTED]\n{}",
+                "unexpected preprocessed result.\n[ACTUAL] {}\n{}\n\n[EXPECTED] {}\n{}",
+                before_path,
                 after_actual,
+                after_path,
                 after_expected
             );
         }

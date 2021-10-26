@@ -1,1 +1,1 @@
--define(FOO, ).
+-define(FOO,).

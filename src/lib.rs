@@ -28,7 +28,8 @@ mod tests {
     use erl_tokenize::Tokenizer;
 
     pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
-        let (text, expected) = load_testdata(testname).with_context(|| "cannot load testdata")?;
+        let (text_path, text, expected_path, expected) =
+            load_testdata(testname).with_context(|| "cannot load testdata")?;
         let tokenizer = Tokenizer::new(text);
         let pp = Preprocessor::new(tokenizer);
         let preprocessed = pp.preprocess().with_context(|| "cannot preprocess")?;
@@ -43,20 +44,22 @@ mod tests {
         let formatted = String::from_utf8_lossy(&buf);
         anyhow::ensure!(
             formatted == expected.trim(),
-            "unexpected formatted code.\n[ACTUAL]\n{}\n\n[EXPECTED]\n{}",
+            "unexpected formatted code.\n[ACTUAL] {}\n{}\n\n[EXPECTED] {}\n{}",
+            text_path,
             formatted,
+            expected_path,
             expected
         );
         Ok(())
     }
 
-    pub fn load_testdata(testname: &str) -> anyhow::Result<(String, String)> {
+    pub fn load_testdata(testname: &str) -> anyhow::Result<(String, String, String, String)> {
         let before_path = format!("testdata/{}-before.erl", testname);
         let after_path = format!("testdata/{}-after.erl", testname);
         let before = std::fs::read_to_string(&before_path)
             .with_context(|| format!("cannot read {:?}", before_path))?;
         let after = std::fs::read_to_string(&after_path)
             .with_context(|| format!("cannot read {:?}", after_path))?;
-        Ok((before, after))
+        Ok((before_path, before, after_path, after))
     }
 }

@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, TokenReader};
-use crate::token::{AtomToken, Region, TokenRegion, VariableToken};
+use crate::token::{AtomToken, Region, StringToken, TokenRegion, VariableToken};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -73,6 +73,41 @@ impl Format for Variable {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct String {
+    token: StringToken,
+    region: TokenRegion,
+}
+
+impl String {
+    pub fn token(&self) -> &StringToken {
+        &self.token
+    }
+}
+
+impl Region for String {
+    fn region(&self) -> TokenRegion {
+        self.region
+    }
+}
+
+impl Parse for String {
+    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
+        let start = tokens.current_index();
+        Ok(Self {
+            token: Parse::parse(tokens)?,
+            region: tokens.region(start)?,
+        })
+    }
+}
+
+impl Format for String {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "{}", self.token.text())?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +124,13 @@ mod tests {
     fn variable_works() {
         for testname in ["variable"] {
             test_parse_and_format::<Variable>(&format!("cst/common/{}", testname)).expect(testname);
+        }
+    }
+
+    #[test]
+    fn string_works() {
+        for testname in ["string"] {
+            test_parse_and_format::<String>(&format!("cst/common/{}", testname)).expect(testname);
         }
     }
 }

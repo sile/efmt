@@ -1,5 +1,6 @@
 use crate::token::{
-    AtomToken, LexicalToken, Region, Symbol, SymbolToken, TokenIndex, TokenRegion, VariableToken,
+    AtomToken, LexicalToken, Region, StringToken, Symbol, SymbolToken, TokenIndex, TokenRegion,
+    VariableToken,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -227,6 +228,19 @@ impl Parse for VariableToken {
                 index: TokenIndex::new(tokens.current_index().get() - 1),
                 token,
                 expected: "VariableToken",
+            }),
+        }
+    }
+}
+
+impl Parse for StringToken {
+    fn parse(tokens: &mut TokenReader) -> Result<Self> {
+        match tokens.read_token()? {
+            LexicalToken::String(token) => Ok(token),
+            token => Err(Error::UnexpectedToken {
+                index: TokenIndex::new(tokens.current_index().get() - 1),
+                token,
+                expected: "StringToken",
             }),
         }
     }
