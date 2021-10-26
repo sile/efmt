@@ -31,3 +31,15 @@ impl Format for Atom {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::test_parse_and_format;
+
+    #[test]
+    fn define_attr_works() {
+        test_parse_and_format::<Atom>("cst/common/atom");
+        test_parse_and_format::<Atom>("cst/common/quoted-atom");
+    }
+}

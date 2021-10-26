@@ -77,3 +77,14 @@ impl Format for DefineAttr {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::test_parse_and_format;
+
+    #[test]
+    fn define_attr_works() {
+        test_parse_and_format::<DefineAttr>("cst/attributes/define-attr-noargs-noreplacement");
+    }
+}

@@ -1,3 +1,4 @@
+use crate::pp::PreprocessedText;
 use crate::token::Region;
 use std::io::Write;
 
@@ -19,13 +20,15 @@ pub trait Format: Region {
 pub struct Formatter<W> {
     writer: W,
     context: Context,
+    text: PreprocessedText,
 }
 
 impl<W: Write> Formatter<W> {
-    pub fn new(writer: W) -> Self {
+    pub fn new(writer: W, text: PreprocessedText) -> Self {
         Self {
             writer,
             context: Context::new(),
+            text,
         }
     }
 
