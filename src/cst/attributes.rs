@@ -1,5 +1,7 @@
+use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, TokenReader};
 use crate::token::{Region, Symbol, TokenRegion};
+use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub enum Attr {
@@ -20,6 +22,14 @@ impl Parse for Attr {
             Ok(Self::Define(x))
         } else {
             Err(tokens.take_last_error().expect("unreachable"))
+        }
+    }
+}
+
+impl Format for Attr {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        match self {
+            Self::Define(x) => x.format(fmt),
         }
     }
 }
@@ -47,5 +57,11 @@ impl Parse for DefineAttr {
         Ok(Self {
             region: tokens.region(start)?,
         })
+    }
+}
+
+impl Format for DefineAttr {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        todo!()
     }
 }

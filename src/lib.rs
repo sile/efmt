@@ -5,6 +5,7 @@ pub mod expect;
 //pub mod formatter;
 //pub mod lexer;
 //pub mod parser;
+pub mod format;
 pub mod parse;
 pub mod pp;
 pub mod token;
