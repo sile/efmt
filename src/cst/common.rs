@@ -39,7 +39,8 @@ mod tests {
 
     #[test]
     fn define_attr_works() {
-        test_parse_and_format::<Atom>("cst/common/atom");
-        test_parse_and_format::<Atom>("cst/common/quoted-atom");
+        for testname in ["atom", "quoted-atom"] {
+            test_parse_and_format::<Atom>(&format!("cst/common/{}", testname)).expect(testname);
+        }
     }
 }

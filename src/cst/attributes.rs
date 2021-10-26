@@ -85,6 +85,7 @@ mod tests {
 
     #[test]
     fn define_attr_works() {
-        test_parse_and_format::<DefineAttr>("cst/attributes/define-attr-noargs-noreplacement");
+        test_parse_and_format::<DefineAttr>("cst/attributes/define-attr-noargs-noreplacement")
+            .expect("noargs-noreplacement");
     }
 }

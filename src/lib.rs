@@ -24,9 +24,11 @@ mod tests {
     use crate::format::{Format, Formatter};
     use crate::parse::{Parse, TokenReader};
     use crate::pp::Preprocessor;
+    use anyhow::Context;
     use erl_tokenize::Tokenizer;
     use std::path::PathBuf;
 
+    // TODO: delete
     pub fn load_before_and_after_files(before_path: PathBuf) -> (String, String) {
         let before_name = before_path.file_stem().unwrap().to_str().unwrap();
         let after_name = before_name.replace("_before", "_after");
@@ -42,37 +44,37 @@ mod tests {
         (before, after)
     }
 
-    pub fn test_parse_and_format<T: Parse + Format>(testname: &str) {
-        let (text, expected) = load_testdata(testname);
+    #[inline]
+    pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
+        let (text, expected) = load_testdata(testname).with_context(|| "cannot load testdata")?;
         let tokenizer = Tokenizer::new(text);
         let pp = Preprocessor::new(tokenizer);
-        let preprocessed = pp
-            .preprocess()
-            .expect(&format!("[{}] cannot preprocess", testname));
+        let preprocessed = pp.preprocess().with_context(|| "cannot preprocess")?;
 
         let mut buf = Vec::new();
         {
             let mut fmt = Formatter::new(&mut buf, preprocessed.clone());
             let cst = T::parse(&mut TokenReader::new(preprocessed.tokens))
-                .expect(&format!("[{}] cannot parse", testname));
-            fmt.format(&cst)
-                .expect(&format!("[{}] cannot format", testname));
+                .with_context(|| "cannot parse")?;
+            fmt.format(&cst).with_context(|| "cannot format")?;
         }
-        assert_eq!(
-            String::from_utf8_lossy(&buf),
-            expected,
-            "[{}] unexpected formatted code",
-            testname
+        let formatted = String::from_utf8_lossy(&buf);
+        anyhow::ensure!(
+            formatted == expected.trim(),
+            "unexpected formatted code.\n[ACTUAL]\n{}\n[EXPECTED]\n{}",
+            formatted,
+            expected
         );
+        Ok(())
     }
 
-    fn load_testdata(testname: &str) -> (String, String) {
+    fn load_testdata(testname: &str) -> anyhow::Result<(String, String)> {
         let before_path = format!("testdata/{}-before.erl", testname);
         let after_path = format!("testdata/{}-after.erl", testname);
-        let before =
-            std::fs::read_to_string(&before_path).expect(&format!("cannot read {:?}", before_path));
-        let after =
-            std::fs::read_to_string(&after_path).expect(&format!("cannot read {:?}", after_path));
-        (before, after)
+        let before = std::fs::read_to_string(&before_path)
+            .with_context(|| format!("cannot read {:?}", before_path))?;
+        let after = std::fs::read_to_string(&after_path)
+            .with_context(|| format!("cannot read {:?}", after_path))?;
+        Ok((before, after))
     }
 }

@@ -19,21 +19,23 @@ pub trait Format: Region {
 #[derive(Debug)]
 pub struct Formatter<W> {
     writer: W,
-    context: Context,
     text: PreprocessedText,
 }
 
 impl<W: Write> Formatter<W> {
     pub fn new(writer: W, text: PreprocessedText) -> Self {
-        Self {
-            writer,
-            context: Context::new(),
-            text,
-        }
+        Self { writer, text }
     }
 
-    pub fn format(&mut self, _item: &impl Format) -> Result<()> {
-        todo!()
+    pub fn format(&mut self, item: &impl Format) -> Result<()> {
+        if !self.text.comments.is_empty() {
+            todo!();
+        }
+        if !self.text.macro_calls.is_empty() {
+            todo!()
+        }
+        item.format(self)?;
+        Ok(())
     }
 
     pub fn format_child(&mut self, _child: &impl Format) -> Result<()> {
@@ -48,14 +50,5 @@ impl<W: Write> Write for Formatter<W> {
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.writer.flush()
-    }
-}
-
-#[derive(Debug)]
-pub struct Context {}
-
-impl Context {
-    pub fn new() -> Self {
-        Self {}
     }
 }
