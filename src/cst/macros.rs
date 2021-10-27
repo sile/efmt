@@ -1,14 +1,22 @@
-use crate::cst::expressions::Expr;
-use crate::cst::primitives::{Atom, Either, Variable};
+use crate::cst::primitives::{Atom, Variable};
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Parse, Parser};
-use crate::token::{LexicalToken, Region, Symbol, TokenRegion};
+use crate::parse::{self, AnyToken, Or, Parse, Parser, ResumeParse};
+use crate::token::{Keyword, LexicalToken, Region, Symbol, TokenPosition, TokenRegion};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub enum MacroName {
     Atom(Atom),
     Variable(Variable),
+}
+
+impl MacroName {
+    pub fn get(&self) -> &str {
+        match self {
+            Self::Atom(x) => x.token().value(),
+            Self::Variable(x) => x.token().value(),
+        }
+    }
 }
 
 impl Region for MacroName {
@@ -47,8 +55,14 @@ impl Format for MacroName {
 
 #[derive(Debug, Clone)]
 pub struct Replacement {
-    replacement: Either<Expr, Vec<LexicalToken>>,
+    tokens: Vec<LexicalToken>,
     region: TokenRegion,
+}
+
+impl Replacement {
+    pub fn tokens(&self) -> &[LexicalToken] {
+        &self.tokens
+    }
 }
 
 impl Region for Replacement {
@@ -60,45 +74,26 @@ impl Region for Replacement {
 impl Parse for Replacement {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
-        let mut replacement = None;
-        if let Some(expr) = parser.try_parse::<Expr>() {
-            if parser.try_expect(Symbol::CloseParen).is_some()
-                && parser.try_expect(Symbol::Dot).is_some()
-            {
-                parser.set_position(expr.region().end())?;
-                replacement = Some(Either::A(expr));
-            } else {
-                parser.set_position(&start)?;
-            }
-        }
-        if replacement.is_none() {
-            let mut tokens = Vec::new();
-            let mut last_position = parser.current_position();
-            loop {
-                let token = parser.read_token()?;
-                match &token {
-                    LexicalToken::Symbol(x) if x.value() == Symbol::CloseParen => {
-                        if parser.try_expect(Symbol::Dot).is_some() {
-                            parser.set_position(&last_position)?;
-                            break;
-                        }
-                    }
-                    LexicalToken::Symbol(x) if x.value() == Symbol::Dot => {
-                        return Err(parse::Error::UnexpectedToken {
-                            token: token.clone(),
-                            expected: "').'",
-                        });
-                    }
-                    _ => {}
+        let mut tokens = Vec::new();
+        while parser
+            .peek_expect((Symbol::CloseParen, Symbol::Dot))
+            .is_none()
+        {
+            let token = parser.read_token()?;
+            match &token {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Dot => {
+                    return Err(parse::Error::UnexpectedToken {
+                        token: token.clone(),
+                        expected: "').'",
+                    });
                 }
-                tokens.push(token);
-                last_position = parser.current_position();
+                _ => {}
             }
-            replacement = Some(Either::B(tokens));
+            tokens.push(token);
         }
 
         Ok(Self {
-            replacement: replacement.expect("unreachable"),
+            tokens,
             region: parser.region(start),
         })
     }
@@ -106,9 +101,197 @@ impl Parse for Replacement {
 
 impl Format for Replacement {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        match &self.replacement {
-            Either::A(x) => fmt.format(x),
-            Either::B(_) => fmt.noformat(self),
+        // TODO: try parse and format
+        fmt.noformat(self)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MacroCall {
+    name: MacroName,
+    args: Option<Vec<MacroArg>>,
+    region: TokenRegion,
+}
+
+impl MacroCall {
+    pub fn macro_name(&self) -> &str {
+        self.name.get()
+    }
+
+    pub fn args(&self) -> Option<&[MacroArg]> {
+        self.args.as_ref().map(|x| x.as_slice())
+    }
+}
+
+impl Region for MacroCall {
+    fn region(&self) -> &TokenRegion {
+        &self.region
+    }
+}
+
+impl Parse for MacroCall {
+    fn parse(_parser: &mut Parser) -> parse::Result<Self> {
+        todo!("don't call this method.");
+    }
+}
+
+impl ResumeParse<(TokenPosition, MacroName, Option<usize>)> for MacroCall {
+    fn resume_parse(
+        parser: &mut Parser,
+        (start, name, arity): (TokenPosition, MacroName, Option<usize>),
+    ) -> parse::Result<Self> {
+        let args = if let Some(arity) = arity {
+            parser.expect(Symbol::OpenParen)?;
+            let args = parser.parse_items(Symbol::Comma)?;
+            parser.expect(Symbol::CloseParen)?;
+            if args.len() != arity {
+                todo!();
+            }
+            Some(args)
+        } else {
+            None
+        };
+        Ok(Self {
+            name,
+            args,
+            region: parser.region(start),
+        })
+    }
+}
+
+impl Format for MacroCall {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "?")?;
+        fmt.format(&self.name)?;
+        if let Some(args) = &self.args {
+            write!(fmt, "(")?;
+            fmt.format_children(args, ",")?;
+            write!(fmt, ")")?;
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MacroArg {
+    tokens: Vec<LexicalToken>,
+    region: TokenRegion,
+}
+
+impl MacroArg {
+    pub fn tokens(&self) -> &[LexicalToken] {
+        &self.tokens
+    }
+}
+
+impl Region for MacroArg {
+    fn region(&self) -> &TokenRegion {
+        &self.region
+    }
+}
+
+impl Parse for MacroArg {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let start = parser.current_position();
+
+        #[derive(Debug, Default, PartialEq, Eq)]
+        struct Level {
+            paren: usize,
+            brace: usize,
+            square: usize,
+            bits: usize,
+            block: usize,
+        }
+
+        impl Level {
+            fn is_toplevel(&self) -> bool {
+                *self == Self::default()
+            }
+        }
+
+        let mut tokens = Vec::new();
+        let mut level = Level::default();
+        while tokens.is_empty()
+            || !level.is_toplevel()
+            || parser
+                .peek_expect(Or(Symbol::Comma, Symbol::CloseParen))
+                .is_none()
+        {
+            let token = parser.read_token()?;
+            match &token {
+                LexicalToken::Symbol(x) => match x.value() {
+                    Symbol::OpenParen => {
+                        level.paren += 1;
+                    }
+                    Symbol::CloseParen => {
+                        if level.paren == 0 {
+                            todo!();
+                        }
+                        level.paren -= 1;
+                    }
+                    Symbol::OpenBrace => {
+                        level.brace += 1;
+                    }
+                    Symbol::CloseBrace => {
+                        if level.brace == 0 {
+                            todo!();
+                        }
+                        level.brace -= 1;
+                    }
+                    Symbol::OpenSquare => {
+                        level.square += 1;
+                    }
+                    Symbol::CloseSquare => {
+                        if level.square == 0 {
+                            todo!();
+                        }
+                        level.square -= 1;
+                    }
+                    Symbol::DoubleLeftAngle => {
+                        level.bits += 1;
+                    }
+                    Symbol::DoubleRightAngle => {
+                        if level.bits == 0 {
+                            todo!();
+                        }
+                        level.bits -= 1;
+                    }
+                    _ => {}
+                },
+                LexicalToken::Keyword(x) => match x.value() {
+                    Keyword::Begin | Keyword::Try | Keyword::Case | Keyword::If => {
+                        level.block += 1;
+                    }
+                    Keyword::Fun => {
+                        if parser.peek_expect(Symbol::OpenParen).is_some()
+                            || parser.peek_expect((AnyToken, Symbol::OpenParen)).is_some()
+                        {
+                            level.block += 1;
+                        }
+                    }
+                    Keyword::End => {
+                        if level.block == 0 {
+                            todo!();
+                        }
+                        level.block -= 1;
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+            tokens.push(token);
+        }
+
+        Ok(Self {
+            tokens,
+            region: parser.region(start),
+        })
+    }
+}
+
+impl Format for MacroArg {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        // TODO: try parse and format
+        fmt.noformat(self)
     }
 }

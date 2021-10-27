@@ -192,6 +192,14 @@ impl DefineAttr {
             MacroName::Variable(x) => x.token().value(),
         }
     }
+
+    pub fn variables(&self) -> Option<&[Variable]> {
+        self.variables.as_ref().map(|x| x.as_slice())
+    }
+
+    pub fn replacement(&self) -> &Replacement {
+        &self.replacement
+    }
 }
 
 impl Region for DefineAttr {

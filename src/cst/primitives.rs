@@ -108,12 +108,6 @@ impl Format for String {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Either<A, B> {
-    A(A),
-    B(B),
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

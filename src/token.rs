@@ -9,19 +9,19 @@ pub use erl_tokenize::{LexicalToken, Token};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TokenPosition {
-    token_index: Option<usize>,
+    token_index: usize, // TODO: delete
     text_position: Position,
 }
 
 impl TokenPosition {
-    pub fn new(token_index: Option<usize>, text_position: Position) -> Self {
+    pub fn new(token_index: usize, text_position: Position) -> Self {
         Self {
             token_index,
             text_position,
         }
     }
 
-    pub fn token_index(&self) -> Option<usize> {
+    pub fn token_index(&self) -> usize {
         self.token_index
     }
 
@@ -30,7 +30,7 @@ impl TokenPosition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenRegion {
     start: TokenPosition,
     end: TokenPosition,
