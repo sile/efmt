@@ -36,8 +36,7 @@ impl Parse for Attr {
         } else if let Some(x) = parser.try_parse() {
             Ok(Self::General(x))
         } else {
-            let (_, e) = parser.take_last_error().expect("unreachable");
-            // TODO: check position
+            let e = parser.take_last_error().expect("unreachable");
             Err(e)
         }
     }
@@ -269,34 +268,28 @@ mod tests {
     fn define_attr_works() {
         let testnames = ["novars-noreplacement", "novars", "vars"];
         for testname in testnames {
-            test_parse_and_format::<DefineAttr>(&format!(
-                "cst/attributes/define-attr-{}",
-                testname
-            ))
-            .expect(testname);
+            test_parse_and_format::<Attr>(&format!("cst/attributes/define-attr-{}", testname))
+                .expect(testname);
         }
     }
 
     #[test]
     fn include_attr_works() {
-        test_parse_and_format::<IncludeAttr>("cst/attributes/include-attr").expect("include");
+        test_parse_and_format::<Attr>("cst/attributes/include-attr").expect("include");
     }
 
     #[test]
     fn include_lib_attr_works() {
-        test_parse_and_format::<IncludeLibAttr>("cst/attributes/include-lib-attr")
-            .expect("include-lib");
+        test_parse_and_format::<Attr>("cst/attributes/include-lib-attr").expect("include-lib");
     }
 
     #[test]
-    fn general_attr_works() {
-        let testnames = ["module", "export"];
-        for testname in testnames {
-            test_parse_and_format::<GeneralAttr>(&format!(
-                "cst/attributes/general-attr-{}",
-                testname
-            ))
-            .expect(testname);
-        }
+    fn module_attr_works() {
+        test_parse_and_format::<Attr>("cst/attributes/module-attr").unwrap()
+    }
+
+    #[test]
+    fn export_attr_works() {
+        test_parse_and_format::<Attr>("cst/attributes/export-attr").unwrap()
     }
 }

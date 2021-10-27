@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{AtomToken, Region, StringToken, TokenRegion, VariableToken};
+use crate::token::{AtomToken, IntegerToken, Region, StringToken, TokenRegion, VariableToken};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -32,6 +32,41 @@ impl Parse for Atom {
 }
 
 impl Format for Atom {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "{}", self.token.text())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Integer {
+    token: IntegerToken,
+    region: TokenRegion,
+}
+
+impl Integer {
+    pub fn token(&self) -> &IntegerToken {
+        &self.token
+    }
+}
+
+impl Region for Integer {
+    fn region(&self) -> &TokenRegion {
+        &self.region
+    }
+}
+
+impl Parse for Integer {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let start = parser.current_position();
+        Ok(Self {
+            token: parser.parse()?,
+            region: parser.region(start),
+        })
+    }
+}
+
+impl Format for Integer {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "{}", self.token.text())?;
         Ok(())

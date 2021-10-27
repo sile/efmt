@@ -57,9 +57,7 @@ impl Parse for RootItem {
         if let Some(x) = parser.try_parse() {
             Ok(Self::Attr(x))
         } else {
-            let (_, e) = parser.take_last_error().expect("unreachable");
-            // TODO: check index
-            Err(e)
+            Err(parser.take_last_error().expect("unreachable"))
         }
     }
 }
