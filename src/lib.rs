@@ -1,10 +1,9 @@
 // pub mod commands;
-// pub mod cst;
-// pub mod expect;
+pub mod cst;
 // pub mod format;
 pub mod lex;
 pub mod parse;
-// pub mod pp;
+// pub mod pp; // TODO: delete
 pub mod token;
 pub mod tokenize;
 
