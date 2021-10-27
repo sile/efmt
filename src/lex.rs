@@ -1,4 +1,4 @@
-use crate::cst::attributes::{Attr, DefineAttr};
+use crate::cst::attributes::{Attr, Define};
 use crate::cst::macros::{MacroCall, MacroName};
 use crate::parse::Parser;
 use crate::token::{
@@ -30,7 +30,7 @@ pub struct Lexer {
     current: usize,
     comments: BTreeMap<TokenPosition, CommentToken>,
     macro_calls: BTreeMap<TokenPosition, MacroCall>,
-    macro_defines: BTreeMap<String, DefineAttr>, // TODO: HashMap
+    macro_defines: BTreeMap<String, Define>, // TODO: HashMap
     transaction_seqno: u64,
     transactions: HashSet<Transaction>,
 }

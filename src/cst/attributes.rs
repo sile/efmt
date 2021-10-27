@@ -8,10 +8,10 @@ use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub enum Attr {
-    Define(DefineAttr),
-    Include(IncludeAttr),
-    IncludeLib(IncludeLibAttr),
-    General(GeneralAttr),
+    Define(Define),
+    Include(Include),
+    IncludeLib(IncludeLib),
+    General(General),
 }
 
 impl Region for Attr {
@@ -54,19 +54,19 @@ impl Format for Attr {
 }
 
 #[derive(Debug, Clone)]
-pub struct GeneralAttr {
+pub struct General {
     name: Atom,
     items: Option<Vec<Expr>>,
     region: TokenRegion,
 }
 
-impl Region for GeneralAttr {
+impl Region for General {
     fn region(&self) -> &TokenRegion {
         &self.region
     }
 }
 
-impl Parse for GeneralAttr {
+impl Parse for General {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
         parser.expect(Symbol::Hyphen)?;
@@ -88,7 +88,7 @@ impl Parse for GeneralAttr {
     }
 }
 
-impl Format for GeneralAttr {
+impl Format for General {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "-")?;
         fmt.format(&self.name)?;
@@ -103,18 +103,18 @@ impl Format for GeneralAttr {
 }
 
 #[derive(Debug, Clone)]
-pub struct IncludeAttr {
+pub struct Include {
     file: String,
     region: TokenRegion,
 }
 
-impl Region for IncludeAttr {
+impl Region for Include {
     fn region(&self) -> &TokenRegion {
         &self.region
     }
 }
 
-impl Parse for IncludeAttr {
+impl Parse for Include {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
         parser.expect(Symbol::Hyphen)?;
@@ -130,7 +130,7 @@ impl Parse for IncludeAttr {
     }
 }
 
-impl Format for IncludeAttr {
+impl Format for Include {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "-include(")?;
         fmt.format_child(&self.file)?;
@@ -140,18 +140,18 @@ impl Format for IncludeAttr {
 }
 
 #[derive(Debug, Clone)]
-pub struct IncludeLibAttr {
+pub struct IncludeLib {
     file: String,
     region: TokenRegion,
 }
 
-impl Region for IncludeLibAttr {
+impl Region for IncludeLib {
     fn region(&self) -> &TokenRegion {
         &self.region
     }
 }
 
-impl Parse for IncludeLibAttr {
+impl Parse for IncludeLib {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
         parser.expect(Symbol::Hyphen)?;
@@ -167,7 +167,7 @@ impl Parse for IncludeLibAttr {
     }
 }
 
-impl Format for IncludeLibAttr {
+impl Format for IncludeLib {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "-include_lib(")?;
         fmt.format_child(&self.file)?;
@@ -177,14 +177,14 @@ impl Format for IncludeLibAttr {
 }
 
 #[derive(Debug, Clone)]
-pub struct DefineAttr {
+pub struct Define {
     macro_name: MacroName,
     variables: Option<Vec<Variable>>,
     replacement: Replacement,
     region: TokenRegion,
 }
 
-impl DefineAttr {
+impl Define {
     pub fn macro_name(&self) -> &str {
         match &self.macro_name {
             MacroName::Atom(x) => x.token().value(),
@@ -201,13 +201,13 @@ impl DefineAttr {
     }
 }
 
-impl Region for DefineAttr {
+impl Region for Define {
     fn region(&self) -> &TokenRegion {
         &self.region
     }
 }
 
-impl Parse for DefineAttr {
+impl Parse for Define {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
         parser.expect(Symbol::Hyphen)?;
@@ -241,7 +241,7 @@ impl Parse for DefineAttr {
     }
 }
 
-impl Format for DefineAttr {
+impl Format for Define {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "-define(")?;
         fmt.format(&self.macro_name)?;
@@ -265,7 +265,7 @@ mod tests {
     use crate::tests::test_parse_and_format;
 
     #[test]
-    fn define_attr_works() {
+    fn define_works() {
         let testnames = ["novars-noreplacement", "novars", "vars"];
         for testname in testnames {
             test_parse_and_format::<Attr>(&format!("cst/attributes/define-attr-{}", testname))
@@ -274,22 +274,22 @@ mod tests {
     }
 
     #[test]
-    fn include_attr_works() {
+    fn include_works() {
         test_parse_and_format::<Attr>("cst/attributes/include-attr").expect("include");
     }
 
     #[test]
-    fn include_lib_attr_works() {
+    fn include_lib_works() {
         test_parse_and_format::<Attr>("cst/attributes/include-lib-attr").expect("include-lib");
     }
 
     #[test]
-    fn module_attr_works() {
+    fn module_works() {
         test_parse_and_format::<Attr>("cst/attributes/module-attr").unwrap()
     }
 
     #[test]
-    fn export_attr_works() {
+    fn export_works() {
         test_parse_and_format::<Attr>("cst/attributes/export-attr").unwrap()
     }
 }

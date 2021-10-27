@@ -1,23 +1,17 @@
-use crate::cst::primitives::{Atom, Integer, String, Variable};
+use crate::cst::primitives::{Atom, Integer, NameAndArity, String, Variable};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
 use crate::token::{Region, Symbol, TokenRegion};
 use std::io::Write;
 
-pub type AtomExpr = Atom;
-pub type VariableExpr = Variable;
-pub type StringExpr = String;
-pub type IntegerExpr = Integer;
-
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Atom(AtomExpr),
-    Variable(VariableExpr),
-    String(StringExpr),
-    Integer(IntegerExpr),
-    List(Box<ListExpr>),
-    // For attributes such as `-export`.
-    NameAndArity(NameAndArity<AtomExpr, IntegerExpr>),
+    Atom(Atom),
+    Variable(Variable),
+    String(String),
+    Integer(Integer),
+    List(Box<List>),
+    NameAndArity(NameAndArity<Atom, Integer>), // For attributes such as `-export`.
 }
 
 impl Region for Expr {
@@ -68,62 +62,18 @@ impl Format for Expr {
 }
 
 #[derive(Debug, Clone)]
-pub struct NameAndArity<Name, Arity> {
-    name: Name,
-    arity: Arity,
-    region: TokenRegion,
-}
-
-impl<Name, Arity> Region for NameAndArity<Name, Arity> {
-    fn region(&self) -> &TokenRegion {
-        &self.region
-    }
-}
-
-impl<Name, Arity> Parse for NameAndArity<Name, Arity>
-where
-    Name: Parse,
-    Arity: Parse,
-{
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let name = parser.parse()?;
-        parser.expect(Symbol::Slash)?;
-        let arity = parser.parse()?;
-        Ok(Self {
-            name,
-            arity,
-            region: parser.region(start),
-        })
-    }
-}
-
-impl<Name, Arity> Format for NameAndArity<Name, Arity>
-where
-    Name: Format,
-    Arity: Format,
-{
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.name)?;
-        write!(fmt, "/")?;
-        fmt.format(&self.arity)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ListExpr {
+pub struct List {
     items: Vec<Expr>,
     region: TokenRegion,
 }
 
-impl Region for ListExpr {
+impl Region for List {
     fn region(&self) -> &TokenRegion {
         &self.region
     }
 }
 
-impl Parse for ListExpr {
+impl Parse for List {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
         parser.expect(Symbol::OpenSquare)?;
@@ -136,7 +86,7 @@ impl Parse for ListExpr {
     }
 }
 
-impl Format for ListExpr {
+impl Format for List {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "[")?;
         fmt.format_children(&self.items, ",")?;

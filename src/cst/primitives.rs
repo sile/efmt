@@ -1,6 +1,8 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{AtomToken, IntegerToken, Region, StringToken, TokenRegion, VariableToken};
+use crate::token::{
+    AtomToken, IntegerToken, Region, StringToken, Symbol, TokenRegion, VariableToken,
+};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -139,6 +141,50 @@ impl Parse for String {
 impl Format for String {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         write!(fmt, "{}", self.token.text())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NameAndArity<Name, Arity> {
+    name: Name,
+    arity: Arity,
+    region: TokenRegion,
+}
+
+impl<Name, Arity> Region for NameAndArity<Name, Arity> {
+    fn region(&self) -> &TokenRegion {
+        &self.region
+    }
+}
+
+impl<Name, Arity> Parse for NameAndArity<Name, Arity>
+where
+    Name: Parse,
+    Arity: Parse,
+{
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let start = parser.current_position();
+        let name = parser.parse()?;
+        parser.expect(Symbol::Slash)?;
+        let arity = parser.parse()?;
+        Ok(Self {
+            name,
+            arity,
+            region: parser.region(start),
+        })
+    }
+}
+
+impl<Name, Arity> Format for NameAndArity<Name, Arity>
+where
+    Name: Format,
+    Arity: Format,
+{
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format(&self.name)?;
+        write!(fmt, "/")?;
+        fmt.format(&self.arity)?;
         Ok(())
     }
 }
