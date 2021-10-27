@@ -1,3 +1,4 @@
+use crate::parse::Parser;
 use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenPosition, TokenRegion};
 use crate::tokenize::{self, Tokenizer};
 use erl_tokenize::PositionRange as _;
@@ -108,6 +109,7 @@ impl Lexer {
         }
 
         self.current -= 2;
+        let _parser = Parser::new(self);
         todo!();
     }
 

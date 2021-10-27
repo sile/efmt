@@ -3,7 +3,7 @@
 // pub mod expect;
 // pub mod format;
 pub mod lex;
-// pub mod parse;
+pub mod parse;
 // pub mod pp;
 pub mod token;
 pub mod tokenize;
