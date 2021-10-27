@@ -10,16 +10,9 @@ pub enum Error {
     UnexpectedEof,
 
     #[error("expected {expected}, but got {token:?}")]
-    UnexpectedTokenValue {
-        token: LexicalToken,
-        expected: String,
-    },
-
-    // TODO: delete?
-    #[error("expected {expected}, but got {token:?}")]
     UnexpectedToken {
         token: LexicalToken,
-        expected: &'static str,
+        expected: String,
     },
 
     #[error(transparent)]
@@ -40,6 +33,10 @@ impl<'a> Parser<'a> {
             lexer,
             last_error: None,
         }
+    }
+
+    pub fn is_eof(&mut self) -> Result<bool> {
+        Ok(self.lexer.is_eof()?)
     }
 
     pub fn current_position(&self) -> TokenPosition {
@@ -162,7 +159,7 @@ impl Parse for AtomToken {
             LexicalToken::Atom(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
                 token,
-                expected: "AtomToken",
+                expected: "AtomToken".to_owned(),
             }),
         }
     }
@@ -176,7 +173,7 @@ impl Expect for &str {
         if token.value() == self {
             Ok(token)
         } else {
-            Err(Error::UnexpectedTokenValue {
+            Err(Error::UnexpectedToken {
                 token: token.into(),
                 expected: format!("{:?}", self),
             })
@@ -190,7 +187,7 @@ impl Parse for SymbolToken {
             LexicalToken::Symbol(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
                 token,
-                expected: "SymbolToken",
+                expected: "SymbolToken".to_owned(),
             }),
         }
     }
@@ -204,7 +201,7 @@ impl Expect for Symbol {
         if token.value() == self {
             Ok(token)
         } else {
-            Err(Error::UnexpectedTokenValue {
+            Err(Error::UnexpectedToken {
                 token: token.into(),
                 expected: format!("{:?}", self),
             })
@@ -218,7 +215,7 @@ impl Parse for VariableToken {
             LexicalToken::Variable(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
                 token,
-                expected: "VariableToken",
+                expected: "VariableToken".to_owned(),
             }),
         }
     }
@@ -230,7 +227,7 @@ impl Parse for StringToken {
             LexicalToken::String(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
                 token,
-                expected: "StringToken",
+                expected: "StringToken".to_owned(),
             }),
         }
     }

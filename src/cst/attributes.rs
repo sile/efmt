@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn general_attr_works() {
-        let testnames = ["module"];
+        let testnames = ["module", "export"];
         for testname in testnames {
             test_parse_and_format::<GeneralAttr>(&format!(
                 "cst/attributes/general-attr-{}",

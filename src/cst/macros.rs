@@ -38,7 +38,7 @@ impl Parse for MacroName {
             let token = parser.read_token()?;
             Err(parse::Error::UnexpectedToken {
                 token,
-                expected: "AtomToken or VariableToken",
+                expected: "AtomToken or VariableToken".to_owned(),
             })
         }
     }
@@ -84,7 +84,7 @@ impl Parse for Replacement {
                 LexicalToken::Symbol(x) if x.value() == Symbol::Dot => {
                     return Err(parse::Error::UnexpectedToken {
                         token: token.clone(),
-                        expected: "').'",
+                        expected: "').'".to_owned(),
                     });
                 }
                 _ => {}

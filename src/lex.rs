@@ -58,6 +58,17 @@ impl Lexer {
         }
     }
 
+    pub fn is_eof(&mut self) -> Result<bool> {
+        if self.current < self.tokens.len() {
+            Ok(false)
+        } else if self.read_token()?.is_some() {
+            self.current -= 1;
+            Ok(false)
+        } else {
+            Ok(true)
+        }
+    }
+
     pub fn read_token(&mut self) -> Result<Option<LexicalToken>> {
         if let Some(token) = self.tokens.get(self.current).cloned() {
             self.current += 1;
