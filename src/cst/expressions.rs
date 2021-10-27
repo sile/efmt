@@ -1,6 +1,7 @@
 use crate::cst::common::{Atom, String, Variable};
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Parse, TokenReader};
+use crate::lex::Lexer;
+use crate::parse::{self, Parse};
 use crate::token::{Region, TokenRegion};
 use std::io::Write;
 
@@ -26,15 +27,15 @@ impl Region for Expr {
 }
 
 impl Parse for Expr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        if let Some(x) = Parse::try_parse(tokens) {
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Atom(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Variable(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::String(x))
         } else {
-            Err(tokens.take_last_error().expect("unreachable"))
+            Err(lexer.take_last_error().expect("unreachable").into())
         }
     }
 }

@@ -1,6 +1,6 @@
-use crate::pp::PreprocessedText;
+//use crate::pp::PreprocessedText;
 use crate::token::{Region, TokenIndex, TokenRegion};
-use erl_tokenize::PositionRange;
+//use erl_tokenize::PositionRange;
 use std::io::Write;
 
 #[derive(Debug, thiserror::Error)]
@@ -20,6 +20,8 @@ pub trait Format: Region {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
 }
 
+pub type PreprocessedText = (); // TODO
+
 #[derive(Debug)]
 pub struct Formatter<W> {
     writer: W,
@@ -32,14 +34,15 @@ impl<W: Write> Formatter<W> {
     }
 
     pub fn format(&mut self, item: &impl Format) -> Result<()> {
-        if !self.text.comments.is_empty() {
-            todo!();
-        }
-        if !self.text.macro_calls.is_empty() {
-            todo!()
-        }
-        item.format(self)?;
-        Ok(())
+        // if !self.text.comments.is_empty() {
+        //     todo!();
+        // }
+        // if !self.text.macro_calls.is_empty() {
+        //     todo!()
+        // }
+        // item.format(self)?;
+        // Ok(())
+        todo!()
     }
 
     pub fn format_child(&mut self, child: &impl Format) -> Result<()> {
@@ -59,19 +62,25 @@ impl<W: Write> Formatter<W> {
     }
 
     pub fn write_original_text(&mut self, region: TokenRegion) -> Result<()> {
-        if region.is_empty() {
-            return Ok(());
-        }
+        // // TODO: handle macros
+        // if region.is_empty() {
+        //     return Ok(());
+        // }
 
-        let start = region.start();
-        let end = region.end();
-        if self.text.tokens.len() < end.get() {
-            return Err(Error::TokenIndexOutOfRange { index: end });
-        }
-        let start_offset = self.text.tokens[start.get()].start_position().offset();
-        let end_offset = self.text.tokens[end.get() - 1].end_position().offset();
-        write!(self.writer, "{}", &self.text.text[start_offset..end_offset])?;
-        Ok(())
+        // let start = region.start();
+        // let end = region.end();
+        // if self.text.expanded_tokens.len() < end.get() {
+        //     return Err(Error::TokenIndexOutOfRange { index: end });
+        // }
+        // let start_offset = self.text.expanded_tokens[start.get()]
+        //     .start_position()
+        //     .offset();
+        // let end_offset = self.text.expanded_tokens[end.get() - 1]
+        //     .end_position()
+        //     .offset();
+        // write!(self.writer, "{}", &self.text.text[start_offset..end_offset])?;
+        // Ok(())
+        todo!()
     }
 }
 

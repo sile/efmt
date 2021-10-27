@@ -1,5 +1,6 @@
 use crate::cst::attributes::{Attr, DefineAttr};
-use crate::parse::{Parse, TokenReader};
+use crate::lex::Lexer;
+use crate::parse::Parse;
 use crate::pp::{MacroCall, Result};
 use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenIndex, TokenRegion};
 use erl_tokenize::{Position, PositionRange, Tokenizer};
@@ -7,110 +8,108 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug)]
 pub struct Preprocessor {
-    tokenizer: Tokenizer<String>,
+    token_reader: TokenReader,
     macro_defines: HashMap<String, DefineAttr>,
     preprocessed: PreprocessedText,
 }
 
 impl Preprocessor {
-    pub fn new(tokenizer: Tokenizer<String>) -> Self {
+    pub fn new(text: String) -> Self {
         let preprocessed = PreprocessedText {
-            text: tokenizer.text().to_owned(),
-            tokens: Vec::new(),
+            text,
+            original_tokens: Vec::new(),
+            expanded_tokens: Vec::new(),
             comments: BTreeMap::new(),
             macro_calls: BTreeMap::new(),
         };
         Self {
-            tokenizer,
+            token_reader: TokenReader::new(Vec::new()),
             macro_defines: HashMap::new(),
             preprocessed,
         }
     }
 
+    fn initialize_token_reader(&mut self) -> Result<TokenReader> {
+        let mut tokenizer = Tokenizer::new(&self.preprocessed.text);
+        let mut tokens = Vec::<LexicalToken>::new();
+        while let Some(token) = tokenizer.next().transpose()? {
+            match token {
+                Token::Whitespace(_) => {}
+                Token::Comment(x) => {
+                    self.preprocessed.comments.insert(x.start_position(), x);
+                }
+                Token::Symbol(x) => tokens.push(x.into()),
+                Token::Atom(x) => tokens.push(x.into()),
+                Token::Char(x) => tokens.push(x.into()),
+                Token::Float(x) => tokens.push(x.into()),
+                Token::Integer(x) => tokens.push(x.into()),
+                Token::Keyword(x) => tokens.push(x.into()),
+                Token::String(x) => tokens.push(x.into()),
+                Token::Variable(x) => tokens.push(x.into()),
+            }
+        }
+        Ok(TokenReader::new(tokens))
+    }
+
     pub fn preprocess(mut self) -> Result<PreprocessedText> {
-        while let Some(token) = self.next_lexical_token()? {
-            if let LexicalToken::Symbol(x) = &token {
+        self.token_reader = self.initialize_token_reader()?;
+
+        while !self.token_reader.is_eof() {
+            let start = self.token_reader.current_index();
+            let token = self.token_reader.read_token()?;
+            if let LexicalToken::Symbol(x) = token {
                 if x.value() == Symbol::Question {
-                    let (tokens, macro_call) =
-                        self.expand_macro(TokenIndex::new(self.preprocessed.tokens.len()))?;
+                    let (tokens, macro_call) = self
+                        .expand_macro(TokenIndex::new(self.preprocessed.expanded_tokens.len()))?;
                     let token_range = TokenRegion::new(
-                        TokenIndex::new(self.preprocessed.tokens.len()),
-                        TokenIndex::new(self.preprocessed.tokens.len() + tokens.len()),
+                        TokenIndex::new(self.preprocessed.expanded_tokens.len()),
+                        TokenIndex::new(self.preprocessed.expanded_tokens.len() + tokens.len()),
                     )
                     .expect("unreachable");
-                    self.preprocessed.tokens.extend(tokens);
+                    self.preprocessed.expanded_tokens.extend(tokens);
                     self.preprocessed
                         .macro_calls
                         .insert(token_range.start(), macro_call);
                     continue;
                 } else if x.value() == Symbol::Hyphen {
-                    self.try_handle_directives(x.clone().into())?;
-                    self.tokenizer.set_position(x.end_position());
+                    self.try_handle_directives()?;
                 }
             }
-            self.preprocessed.tokens.push(token);
+            let region = self.token_reader.region(start)?;
+            self.preprocessed
+                .expanded_tokens
+                .extend(self.token_reader.get_tokens_by_region(region));
         }
+
+        self.preprocessed.original_tokens = self.token_reader.into_tokens();
         Ok(self.preprocessed)
     }
 
-    fn try_handle_directives(&mut self, hyphen: LexicalToken) -> Result<()> {
-        let mut tokens = vec![hyphen];
-        if let Some(LexicalToken::Atom(token)) = self.next_lexical_token()? {
-            if matches!(token.value(), "define" | "include" | "include_lib") {
-                tokens.push(token.into());
-            } else {
+    fn try_handle_directives(&mut self) -> Result<()> {
+        if let Ok(LexicalToken::Atom(token)) = self.token_reader.read_token() {
+            if !matches!(token.value(), "define" | "include" | "include_lib") {
                 return Ok(());
             }
         }
 
-        while let Some(token) = self.next_lexical_token()? {
-            tokens.push(token.clone());
-            if token
-                .as_symbol_token()
-                .map_or(false, |x| x.value() == Symbol::Dot)
-            {
-                let mut tokens = TokenReader::new(tokens);
-                let attr = Attr::parse(&mut tokens)?;
-                match attr {
-                    Attr::Define(x) => {
-                        self.macro_defines.insert(x.macro_name().to_owned(), x);
-                    }
-                    Attr::Include(_x) => {
-                        // TODO
-                    }
-                    Attr::IncludeLib(_x) => {
-                        // TODO
-                    }
-                    Attr::General(_) => {}
-                }
-                break;
+        self.token_reader.unread_tokens(2);
+        let attr = Attr::parse(&mut self.token_reader)?;
+        match attr {
+            Attr::Define(x) => {
+                self.macro_defines.insert(x.macro_name().to_owned(), x);
+            }
+            Attr::Include(_x) => {
+                // TODO
+            }
+            Attr::IncludeLib(_x) => {
+                // TODO
+            }
+            Attr::General(_) => {
+                unreachable!()
             }
         }
 
         Ok(())
-    }
-
-    fn next_lexical_token(&mut self) -> Result<Option<LexicalToken>> {
-        while let Some(token) = self.tokenizer.next().transpose()? {
-            match token {
-                Token::Whitespace(_) => {}
-                Token::Comment(x) => {
-                    // TODO: handle include
-                    //if self.preprocessed.file.as_ref() == x.start_position().filepath() {
-                    self.preprocessed.comments.insert(x.start_position(), x);
-                    //}
-                }
-                Token::Symbol(x) => return Ok(Some(x.into())),
-                Token::Atom(x) => return Ok(Some(x.into())),
-                Token::Char(x) => return Ok(Some(x.into())),
-                Token::Float(x) => return Ok(Some(x.into())),
-                Token::Integer(x) => return Ok(Some(x.into())),
-                Token::Keyword(x) => return Ok(Some(x.into())),
-                Token::String(x) => return Ok(Some(x.into())),
-                Token::Variable(x) => return Ok(Some(x.into())),
-            }
-        }
-        Ok(None)
     }
 
     fn expand_macro(&mut self, _start: TokenIndex) -> Result<(Vec<LexicalToken>, MacroCall)> {
@@ -240,8 +239,10 @@ impl Preprocessor {
 
 #[derive(Debug, Clone)]
 pub struct PreprocessedText {
+    // TODO: private
     pub text: String,
-    pub tokens: Vec<LexicalToken>,
+    pub original_tokens: Vec<LexicalToken>,
+    pub expanded_tokens: Vec<LexicalToken>,
     pub comments: BTreeMap<Position, CommentToken>, // s/Position/Offset/
     pub macro_calls: BTreeMap<TokenIndex, MacroCall>,
 }
@@ -260,7 +261,7 @@ impl PreprocessedText {
                 return m.start_position.clone();
             }
         }
-        self.tokens[i.get()].start_position()
+        self.expanded_tokens[i.get()].start_position()
     }
 }
 
@@ -268,7 +269,7 @@ impl std::fmt::Display for PreprocessedText {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut last_line = 1;
         let mut first_column = true;
-        for (i, token) in self.tokens.iter().enumerate() {
+        for (i, token) in self.expanded_tokens.iter().enumerate() {
             let position = self.actual_position(TokenIndex::new(i));
             if last_line != position.line() {
                 writeln!(f)?;
@@ -296,16 +297,15 @@ impl std::fmt::Display for PreprocessedText {
 mod tests {
     use super::*;
     use anyhow::Context;
-    use erl_tokenize::Tokenizer;
 
     #[test]
     fn preprocess_works() -> anyhow::Result<()> {
-        let testnames = ["nomacro"];
+        let testnames = ["nomacro", "macro"];
         for testname in testnames {
             let (before_path, before, after_path, after_expected) =
                 crate::tests::load_testdata(&format!("pp/{}", testname))
                     .with_context(|| format!("[{}] cannot load testdata", testname))?;
-            let pp = Preprocessor::new(Tokenizer::new(before));
+            let pp = Preprocessor::new(before);
             let preprocessed = pp
                 .preprocess()
                 .with_context(|| format!("[{}] cannot preprocess", testname))?;

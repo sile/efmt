@@ -1,5 +1,6 @@
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Parse, TokenReader};
+use crate::lex::Lexer;
+use crate::parse::{self, Parse};
 use crate::token::{AtomToken, Region, StringToken, TokenRegion, VariableToken};
 use std::io::Write;
 
@@ -22,11 +23,11 @@ impl Region for Atom {
 }
 
 impl Parse for Atom {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
         Ok(Self {
-            token: Parse::parse(tokens)?,
-            region: tokens.region(start)?,
+            token: Parse::parse(lexer)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -57,11 +58,11 @@ impl Region for Variable {
 }
 
 impl Parse for Variable {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
         Ok(Self {
-            token: Parse::parse(tokens)?,
-            region: tokens.region(start)?,
+            token: Parse::parse(lexer)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -92,11 +93,11 @@ impl Region for String {
 }
 
 impl Parse for String {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
         Ok(Self {
-            token: Parse::parse(tokens)?,
-            region: tokens.region(start)?,
+            token: Parse::parse(lexer)?,
+            region: lexer.region(start)?,
         })
     }
 }

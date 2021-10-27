@@ -2,7 +2,8 @@ use crate::cst::common::{Atom, String, Variable};
 use crate::cst::expressions::Expr;
 use crate::cst::macros::MacroName;
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Expect, Parse, TokenReader};
+use crate::lex::Lexer;
+use crate::parse::{self, Expect, Parse};
 use crate::token::{LexicalToken, Region, Symbol, TokenRegion};
 use std::io::Write;
 
@@ -26,17 +27,17 @@ impl Region for Attr {
 }
 
 impl Parse for Attr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        if let Some(x) = Parse::try_parse(tokens) {
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Define(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Include(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::IncludeLib(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::General(x))
         } else {
-            Err(tokens.take_last_error().expect("unreachable"))
+            Err(lexer.take_last_error().expect("unreachable").into())
         }
     }
 }
@@ -66,23 +67,23 @@ impl Region for GeneralAttr {
 }
 
 impl Parse for GeneralAttr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
-        let _ = Symbol::Hyphen.expect(tokens)?;
-        let name = Atom::parse(tokens)?;
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
+        let _ = Symbol::Hyphen.expect(lexer)?;
+        let name = Atom::parse(lexer)?;
 
-        let items = if Symbol::OpenParen.try_expect(tokens).is_some() {
-            let items = Expr::parse_items(tokens, Symbol::Comma)?;
-            let _ = Symbol::CloseParen.expect(tokens)?;
+        let items = if Symbol::OpenParen.try_expect(lexer).is_some() {
+            let items = Expr::parse_items(lexer, Symbol::Comma)?;
+            let _ = Symbol::CloseParen.expect(lexer)?;
             Some(items)
         } else {
             None
         };
-        let _ = Symbol::Dot.expect(tokens)?;
+        let _ = Symbol::Dot.expect(lexer)?;
         Ok(Self {
             name,
             items,
-            region: tokens.region(start)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -114,17 +115,17 @@ impl Region for IncludeAttr {
 }
 
 impl Parse for IncludeAttr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
-        let _ = Symbol::Hyphen.expect(tokens)?;
-        let _ = "include".expect(tokens)?;
-        let _ = Symbol::OpenParen.expect(tokens)?;
-        let file = String::parse(tokens)?;
-        let _ = Symbol::CloseParen.expect(tokens)?;
-        let _ = Symbol::Dot.expect(tokens)?;
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
+        let _ = Symbol::Hyphen.expect(lexer)?;
+        let _ = "include".expect(lexer)?;
+        let _ = Symbol::OpenParen.expect(lexer)?;
+        let file = String::parse(lexer)?;
+        let _ = Symbol::CloseParen.expect(lexer)?;
+        let _ = Symbol::Dot.expect(lexer)?;
         Ok(Self {
             file,
-            region: tokens.region(start)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -151,17 +152,17 @@ impl Region for IncludeLibAttr {
 }
 
 impl Parse for IncludeLibAttr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
-        let _ = Symbol::Hyphen.expect(tokens)?;
-        let _ = "include_lib".expect(tokens)?;
-        let _ = Symbol::OpenParen.expect(tokens)?;
-        let file = String::parse(tokens)?;
-        let _ = Symbol::CloseParen.expect(tokens)?;
-        let _ = Symbol::Dot.expect(tokens)?;
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
+        let _ = Symbol::Hyphen.expect(lexer)?;
+        let _ = "include_lib".expect(lexer)?;
+        let _ = Symbol::OpenParen.expect(lexer)?;
+        let file = String::parse(lexer)?;
+        let _ = Symbol::CloseParen.expect(lexer)?;
+        let _ = Symbol::Dot.expect(lexer)?;
         Ok(Self {
             file,
-            region: tokens.region(start)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -200,32 +201,32 @@ impl Region for DefineAttr {
 }
 
 impl Parse for DefineAttr {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        let start = tokens.current_index();
-        let _ = Symbol::Hyphen.expect(tokens)?;
-        let _ = "define".expect(tokens)?;
-        let _ = Symbol::OpenParen.expect(tokens)?;
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start = lexer.current_index();
+        let _ = Symbol::Hyphen.expect(lexer)?;
+        let _ = "define".expect(lexer)?;
+        let _ = Symbol::OpenParen.expect(lexer)?;
 
         // Name.
-        let macro_name = Parse::parse(tokens)?;
+        let macro_name = Parse::parse(lexer)?;
 
         // Variables.
-        let variables = if Symbol::OpenParen.try_expect(tokens).is_some() {
-            let variables = Variable::parse_items(tokens, Symbol::Comma)?;
-            let _ = Symbol::CloseParen.expect(tokens)?;
+        let variables = if Symbol::OpenParen.try_expect(lexer).is_some() {
+            let variables = Variable::parse_items(lexer, Symbol::Comma)?;
+            let _ = Symbol::CloseParen.expect(lexer)?;
             Some(variables)
         } else {
             None
         };
-        let _ = Symbol::Comma.expect(tokens)?;
+        let _ = Symbol::Comma.expect(lexer)?;
 
         // Replacement.
-        let replacement_start = tokens.current_index();
-        let mut replacement_region = tokens.region(replacement_start)?;
+        let replacement_start = lexer.current_index();
+        let mut replacement_region = lexer.region(replacement_start)?;
         let mut replacement = Vec::new();
         let mut level = 0;
         loop {
-            let token = tokens.read_token()?;
+            let token = lexer.read_token()?;
             match &token {
                 LexicalToken::Symbol(x) if x.value() == Symbol::OpenParen => {
                     level += 1;
@@ -239,16 +240,16 @@ impl Parse for DefineAttr {
                 _ => {}
             }
             replacement.push(token);
-            replacement_region = tokens.region(replacement_start)?;
+            replacement_region = lexer.region(replacement_start)?;
         }
 
-        let _ = Symbol::Dot.expect(tokens)?;
+        let _ = Symbol::Dot.expect(lexer)?;
         Ok(Self {
             macro_name,
             variables,
             replacement,
             replacement_region,
-            region: tokens.region(start)?,
+            region: lexer.region(start)?,
         })
     }
 }
@@ -266,12 +267,14 @@ impl Format for DefineAttr {
         write!(fmt, ",")?;
 
         if !self.replacement.is_empty() {
-            let mut tokens = TokenReader::new(self.replacement.clone());
-            if let Some(expr) = Expr::try_parse(&mut tokens) {
-                fmt.format_child(&expr)?;
-            } else {
-                fmt.write_original_text(self.replacement_region)?;
-            }
+            // TODO
+            // let mut lexer = TokenReader::new(self.replacement.clone());
+            // if let Some(expr) = Expr::try_parse(&mut lexer) {
+            //     fmt.format_child(&expr)?;
+            // } else {
+            //     fmt.write_original_text(self.replacement_region)?;
+            // }
+            fmt.write_original_text(self.replacement_region)?;
         }
         write!(fmt, ").")?;
         Ok(())

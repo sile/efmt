@@ -1,6 +1,7 @@
 use crate::cst::common::{Atom, Variable};
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Parse, TokenReader};
+use crate::lex::Lexer;
+use crate::parse::{self, Parse};
 use crate::token::{Region, TokenRegion};
 use std::io::Write;
 
@@ -20,14 +21,14 @@ impl Region for MacroName {
 }
 
 impl Parse for MacroName {
-    fn parse(tokens: &mut TokenReader) -> parse::Result<Self> {
-        if let Some(x) = Parse::try_parse(tokens) {
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Atom(x))
-        } else if let Some(x) = Parse::try_parse(tokens) {
+        } else if let Some(x) = Parse::try_parse(lexer) {
             Ok(Self::Variable(x))
         } else {
-            let index = tokens.current_index();
-            let token = tokens.read_token()?;
+            let index = lexer.current_index();
+            let token = lexer.read_token()?;
             Err(parse::Error::UnexpectedToken {
                 index,
                 token,

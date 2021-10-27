@@ -1,23 +1,11 @@
-pub mod cst;
-//pub mod ast;
-pub mod commands;
-pub mod expect;
-//pub mod formatter;
-//pub mod lexer;
-//pub mod parser;
-pub mod format;
-pub mod parse;
-pub mod pp;
-pub mod token;
-
-mod error;
-
-pub use self::error::Error;
-pub use self::expect::Expect;
-// pub use self::lexer::{Lexer, Region};
-// pub use self::parser::{Parse, ResumeParse};
-
-pub type Result<T> = std::result::Result<T, Error>;
+// pub mod commands;
+// pub mod cst;
+// pub mod expect;
+// pub mod format;
+// pub mod lex;
+// pub mod parse;
+// pub mod pp;
+// pub mod token;
 
 #[cfg(test)]
 mod tests {
@@ -25,19 +13,17 @@ mod tests {
     use crate::parse::{Parse, TokenReader};
     use crate::pp::Preprocessor;
     use anyhow::Context;
-    use erl_tokenize::Tokenizer;
 
     pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
         let (text_path, text, expected_path, expected) =
             load_testdata(testname).with_context(|| "cannot load testdata")?;
-        let tokenizer = Tokenizer::new(text);
-        let pp = Preprocessor::new(tokenizer);
+        let pp = Preprocessor::new(text);
         let preprocessed = pp.preprocess().with_context(|| "cannot preprocess")?;
 
         let mut buf = Vec::new();
         {
             let mut fmt = Formatter::new(&mut buf, preprocessed.clone());
-            let cst = T::parse(&mut TokenReader::new(preprocessed.tokens))
+            let cst = T::parse(&mut TokenReader::new(preprocessed.expanded_tokens))
                 .with_context(|| "cannot parse")?;
             fmt.format(&cst).with_context(|| "cannot format")?;
         }

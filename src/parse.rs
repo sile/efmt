@@ -1,10 +1,11 @@
+use crate::lex::{self, Lexer};
 use crate::token::{
-    AtomToken, LexicalToken, Region, StringToken, Symbol, SymbolToken, TokenIndex, TokenRegion,
-    VariableToken,
+    AtomToken, LexicalToken, Region, StringToken, Symbol, SymbolToken, TokenIndex, VariableToken,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    // TODO: delete
     #[error("unexpected EOF")]
     UnexpectedEof,
 
@@ -24,10 +25,14 @@ pub enum Error {
 
     #[error("invalid token region: start={start:?}, end={end:?}")]
     InvaildRegion { start: TokenIndex, end: TokenIndex },
+
+    #[error(transparent)]
+    LexError(#[from] lex::Error),
 }
 
 impl Error {
     fn is_high_priority_than(&self, other: &Self) -> bool {
+        // TODO: rewrite
         fn token_index(e: &Error) -> TokenIndex {
             match e {
                 Error::UnexpectedTokenValue { index, .. } => *index,
@@ -47,91 +52,46 @@ impl Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct TokenReader {
-    tokens: Vec<LexicalToken>,
-    current: TokenIndex,
+pub struct Parser {
+    lexer: Lexer,
     last_error: Option<Error>,
 }
 
-impl TokenReader {
-    pub fn new(tokens: Vec<LexicalToken>) -> Self {
+impl Parser {
+    pub fn new(lexer: Lexer) -> Self {
         Self {
-            tokens,
-            current: TokenIndex::new(0),
+            lexer,
             last_error: None,
         }
-    }
-
-    pub fn with_transaction<F, T>(&mut self, f: F) -> Option<T>
-    where
-        F: FnOnce(&mut Self) -> Result<T>,
-    {
-        let index = self.current;
-        match f(self) {
-            Err(e) => {
-                self.current = index;
-                if self
-                    .last_error
-                    .as_ref()
-                    .map_or(true, |last| e.is_high_priority_than(last))
-                {
-                    self.last_error = Some(e);
-                }
-                None
-            }
-            Ok(v) => Some(v),
-        }
-    }
-
-    pub fn take_last_error(&mut self) -> Option<Error> {
-        self.last_error.take()
-    }
-
-    pub fn read_token(&mut self) -> Result<LexicalToken> {
-        if let Some(token) = self.tokens.get(self.current.get()).cloned() {
-            self.current = TokenIndex::new(self.current.get() + 1);
-            Ok(token)
-        } else {
-            Err(Error::UnexpectedEof)
-        }
-    }
-
-    pub fn current_index(&self) -> TokenIndex {
-        self.current
-    }
-
-    pub fn region(&self, start: TokenIndex) -> Result<TokenRegion> {
-        let end = self.current;
-        TokenRegion::new(start, end).ok_or(Error::InvaildRegion { start, end })
     }
 }
 
 pub trait Parse: Sized {
-    fn parse(tokens: &mut TokenReader) -> Result<Self>;
+    fn parse(lexer: &mut Lexer) -> Result<Self>;
 
-    fn try_parse(tokens: &mut TokenReader) -> Option<Self> {
-        tokens.with_transaction(|tokens| Self::parse(tokens))
+    fn try_parse(lexer: &mut Lexer) -> Option<Self> {
+        lexer.with_transaction(|lexer| Self::parse(lexer))
     }
 
-    fn parse_items(tokens: &mut TokenReader, delimiter: Symbol) -> Result<Vec<Self>> {
-        let mut items = if let Some(item) = Self::try_parse(tokens) {
+    fn parse_items(lexer: &mut Lexer, delimiter: Symbol) -> Result<Vec<Self>> {
+        let mut items = if let Some(item) = Self::try_parse(lexer) {
             vec![item]
         } else {
             return Ok(Vec::new());
         };
-        while delimiter.try_expect(tokens).is_some() {
-            let item = Self::parse(tokens)?;
+        while delimiter.try_expect(lexer).is_some() {
+            let item = Self::parse(lexer)?;
             items.push(item);
         }
         Ok(items)
     }
 
-    fn parse_non_empty_items(tokens: &mut TokenReader, delimiter: Symbol) -> Result<Vec<Self>> {
+    fn parse_non_empty_items(lexer: &mut Lexer, delimiter: Symbol) -> Result<Vec<Self>> {
         let mut items = Vec::new();
         loop {
-            let item = Self::parse(tokens)?;
+            let item = Self::parse(lexer)?;
             items.push(item);
-            if delimiter.try_expect(tokens).is_none() {
+            if delimiter.try_expect(lexer).is_none() {
                 break;
             }
         }
@@ -143,29 +103,29 @@ pub trait ResumeParse<T>: Parse
 where
     T: Region,
 {
-    fn resume_parse(tokens: &mut TokenReader, parsed: T) -> Result<Self>;
+    fn resume_parse(lexer: &mut Lexer, parsed: T) -> Result<Self>;
 
-    fn try_resume_parse(tokens: &mut TokenReader, parsed: T) -> Option<Self> {
-        tokens.with_transaction(|tokens| Self::resume_parse(tokens, parsed))
+    fn try_resume_parse(lexer: &mut Lexer, parsed: T) -> Option<Self> {
+        lexer.with_transaction(|lexer| Self::resume_parse(lexer, parsed))
     }
 }
 
 pub trait Expect {
     type Token: Into<LexicalToken>;
 
-    fn expect(&self, tokens: &mut TokenReader) -> Result<Self::Token>;
+    fn expect(&self, lexer: &mut Lexer) -> Result<Self::Token>;
 
-    fn try_expect(&self, tokens: &mut TokenReader) -> Option<Self::Token> {
-        tokens.with_transaction(|tokens| self.expect(tokens))
+    fn try_expect(&self, lexer: &mut Lexer) -> Option<Self::Token> {
+        lexer.with_transaction(|lexer| self.expect(lexer))
     }
 }
 
 impl Parse for AtomToken {
-    fn parse(tokens: &mut TokenReader) -> Result<Self> {
-        match tokens.read_token()? {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match lexer.read_token()? {
             LexicalToken::Atom(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token,
                 expected: "AtomToken",
             }),
@@ -176,13 +136,13 @@ impl Parse for AtomToken {
 impl Expect for &str {
     type Token = AtomToken;
 
-    fn expect(&self, tokens: &mut TokenReader) -> Result<Self::Token> {
-        let token = Self::Token::parse(tokens)?;
+    fn expect(&self, lexer: &mut Lexer) -> Result<Self::Token> {
+        let token = Self::Token::parse(lexer)?;
         if token.value() == *self {
             Ok(token)
         } else {
             Err(Error::UnexpectedTokenValue {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token: token.into(),
                 expected: format!("{:?}", self),
             })
@@ -191,11 +151,11 @@ impl Expect for &str {
 }
 
 impl Parse for SymbolToken {
-    fn parse(tokens: &mut TokenReader) -> Result<Self> {
-        match tokens.read_token()? {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match lexer.read_token()? {
             LexicalToken::Symbol(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token,
                 expected: "SymbolToken",
             }),
@@ -206,13 +166,13 @@ impl Parse for SymbolToken {
 impl Expect for Symbol {
     type Token = SymbolToken;
 
-    fn expect(&self, tokens: &mut TokenReader) -> Result<Self::Token> {
-        let token = Self::Token::parse(tokens)?;
+    fn expect(&self, lexer: &mut Lexer) -> Result<Self::Token> {
+        let token = Self::Token::parse(lexer)?;
         if token.value() == *self {
             Ok(token)
         } else {
             Err(Error::UnexpectedTokenValue {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token: token.into(),
                 expected: format!("{:?}", self),
             })
@@ -221,11 +181,11 @@ impl Expect for Symbol {
 }
 
 impl Parse for VariableToken {
-    fn parse(tokens: &mut TokenReader) -> Result<Self> {
-        match tokens.read_token()? {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match lexer.read_token()? {
             LexicalToken::Variable(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token,
                 expected: "VariableToken",
             }),
@@ -234,11 +194,11 @@ impl Parse for VariableToken {
 }
 
 impl Parse for StringToken {
-    fn parse(tokens: &mut TokenReader) -> Result<Self> {
-        match tokens.read_token()? {
+    fn parse(lexer: &mut Lexer) -> Result<Self> {
+        match lexer.read_token()? {
             LexicalToken::String(token) => Ok(token),
             token => Err(Error::UnexpectedToken {
-                index: TokenIndex::new(tokens.current_index().get() - 1),
+                index: TokenIndex::new(lexer.current_index().get() - 1),
                 token,
                 expected: "StringToken",
             }),
