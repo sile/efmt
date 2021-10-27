@@ -132,14 +132,16 @@ impl Lexer {
         TokenPosition::new(Some(token_index), text_position)
     }
 
-    pub fn set_position(&mut self, position: TokenPosition) -> Result<()> {
+    pub fn set_position(&mut self, position: &TokenPosition) -> Result<()> {
         if let Some(index) = position.token_index() {
             if index <= self.tokens.len() {
                 self.current = index;
                 return Ok(());
             }
         }
-        Err(Error::InvalidPosition { position })
+        Err(Error::InvalidPosition {
+            position: position.clone(),
+        })
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::lex::LexedText;
-use crate::token::{Region, TokenRegion};
+use crate::token::Region;
 use std::io::Write;
 
 #[derive(Debug, thiserror::Error)]
@@ -54,13 +54,13 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn write_original_text(&mut self, region: &TokenRegion) -> Result<()> {
+    pub fn noformat(&mut self, item: &impl Region) -> Result<()> {
         if !self.text.macro_calls.is_empty() {
             todo!()
         }
 
-        let start = region.start().text_position().offset();
-        let end = region.end().text_position().offset();
+        let start = item.region().start().text_position().offset();
+        let end = item.region().end().text_position().offset();
         write!(self.writer, "{}", &self.text.original_text[start..end])?;
         Ok(())
     }

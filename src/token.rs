@@ -53,3 +53,9 @@ impl TokenRegion {
 pub trait Region {
     fn region(&self) -> &TokenRegion;
 }
+
+impl Region for TokenRegion {
+    fn region(&self) -> &TokenRegion {
+        self
+    }
+}

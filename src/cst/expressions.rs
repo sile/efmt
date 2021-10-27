@@ -1,7 +1,6 @@
-use crate::cst::common::{Atom, String, Variable};
+use crate::cst::primitives::{Atom, String, Variable};
 use crate::format::{self, Format, Formatter};
-use crate::lex::Lexer;
-use crate::parse::{self, Parse};
+use crate::parse::{self, Parse, Parser};
 use crate::token::{Region, TokenRegion};
 use std::io::Write;
 
@@ -17,7 +16,7 @@ pub enum Expr {
 }
 
 impl Region for Expr {
-    fn region(&self) -> TokenRegion {
+    fn region(&self) -> &TokenRegion {
         match self {
             Self::Atom(x) => x.region(),
             Self::Variable(x) => x.region(),
@@ -27,15 +26,17 @@ impl Region for Expr {
 }
 
 impl Parse for Expr {
-    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
-        if let Some(x) = Parse::try_parse(lexer) {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        if let Some(x) = parser.try_parse() {
             Ok(Self::Atom(x))
-        } else if let Some(x) = Parse::try_parse(lexer) {
+        } else if let Some(x) = parser.try_parse() {
             Ok(Self::Variable(x))
-        } else if let Some(x) = Parse::try_parse(lexer) {
+        } else if let Some(x) = parser.try_parse() {
             Ok(Self::String(x))
         } else {
-            Err(lexer.take_last_error().expect("unreachable").into())
+            let (_, e) = parser.take_last_error().expect("unreachable");
+            // TODO: check position
+            Err(e)
         }
     }
 }

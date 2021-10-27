@@ -46,6 +46,11 @@ impl<'a> Parser<'a> {
         self.lexer.current_position()
     }
 
+    pub fn set_position(&mut self, position: &TokenPosition) -> Result<()> {
+        self.lexer.set_position(position)?;
+        Ok(())
+    }
+
     pub fn region(&self, start: TokenPosition) -> TokenRegion {
         TokenRegion::new(start, self.current_position())
     }
@@ -63,7 +68,7 @@ impl<'a> Parser<'a> {
                 if self.last_error.as_ref().map_or(true, |(p, _)| *p < end) {
                     self.last_error = Some((end, e));
                 }
-                self.lexer.set_position(start).expect("unreachable");
+                self.lexer.set_position(&start).expect("unreachable");
                 None
             }
         }
@@ -107,7 +112,7 @@ impl<'a> Parser<'a> {
                 if self.last_error.as_ref().map_or(true, |(p, _)| *p < end) {
                     self.last_error = Some((end, e));
                 }
-                self.lexer.set_position(start).expect("unreachable");
+                self.lexer.set_position(&start).expect("unreachable");
                 None
             }
         }
