@@ -3,7 +3,6 @@ pub mod cst;
 // pub mod format;
 pub mod lex;
 pub mod parse;
-// pub mod pp; // TODO: delete
 pub mod token;
 pub mod tokenize;
 
