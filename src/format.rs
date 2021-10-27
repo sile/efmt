@@ -1,8 +1,5 @@
-// //use crate::pp::PreprocessedText;
-// use crate::token::{Region, TokenIndex, TokenRegion};
-// //use erl_tokenize::PositionRange;
 use crate::lex::LexedText;
-use crate::token::Region;
+use crate::token::{Region, TokenRegion};
 use std::io::Write;
 
 #[derive(Debug, thiserror::Error)]
@@ -40,45 +37,34 @@ impl<W: Write> Formatter<W> {
         item.format(self)?;
         Ok(())
     }
+
+    pub fn format_child(&mut self, child: &impl Format) -> Result<()> {
+        // TODO: indent handling
+        child.format(self)?;
+        Ok(())
+    }
+
+    pub fn format_children<T: Format>(&mut self, children: &[T], delimiter: &str) -> Result<()> {
+        for (i, child) in children.iter().enumerate() {
+            self.format_child(child)?;
+            if i + 1 < children.len() {
+                write!(self, "{} ", delimiter)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn write_original_text(&mut self, region: &TokenRegion) -> Result<()> {
+        if !self.text.macro_calls.is_empty() {
+            todo!()
+        }
+
+        let start = region.start().text_position().offset();
+        let end = region.end().text_position().offset();
+        write!(self.writer, "{}", &self.text.original_text[start..end])?;
+        Ok(())
+    }
 }
-//     pub fn format_child(&mut self, child: &impl Format) -> Result<()> {
-//         // TODO: indent handling
-//         child.format(self)?;
-//         Ok(())
-//     }
-
-//     pub fn format_children<T: Format>(&mut self, children: &[T], delimiter: &str) -> Result<()> {
-//         for (i, child) in children.iter().enumerate() {
-//             self.format_child(child)?;
-//             if i + 1 < children.len() {
-//                 write!(self, "{} ", delimiter)?;
-//             }
-//         }
-//         Ok(())
-//     }
-
-//     pub fn write_original_text(&mut self, region: TokenRegion) -> Result<()> {
-//         // // TODO: handle macros
-//         // if region.is_empty() {
-//         //     return Ok(());
-//         // }
-
-//         // let start = region.start();
-//         // let end = region.end();
-//         // if self.text.expanded_tokens.len() < end.get() {
-//         //     return Err(Error::TokenIndexOutOfRange { index: end });
-//         // }
-//         // let start_offset = self.text.expanded_tokens[start.get()]
-//         //     .start_position()
-//         //     .offset();
-//         // let end_offset = self.text.expanded_tokens[end.get() - 1]
-//         //     .end_position()
-//         //     .offset();
-//         // write!(self.writer, "{}", &self.text.text[start_offset..end_offset])?;
-//         // Ok(())
-//         todo!()
-//     }
-// }
 
 impl<W: Write> Write for Formatter<W> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {

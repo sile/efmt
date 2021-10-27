@@ -15,6 +15,7 @@ pub enum Error {
         expected: String,
     },
 
+    // TODO: delete?
     #[error("expected {expected}, but got {token:?}")]
     UnexpectedToken {
         token: LexicalToken,
@@ -116,7 +117,7 @@ impl<'a> Parser<'a> {
         self.last_error.take()
     }
 
-    fn read_token(&mut self) -> Result<LexicalToken> {
+    pub fn read_token(&mut self) -> Result<LexicalToken> {
         self.lexer.read_token()?.ok_or(Error::UnexpectedEof)
     }
 }

@@ -1,3 +1,4 @@
+use crate::cst::attributes::{Attr, DefineAttr};
 use crate::parse::Parser;
 use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenPosition, TokenRegion};
 use crate::tokenize::{self, Tokenizer};
@@ -22,6 +23,7 @@ pub struct Lexer {
     current: usize,
     comments: BTreeMap<TokenPosition, CommentToken>,
     macro_calls: BTreeMap<TokenRegion, ()>, // TODO
+    macro_defines: BTreeMap<String, DefineAttr>,
 }
 
 impl Lexer {
@@ -32,6 +34,7 @@ impl Lexer {
             current: 0,
             comments: BTreeMap::new(),
             macro_calls: BTreeMap::new(),
+            macro_defines: BTreeMap::new(),
         }
     }
 
@@ -109,8 +112,14 @@ impl Lexer {
         }
 
         self.current -= 2;
-        let _parser = Parser::new(self);
-        todo!();
+        let mut parser = Parser::new(self);
+        match parser.try_parse::<Attr>() {
+            Some(Attr::Define(x)) => {
+                self.macro_defines.insert(x.macro_name().to_owned(), x);
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     pub fn current_position(&self) -> TokenPosition {
