@@ -1,7 +1,7 @@
 use crate::lex::{self, Lexer};
 use crate::token::{
-    AtomToken, LexicalToken, StringToken, Symbol, SymbolToken, TokenPosition, TokenRegion,
-    VariableToken,
+    AtomToken, LexicalToken, StringToken, Symbol, SymbolToken, TokenIndex, TokenPosition,
+    TokenRegion, VariableToken,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -31,7 +31,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Parser<'a> {
     lexer: &'a mut Lexer,
-    last_error: Option<(TokenPosition, Error)>,
+    last_error: Option<(TokenIndex, Error)>,
 }
 
 impl<'a> Parser<'a> {
@@ -44,11 +44,6 @@ impl<'a> Parser<'a> {
 
     pub fn current_position(&self) -> TokenPosition {
         self.lexer.current_position()
-    }
-
-    pub fn set_position(&mut self, position: &TokenPosition) -> Result<()> {
-        self.lexer.set_position(position)?;
-        Ok(())
     }
 
     pub fn region(&self, start: TokenPosition) -> TokenRegion {
@@ -67,15 +62,18 @@ impl<'a> Parser<'a> {
     }
 
     pub fn try_parse<T: Parse>(&mut self) -> Option<T> {
-        let start = self.lexer.current_position();
+        let transaction = self.lexer.start_transaction();
         match self.parse() {
-            Ok(x) => Some(x),
+            Ok(x) => {
+                self.lexer.commit(transaction).expect("unreachable");
+                Some(x)
+            }
             Err(e) => {
-                let end = self.lexer.current_position();
-                if self.last_error.as_ref().map_or(true, |(p, _)| *p < end) {
-                    self.last_error = Some((end, e));
+                let index = self.lexer.current_token_index();
+                if self.last_error.as_ref().map_or(true, |(i, _)| *i < index) {
+                    self.last_error = Some((index, e));
                 }
-                self.lexer.set_position(&start).expect("unreachable");
+                self.lexer.rollback(transaction).expect("unreachable");
                 None
             }
         }
@@ -111,28 +109,31 @@ impl<'a> Parser<'a> {
     }
 
     pub fn try_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
-        let start = self.lexer.current_position();
+        let transaction = self.lexer.start_transaction();
         match self.expect(expected) {
-            Ok(x) => Some(x),
+            Ok(x) => {
+                self.lexer.commit(transaction).expect("unreachable");
+                Some(x)
+            }
             Err(e) => {
-                let end = self.lexer.current_position();
-                if self.last_error.as_ref().map_or(true, |(p, _)| *p < end) {
-                    self.last_error = Some((end, e));
+                let index = self.lexer.current_token_index();
+                if self.last_error.as_ref().map_or(true, |(i, _)| *i < index) {
+                    self.last_error = Some((index, e));
                 }
-                self.lexer.set_position(&start).expect("unreachable");
+                self.lexer.rollback(transaction).expect("unreachable");
                 None
             }
         }
     }
 
     pub fn peek_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
-        let start = self.lexer.current_position();
+        let transaction = self.lexer.start_transaction();
         let result = self.expect(expected).ok();
-        self.lexer.set_position(&start).expect("unreachable");
+        self.lexer.rollback(transaction).expect("unreachable");
         result
     }
 
-    pub fn take_last_error(&mut self) -> Option<(TokenPosition, Error)> {
+    pub fn take_last_error(&mut self) -> Option<(TokenIndex, Error)> {
         self.last_error.take()
     }
 

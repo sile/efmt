@@ -59,8 +59,8 @@ impl<W: Write> Formatter<W> {
             todo!()
         }
 
-        let start = item.region().start().text_position().offset();
-        let end = item.region().end().text_position().offset();
+        let start = item.region().start().offset();
+        let end = item.region().end().offset();
         write!(self.writer, "{}", &self.text.original_text[start..end])?;
         Ok(())
     }

@@ -1,15 +1,17 @@
 use crate::cst::attributes::{Attr, DefineAttr};
 use crate::cst::macros::{MacroCall, MacroName};
 use crate::parse::Parser;
-use crate::token::{AtomToken, CommentToken, LexicalToken, Region, Symbol, Token, TokenPosition};
+use crate::token::{
+    AtomToken, CommentToken, LexicalToken, Region, Symbol, Token, TokenIndex, TokenPosition,
+};
 use crate::tokenize::{self, Tokenizer};
 use erl_tokenize::PositionRange as _;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("cannot set the position {position:?} as it's invalid")]
-    InvalidPosition { position: TokenPosition }, // TODO: s/invalid/out-of-range/
+    #[error("unknown transaction {transaction:?}")]
+    UnknownTransaction { transaction: Transaction },
 
     #[error(transparent)]
     TokenizeError(#[from] tokenize::Error),
@@ -28,7 +30,9 @@ pub struct Lexer {
     current: usize,
     comments: BTreeMap<TokenPosition, CommentToken>,
     macro_calls: BTreeMap<TokenPosition, MacroCall>,
-    macro_defines: BTreeMap<String, DefineAttr>,
+    macro_defines: BTreeMap<String, DefineAttr>, // TODO: HashMap
+    transaction_seqno: u64,
+    transactions: HashSet<Transaction>,
 }
 
 impl Lexer {
@@ -40,6 +44,8 @@ impl Lexer {
             comments: BTreeMap::new(),
             macro_calls: BTreeMap::new(),
             macro_defines: BTreeMap::new(),
+            transaction_seqno: 0,
+            transactions: HashSet::new(),
         }
     }
 
@@ -64,8 +70,7 @@ impl Lexer {
                     continue;
                 }
                 Token::Comment(x) => {
-                    self.comments
-                        .insert(TokenPosition::new(self.current, x.start_position()), x);
+                    self.comments.insert(x.start_position(), x);
                     continue;
                 }
                 Token::Symbol(x) => x.into(),
@@ -105,7 +110,7 @@ impl Lexer {
 
     fn expand_macro(&mut self) -> Result<()> {
         let start = self.current - 1;
-        let start_position = TokenPosition::new(start, self.tokens[start].start_position());
+        let start_position = self.tokens[start].start_position();
 
         let macro_name = Parser::new(self)
             .parse::<MacroName>()
@@ -149,10 +154,8 @@ impl Lexer {
                 let macro_call = Parser::new(self)
                     .resume_parse((start_position.clone(), macro_name.clone(), None))
                     .map_err(anyhow::Error::from)?;
-                let dummy_token = AtomToken::from_value(
-                    "EFMT_DUMMY",
-                    macro_name.region().start().text_position().clone(),
-                );
+                let dummy_token =
+                    AtomToken::from_value("EFMT_DUMMY", macro_name.region().start().clone());
                 let tokens = vec![dummy_token.into()];
                 (tokens, macro_call)
             };
@@ -197,26 +200,47 @@ impl Lexer {
     }
 
     pub fn current_position(&self) -> TokenPosition {
-        let token_index = self.current;
-        let text_position = self
-            .tokens
+        self.tokens
             .get(self.current)
             .map(|x| x.start_position())
-            .unwrap_or_else(|| self.tokenizer.next_position());
-        TokenPosition::new(token_index, text_position)
+            .unwrap_or_else(|| self.tokenizer.next_position())
     }
 
-    pub fn set_position(&mut self, position: &TokenPosition) -> Result<()> {
-        let index = position.token_index();
-        if index <= self.tokens.len() {
-            self.current = index;
+    pub fn current_token_index(&self) -> TokenIndex {
+        TokenIndex::new(self.current)
+    }
+
+    pub fn start_transaction(&mut self) -> Transaction {
+        let index = self.current;
+        let seqno = self.transaction_seqno;
+        self.transaction_seqno += 1;
+        self.transactions.insert(Transaction { seqno, index });
+        Transaction { seqno, index }
+    }
+
+    pub fn commit(&mut self, transaction: Transaction) -> Result<()> {
+        if self.transactions.remove(&transaction) {
             Ok(())
         } else {
-            Err(Error::InvalidPosition {
-                position: position.clone(),
-            })
+            Err(Error::UnknownTransaction { transaction })
         }
     }
+
+    pub fn rollback(&mut self, transaction: Transaction) -> Result<()> {
+        if self.transactions.remove(&transaction) {
+            assert!(transaction.index <= self.current);
+            self.current = transaction.index;
+            Ok(())
+        } else {
+            Err(Error::UnknownTransaction { transaction })
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Transaction {
+    seqno: u64,
+    index: usize,
 }
 
 #[derive(Debug)]
