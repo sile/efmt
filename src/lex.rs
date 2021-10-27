@@ -37,7 +37,7 @@ impl Lexer {
 
     pub fn finish(self) -> LexedText {
         LexedText {
-            text: self.tokenizer.finish(),
+            original_text: self.tokenizer.finish(),
             tokens: self.tokens,
             comments: self.comments,
             macro_calls: self.macro_calls,
@@ -136,7 +136,7 @@ impl Lexer {
 
 #[derive(Debug)]
 pub struct LexedText {
-    pub text: String,
+    pub original_text: String,
     pub tokens: Vec<LexicalToken>,
     pub comments: BTreeMap<TokenPosition, CommentToken>,
     pub macro_calls: BTreeMap<TokenRegion, ()>, // TODO

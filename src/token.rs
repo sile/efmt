@@ -41,15 +41,15 @@ impl TokenRegion {
         Self { start, end }
     }
 
-    pub fn start(&self) -> TokenPosition {
-        self.start.clone()
+    pub fn start(&self) -> &TokenPosition {
+        &self.start
     }
 
-    pub fn end(&self) -> TokenPosition {
-        self.end.clone()
+    pub fn end(&self) -> &TokenPosition {
+        &self.end
     }
 }
 
 pub trait Region {
-    fn region(&self) -> TokenRegion;
+    fn region(&self) -> &TokenRegion;
 }

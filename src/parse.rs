@@ -1,6 +1,7 @@
 use crate::lex::{self, Lexer};
 use crate::token::{
-    AtomToken, LexicalToken, Region, StringToken, Symbol, SymbolToken, TokenPosition, VariableToken,
+    AtomToken, LexicalToken, Region, StringToken, Symbol, SymbolToken, TokenPosition, TokenRegion,
+    VariableToken,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -38,6 +39,14 @@ impl<'a> Parser<'a> {
             lexer,
             last_error: None,
         }
+    }
+
+    pub fn current_position(&self) -> TokenPosition {
+        self.lexer.current_position()
+    }
+
+    pub fn region(&self, start: TokenPosition) -> TokenRegion {
+        TokenRegion::new(start, self.current_position())
     }
 
     pub fn parse<T: Parse>(&mut self) -> Result<T> {
