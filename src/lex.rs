@@ -1,78 +1,52 @@
-use crate::token::{CommentToken, LexicalToken, Token, TokenIndex, TokenRegion, TokenTextOffset};
-use erl_tokenize::{PositionRange, Tokenizer};
+use crate::token::{CommentToken, LexicalToken, Symbol, Token, TokenPosition, TokenRegion};
+use crate::tokenize::{self, Tokenizer};
+use erl_tokenize::PositionRange as _;
 use std::collections::BTreeMap;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("unexpected EOF")]
-    UnexpectedEof,
-
-    #[error("expected {expected}, but got {token:?}")]
-    UnexpectedTokenValue {
-        index: TokenIndex,
-        token: LexicalToken,
-        expected: String,
-    },
-
-    #[error("expected {expected}, but got {token:?}")]
-    UnexpectedToken {
-        index: TokenIndex,
-        token: LexicalToken,
-        expected: &'static str,
-    },
-
-    #[error("invalid token region: start={start:?}, end={end:?}")]
-    InvaildRegion { start: TokenIndex, end: TokenIndex },
+    #[error("cannot set the position {position:?} as it's invalid")]
+    InvalidPosition { position: TokenPosition },
 
     #[error(transparent)]
-    TokenizeError(#[from] erl_tokenize::Error),
-}
-
-impl Error {
-    fn is_high_priority_than(&self, other: &Self) -> bool {
-        fn token_index(e: &Error) -> TokenIndex {
-            match e {
-                Error::UnexpectedTokenValue { index, .. } => *index,
-                Error::UnexpectedToken { index, .. } => *index,
-                _ => unreachable!(),
-            }
-        }
-
-        match (self, other) {
-            (Self::TokenizeError { .. }, _) => true,
-            (Self::InvaildRegion { .. }, _) => true, // This is a bug.
-            (Self::UnexpectedEof, _) => true,
-            (a, b) => token_index(a) >= token_index(b),
-        }
-    }
+    TokenizeError(#[from] tokenize::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Lexer {
-    tokenizer: Tokenizer<String>,
+    tokenizer: Tokenizer,
     tokens: Vec<LexicalToken>,
-    current: TokenIndex,
-    comments: BTreeMap<TokenTextOffset, CommentToken>,
-    last_error: Option<Error>,
+    current: usize,
+    comments: BTreeMap<TokenPosition, CommentToken>,
+    macro_calls: BTreeMap<TokenRegion, ()>, // TODO
 }
 
 impl Lexer {
-    pub fn new(tokenizer: Tokenizer<String>) -> Self {
+    pub fn new(tokenizer: Tokenizer) -> Self {
         Self {
             tokenizer,
             tokens: Vec::new(),
-            current: TokenIndex::new(0),
+            current: 0,
             comments: BTreeMap::new(),
-            last_error: None,
+            macro_calls: BTreeMap::new(),
         }
     }
 
-    pub fn read_token(&mut self) -> Result<LexicalToken> {
-        if let Some(token) = self.tokens.get(self.current.get()).cloned() {
-            self.current = TokenIndex::new(self.current.get() + 1);
-            return Ok(token);
+    pub fn finish(self) -> LexedText {
+        LexedText {
+            text: self.tokenizer.finish(),
+            tokens: self.tokens,
+            comments: self.comments,
+            macro_calls: self.macro_calls,
+        }
+    }
+
+    pub fn read_token(&mut self) -> Result<Option<LexicalToken>> {
+        if let Some(token) = self.tokens.get(self.current).cloned() {
+            self.current += 1;
+            return Ok(Some(token));
         }
 
         while let Some(token) = self.tokenizer.next().transpose()? {
@@ -82,7 +56,7 @@ impl Lexer {
                 }
                 Token::Comment(x) => {
                     self.comments
-                        .insert(TokenTextOffset::new(x.start_position().offset()), x);
+                        .insert(TokenPosition::new(None, x.start_position()), x);
                     continue;
                 }
                 Token::Symbol(x) => x.into(),
@@ -94,46 +68,115 @@ impl Lexer {
                 Token::String(x) => x.into(),
                 Token::Variable(x) => x.into(),
             };
-            // TODO: preprocess
-            self.tokens.push(token.clone());
-            self.current = TokenIndex::new(self.current.get() + 1);
-            return Ok(token);
-        }
 
-        Err(Error::UnexpectedEof)
-    }
-
-    pub fn with_transaction<F, T>(&mut self, f: F) -> Option<T>
-    where
-        F: FnOnce(&mut Self) -> Result<T>,
-    {
-        let index = self.current;
-        match f(self) {
-            Err(e) => {
-                self.current = index;
-                if self
-                    .last_error
-                    .as_ref()
-                    .map_or(true, |last| e.is_high_priority_than(last))
-                {
-                    self.last_error = Some(e);
+            match &token {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
+                    todo!();
                 }
-                None
+                _ => {}
             }
-            Ok(v) => Some(v),
+
+            self.tokens.push(token.clone());
+            self.current += 1;
+
+            match &token {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Hyphen => {
+                    let index = self.current;
+                    self.try_handle_directives()?;
+                    self.current = index;
+                }
+                _ => {}
+            }
+
+            return Ok(Some(token));
         }
+
+        Ok(None)
     }
 
-    pub fn take_last_error(&mut self) -> Option<Error> {
-        self.last_error.take()
+    fn try_handle_directives(&mut self) -> Result<()> {
+        let is_target = match self.read_token()? {
+            Some(LexicalToken::Atom(x))
+                if matches!(x.value(), "define" | "include" | "include_lib") =>
+            {
+                true
+            }
+            _ => false,
+        };
+        if !is_target {
+            return Ok(());
+        }
+
+        self.current -= 2;
+        todo!();
     }
 
-    pub fn current_index(&self) -> TokenIndex {
-        self.current
+    pub fn current_position(&self) -> TokenPosition {
+        let token_index = self.current;
+        let text_position = self
+            .tokens
+            .get(self.current)
+            .map(|x| x.start_position())
+            .unwrap_or_else(|| self.tokenizer.next_position());
+        TokenPosition::new(Some(token_index), text_position)
     }
 
-    pub fn region(&self, start: TokenIndex) -> Result<TokenRegion> {
-        let end = self.current;
-        TokenRegion::new(start, end).ok_or(Error::InvaildRegion { start, end })
+    pub fn set_position(&mut self, position: TokenPosition) -> Result<()> {
+        if let Some(index) = position.token_index() {
+            if index <= self.tokens.len() {
+                self.current = index;
+                return Ok(());
+            }
+        }
+        Err(Error::InvalidPosition { position })
+    }
+}
+
+#[derive(Debug)]
+pub struct LexedText {
+    pub text: String,
+    pub tokens: Vec<LexicalToken>,
+    pub comments: BTreeMap<TokenPosition, CommentToken>,
+    pub macro_calls: BTreeMap<TokenRegion, ()>, // TODO
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+
+    #[test]
+    fn lexer_works() -> anyhow::Result<()> {
+        let testnames = ["nomacro", "macro"];
+        for testname in testnames {
+            let (before_path, before, after_path, after_expected) =
+                crate::tests::load_testdata(&format!("lex/{}", testname))
+                    .with_context(|| format!("[{}] cannot load testdata", testname))?;
+
+            let tokenizer = Tokenizer::new(before);
+            let mut lexer = Lexer::new(tokenizer);
+            let mut tokens = Vec::new();
+            while let Some(token) = lexer
+                .read_token()
+                .with_context(|| format!("[{}] cannot read token", testname))?
+            {
+                tokens.push(token);
+            }
+
+            let after_actual = tokens
+                .iter()
+                .map(|x| x.text())
+                .collect::<Vec<_>>()
+                .join(" ");
+            anyhow::ensure!(
+                after_actual == after_expected.trim(),
+                "unexpected result.\n[ACTUAL] {}\n{}\n\n[EXPECTED] {}\n{}",
+                before_path,
+                after_actual,
+                after_path,
+                after_expected
+            );
+        }
+        Ok(())
     }
 }
