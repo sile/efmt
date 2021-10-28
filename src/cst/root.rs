@@ -2,7 +2,7 @@ use crate::cst;
 use crate::cst::primitives::Atom;
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{Region, TokenRegion};
+use crate::token::{Region, Symbol, TokenRegion};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ impl Format for RootItem {
 
 #[derive(Debug, Clone)]
 pub struct FunDecl {
-    name: Atom,
+    clauses: Vec<cst::expressions::FunClause<Atom>>,
     region: TokenRegion,
 }
 
@@ -91,9 +91,10 @@ impl Region for FunDecl {
 impl Parse for FunDecl {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         let start = parser.current_position();
-        let name = parser.parse()?;
+        let clauses = parser.parse_items(Symbol::Semicolon)?;
+        parser.expect(Symbol::Dot)?;
         Ok(Self {
-            name,
+            clauses,
             region: parser.region(start),
         })
     }
@@ -101,6 +102,8 @@ impl Parse for FunDecl {
 
 impl Format for FunDecl {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_clauses(&self.clauses)?;
+        write!(fmt, ".")?;
         Ok(())
     }
 }

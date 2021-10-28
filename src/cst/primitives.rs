@@ -189,6 +189,40 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Parenthesized<T> {
+    item: T,
+    region: TokenRegion,
+}
+
+impl<T> Region for Parenthesized<T> {
+    fn region(&self) -> &TokenRegion {
+        &self.region
+    }
+}
+
+impl<T: Parse> Parse for Parenthesized<T> {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let start = parser.current_position();
+        parser.expect(Symbol::CloseParen)?;
+        let item = parser.parse()?;
+        parser.expect(Symbol::CloseParen)?;
+        Ok(Self {
+            item,
+            region: parser.region(start),
+        })
+    }
+}
+
+impl<T: Format> Format for Parenthesized<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        write!(fmt, "(")?;
+        fmt.format(&self.item)?;
+        write!(fmt, ")")?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

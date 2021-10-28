@@ -1,7 +1,7 @@
 use crate::lex::{self, Lexer};
 use crate::token::{
-    AtomToken, IntegerToken, LexicalToken, StringToken, Symbol, SymbolToken, TokenIndex,
-    TokenPosition, TokenRegion, VariableToken,
+    AtomToken, IntegerToken, Keyword, KeywordToken, LexicalToken, Region, StringToken, Symbol,
+    SymbolToken, TokenIndex, TokenPosition, TokenRegion, VariableToken,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -77,27 +77,6 @@ impl<'a> Parser<'a> {
         T::resume_parse(self, args)
     }
 
-    pub fn try_parse<T: Parse>(&mut self) -> Option<T> {
-        let transaction = self.lexer.start_transaction();
-        match self.parse() {
-            Ok(x) => {
-                self.lexer.commit(transaction).expect("unreachable");
-                Some(x)
-            }
-            Err(e) => {
-                if self
-                    .last_error
-                    .as_ref()
-                    .map_or(true, |x| x.index() < e.index())
-                {
-                    self.last_error = Some(e);
-                }
-                self.lexer.rollback(transaction).expect("unreachable");
-                None
-            }
-        }
-    }
-
     pub fn parse_items<T: Parse>(&mut self, delimiter: Symbol) -> Result<Vec<T>> {
         let mut items = if let Some(item) = self.try_parse() {
             vec![item]
@@ -125,6 +104,51 @@ impl<'a> Parser<'a> {
 
     pub fn expect<T: Expect>(&mut self, expected: T) -> Result<T::Token> {
         expected.expect(self)
+    }
+
+    pub fn try_resume_parse<T, U>(&mut self, args: U) -> Option<T>
+    where
+        T: ResumeParse<U>,
+    {
+        let transaction = self.lexer.start_transaction();
+        match self.resume_parse(args) {
+            Ok(x) => {
+                self.lexer.commit(transaction).expect("unreachable");
+                Some(x)
+            }
+            Err(e) => {
+                if self
+                    .last_error
+                    .as_ref()
+                    .map_or(true, |x| x.index() < e.index())
+                {
+                    self.last_error = Some(e);
+                }
+                self.lexer.rollback(transaction).expect("unreachable");
+                None
+            }
+        }
+    }
+
+    pub fn try_parse<T: Parse>(&mut self) -> Option<T> {
+        let transaction = self.lexer.start_transaction();
+        match self.parse() {
+            Ok(x) => {
+                self.lexer.commit(transaction).expect("unreachable");
+                Some(x)
+            }
+            Err(e) => {
+                if self
+                    .last_error
+                    .as_ref()
+                    .map_or(true, |x| x.index() < e.index())
+                {
+                    self.last_error = Some(e);
+                }
+                self.lexer.rollback(transaction).expect("unreachable");
+                None
+            }
+        }
     }
 
     pub fn try_expect<T: Expect>(&mut self, expected: T) -> Option<T::Token> {
@@ -263,6 +287,15 @@ impl<T: Parse> Parse for Box<T> {
     }
 }
 
+impl<T, U> ResumeParse<U> for Box<T>
+where
+    T: ResumeParse<U>,
+{
+    fn resume_parse(parser: &mut Parser, args: U) -> Result<Self> {
+        parser.resume_parse(args).map(Box::new)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Either<A, B> {
     A(A),
@@ -278,6 +311,33 @@ where
         match x {
             Either::A(x) => x.into(),
             Either::B(x) => x.into(),
+        }
+    }
+}
+
+impl<A, B> Parse for Either<A, B>
+where
+    A: Parse,
+    B: Parse,
+{
+    fn parse(parser: &mut Parser) -> Result<Self> {
+        if let Some(x) = parser.try_parse() {
+            Ok(Self::A(x))
+        } else {
+            parser.parse().map(Self::B)
+        }
+    }
+}
+
+impl<A, B> Region for Either<A, B>
+where
+    A: Region,
+    B: Region,
+{
+    fn region(&self) -> &TokenRegion {
+        match self {
+            Self::A(x) => x.region(),
+            Self::B(x) => x.region(),
         }
     }
 }
@@ -324,5 +384,31 @@ impl Expect for AnyToken {
 
     fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
         parser.read_token()
+    }
+}
+
+impl Parse for KeywordToken {
+    fn parse(parser: &mut Parser) -> Result<Self> {
+        match parser.read_token()? {
+            LexicalToken::Keyword(token) => Ok(token),
+            token => Err(Error::unexpected_token(parser, token, "KeywordToken")),
+        }
+    }
+}
+
+impl Expect for Keyword {
+    type Token = KeywordToken;
+
+    fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
+        let token = parser.parse::<Self::Token>()?;
+        if token.value() == self {
+            Ok(token)
+        } else {
+            Err(Error::unexpected_token(
+                parser,
+                token.into(),
+                &format!("{:?}", self),
+            ))
+        }
     }
 }

@@ -1,4 +1,5 @@
 use crate::lex::LexedText;
+use crate::parse::Either;
 use crate::token::Region;
 use std::io::Write;
 
@@ -54,6 +55,16 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
+    pub fn format_clauses<T: Format>(&mut self, clauses: &[T]) -> Result<()> {
+        for (i, clause) in clauses.iter().enumerate() {
+            self.format(clause)?;
+            if i + 1 < clauses.len() {
+                writeln!(self, ";")?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn noformat(&mut self, item: &impl Region) -> Result<()> {
         if !self.text.macro_calls.is_empty() {
             todo!()
@@ -73,5 +84,18 @@ impl<W: Write> Write for Formatter<W> {
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.writer.flush()
+    }
+}
+
+impl<A, B> Format for Either<A, B>
+where
+    A: Format,
+    B: Format,
+{
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()> {
+        match self {
+            Self::A(x) => x.format(fmt),
+            Self::B(x) => x.format(fmt),
+        }
     }
 }
