@@ -3,8 +3,10 @@
 -define(FOO, /).
 -define(BAR, :format().
 -define(baz(A), A).
+-define(qux, [1, 2, 3], [).
+-define(quux, a], [b,).
 
--export([?baz(hello) ?FOO 0]).
+-export([?baz(echo) / 1, ?baz(hello) ?FOO 0]).
 
-hello() ->
-    io ?BAR "World!\n").
+echo(A) -> io ?BAR "World! ~p\n", [A]).
+hello() -> ?qux a, b, c], [1, ?quux 2].

@@ -2,7 +2,8 @@ use crate::cst::attributes::{Attr, Define};
 use crate::cst::macros::{MacroCall, MacroName};
 use crate::parse::Parser;
 use crate::token::{
-    AtomToken, CommentToken, LexicalToken, Region, Symbol, Token, TokenIndex, TokenPosition,
+    AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, LexicalToken,
+    Region, StringToken, Symbol, SymbolToken, Token, TokenIndex, TokenPosition, VariableToken,
 };
 use crate::tokenize::{self, Tokenizer};
 use erl_tokenize::PositionRange as _;
@@ -113,6 +114,33 @@ impl Lexer {
                 _ => {}
             }
 
+            // TODO:
+            loop {
+                let pos = self.tokenizer.next_position();
+                match self.tokenizer.next().transpose() {
+                    Err(_) => {
+                        self.tokenizer.set_position(pos);
+                        break;
+                    }
+                    Ok(None) => {
+                        break;
+                    }
+                    Ok(Some(x)) => match x {
+                        Token::Whitespace(_) => {
+                            continue;
+                        }
+                        Token::Comment(x) => {
+                            self.comments.insert(x.start_position(), x);
+                            continue;
+                        }
+                        x => {
+                            self.tokenizer.set_position(x.start_position());
+                            break;
+                        }
+                    },
+                }
+            }
+
             return Ok(Some(token));
         }
 
@@ -170,6 +198,34 @@ impl Lexer {
                 let tokens = vec![dummy_token.into()];
                 (tokens, macro_call)
             };
+        let replacement = replacement.into_iter().map(|token| match token {
+            LexicalToken::Atom(x) => AtomToken::from_text(x.text(), start_position.clone())
+                .expect("TODO")
+                .into(),
+            LexicalToken::Char(x) => {
+                CharToken::from_value(x.value(), start_position.clone()).into()
+            }
+            LexicalToken::Float(x) => {
+                FloatToken::from_value(x.value(), start_position.clone()).into()
+            }
+            LexicalToken::Integer(x) => {
+                IntegerToken::from_value(x.value().clone(), start_position.clone()).into()
+            }
+            LexicalToken::Keyword(x) => {
+                KeywordToken::from_value(x.value(), start_position.clone()).into()
+            }
+            LexicalToken::String(x) => StringToken::from_text(x.text(), start_position.clone())
+                .expect("TODO")
+                .into(),
+            LexicalToken::Symbol(x) => {
+                SymbolToken::from_value(x.value(), start_position.clone()).into()
+            }
+            LexicalToken::Variable(x) => {
+                VariableToken::from_value(x.value(), start_position.clone())
+                    .expect("TOOD")
+                    .into()
+            }
+        });
 
         let unread_tokens = self.tokens.split_off(self.current);
         self.tokens.truncate(start);
@@ -210,11 +266,21 @@ impl Lexer {
         Ok(())
     }
 
+    // TODO: s/current/next_start/
     pub fn current_position(&self) -> TokenPosition {
         self.tokens
             .get(self.current)
             .map(|x| x.start_position())
             .unwrap_or_else(|| self.tokenizer.next_position())
+    }
+
+    pub fn last_end_postion(&self) -> TokenPosition {
+        let t = &self.tokens[self.current - 1]; // TODO: error check
+        if let Some(x) = self.macro_calls.get(&t.start_position()) {
+            x.region().end().clone()
+        } else {
+            t.end_position()
+        }
     }
 
     pub fn current_token_index(&self) -> TokenIndex {

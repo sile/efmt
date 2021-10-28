@@ -17,7 +17,7 @@ mod tests {
     pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
         let (text_path, text, expected_path, expected) =
             load_testdata(testname).with_context(|| "cannot load testdata")?;
-        let mut lexer = Lexer::new(Tokenizer::new(text));
+        let mut lexer = Lexer::new(Tokenizer::new(text.clone()));
         let mut parser = Parser::new(&mut lexer);
         let item = parser.parse::<T>().with_context(|| "cannot parse")?;
 
@@ -28,8 +28,9 @@ mod tests {
         let formatted = String::from_utf8_lossy(&buf);
         anyhow::ensure!(
             formatted == expected.trim(),
-            "unexpected formatted code.\n[ACTUAL] {}\n{}\n\n[EXPECTED] {}\n{}",
+            "unexpected formatted code.\n[SOURCE] {}\n{}\n\n[FORMATTED] \n{}\n\n[EXPECTED] {}\n{}",
             text_path,
+            text,
             formatted,
             expected_path,
             expected

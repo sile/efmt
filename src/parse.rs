@@ -54,6 +54,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // pub fn save_checkpoint() // parser cannot rolback before the checkpoint (this could improve error message)
+
     pub fn is_eof(&mut self) -> Result<bool> {
         Ok(self.lexer.is_eof()?)
     }
@@ -63,7 +65,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn region(&self, start: TokenPosition) -> TokenRegion {
-        TokenRegion::new(start, self.current_position())
+        // TokenRegion::new(start, self.current_position())
+        TokenRegion::new(start, self.lexer.last_end_postion())
     }
 
     pub fn parse<T: Parse>(&mut self) -> Result<T> {

@@ -35,6 +35,7 @@ impl Format for RootItems {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         for item in &self.items {
             fmt.format(item)?;
+            writeln!(fmt)?;
         }
         Ok(())
     }
