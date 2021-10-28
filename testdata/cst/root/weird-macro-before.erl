@@ -2,8 +2,9 @@
 
 -define(FOO, /).
 -define(BAR, :format().
+-define(baz(A), A).
 
--export([hello ?FOO 0]).
+-export([?baz(hello) ?FOO 0]).
 
 hello() ->
     io ?BAR "World!\n").
