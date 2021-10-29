@@ -1,4 +1,5 @@
 use crate::cst::attributes::{Attr, Define};
+use crate::cst::consts::Question;
 use crate::cst::macros::{MacroCall, MacroName};
 use crate::parse::Parser;
 use crate::token::{
@@ -70,6 +71,11 @@ impl Lexer {
         }
     }
 
+    // TODO
+    pub fn unread_token(&mut self) {
+        self.current -= 1;
+    }
+
     pub fn read_token(&mut self) -> Result<Option<Token>> {
         if let Some(token) = self.tokens.get(self.current).cloned() {
             self.current += 1;
@@ -108,13 +114,13 @@ impl Lexer {
             self.tokens.push(token.clone());
             self.current += 1;
 
-            match &token {
-                Token::Symbol(x) if x.value() == Symbol::Question => {
-                    self.expand_macro(x.clone())?;
+            let token = match Question::new(token) {
+                Ok(question) => {
+                    self.expand_macro(question)?;
                     return self.read_token();
                 }
-                _ => {}
-            }
+                Err(token) => token,
+            };
 
             match &token {
                 Token::Symbol(x) if x.value() == Symbol::Hyphen => {
@@ -135,7 +141,7 @@ impl Lexer {
         self.macro_calls.contains_key(&token.region().start())
     }
 
-    fn expand_macro(&mut self, question: SymbolToken) -> Result<()> {
+    fn expand_macro(&mut self, question: Question) -> Result<()> {
         let start = self.current - 1;
         let start_position = self.tokens[start].region().start();
 

@@ -182,6 +182,14 @@ impl<'a> Parser<'a> {
         self.lexer.read_token()?.ok_or(Error::UnexpectedEof)
     }
 
+    pub fn peek_token(&mut self) -> Result<Option<Token>> {
+        let result = self.lexer.read_token()?;
+        if result.is_some() {
+            self.lexer.unread_token();
+        }
+        Ok(result)
+    }
+
     pub fn is_macro_expanded(&self, token: &Token) -> bool {
         self.lexer.is_macro_expanded(token)
     }

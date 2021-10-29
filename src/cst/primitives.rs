@@ -1,38 +1,9 @@
+use crate::cst::consts::{CloseParen, OpenParen, Slash};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{Region, Symbol, SymbolToken, TokenPosition, TokenRegion};
-use efmt_derive::Region;
+use crate::token::{Region, TokenPosition, TokenRegion};
+use efmt_derive::{Format, Parse, Region};
 use std::io::Write;
-
-#[derive(Debug, Clone, Region)]
-pub struct Comma(SymbolToken);
-
-impl Parse for Comma {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        parser.expect(Symbol::Comma).map(Self)
-    }
-}
-
-impl Format for Comma {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.0)
-    }
-}
-
-#[derive(Debug, Clone, Region)]
-pub struct Semicolon(SymbolToken);
-
-impl Parse for Semicolon {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        parser.expect(Symbol::Semicolon).map(Self)
-    }
-}
-
-impl Format for Semicolon {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.0)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct NonEmptyItems<T, D> {
@@ -51,10 +22,11 @@ where
     D: Region,
 {
     fn region(&self) -> TokenRegion {
-        TokenRegion::new(
-            self.items[0].region().start(),
-            self.items[self.items.len() - 1].region().end(),
-        )
+        if let (Some(first), Some(last)) = (self.items.first(), self.items.last()) {
+            TokenRegion::new(first.region().start(), last.region().end())
+        } else {
+            unreachable!()
+        }
     }
 }
 impl<T, D> Parse for NonEmptyItems<T, D>
@@ -84,15 +56,12 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Items<T, D> {
-    items: Option<NonEmptyItems<T, D>>,
-    start_position: TokenPosition,
-}
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Items<T, D>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
     pub fn items(&self) -> &[T] {
-        if let Some(x) = &self.items {
+        if let Some(x) = self.0.get() {
             x.items()
         } else {
             &[]
@@ -100,122 +69,87 @@ impl<T, D> Items<T, D> {
     }
 }
 
-impl<T, D> Region for Items<T, D>
-where
-    T: Region,
-    D: Region,
-{
-    fn region(&self) -> TokenRegion {
-        self.items
-            .as_ref()
-            .map(|x| x.region())
-            .unwrap_or(TokenRegion::new(self.start_position, self.start_position))
-    }
-}
-
-impl<T, D> Parse for Items<T, D>
-where
-    T: Parse,
-    D: Parse,
-{
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start_position = parser.current_position();
-        Ok(Self {
-            items: parser.try_parse(),
-            start_position,
-        })
-    }
-}
-
-impl<T, D> Format for Items<T, D>
-where
-    T: Format,
-    D: Format,
-{
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_option(&self.items)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct NameAndArity<Name, Arity> {
     name: Name,
-    slash: SymbolToken,
+    slash: Slash,
     arity: Arity,
 }
 
-impl<Name, Arity> Region for NameAndArity<Name, Arity>
-where
-    Name: Region,
-    Arity: Region,
-{
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.name.region().start(), self.arity.region().end())
-    }
-}
-
-impl<Name, Arity> Parse for NameAndArity<Name, Arity>
-where
-    Name: Parse,
-    Arity: Parse,
-{
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        Ok(Self {
-            name: parser.parse()?,
-            slash: parser.expect(Symbol::Slash)?,
-            arity: parser.parse()?,
-        })
-    }
-}
-
-impl<Name, Arity> Format for NameAndArity<Name, Arity>
-where
-    Name: Format,
-    Arity: Format,
-{
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.name)?;
-        fmt.format(&self.slash)?;
-        fmt.format(&self.arity)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Parenthesized<T> {
-    open: SymbolToken,
-    item: T,
-    close: SymbolToken,
+    open: OpenParen,
+    item: Child<T>,
+    close: CloseParen,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        &self.item
+        self.item.get()
     }
 }
 
-impl<T> Region for Parenthesized<T> {
+#[derive(Debug, Clone, Region, Parse)]
+pub struct Child<T>(T);
+
+impl<T> Child<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for Child<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_child(&self.0)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Maybe<T> {
+    item: Option<T>,
+    prev_token_end: TokenPosition,
+    next_token_start: TokenPosition,
+}
+
+impl<T> Maybe<T> {
+    pub fn get(&self) -> Option<&T> {
+        self.item.as_ref()
+    }
+}
+
+impl<T: Region> Region for Maybe<T> {
     fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.open.region().start(), self.close.region().end())
+        match &self.item {
+            Some(x) => x.region(),
+            None => {
+                // TODO: add note comment
+                TokenRegion::new(self.next_token_start, self.prev_token_end)
+            }
+        }
     }
 }
 
-impl<T: Parse> Parse for Parenthesized<T> {
+impl<T: Parse> Parse for Maybe<T> {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let prev_token_end = parser.current_position();
+        let next_token_start = parser
+            .peek_token()?
+            .map(|x| x.region().start())
+            .unwrap_or(prev_token_end);
         Ok(Self {
-            open: parser.expect(Symbol::OpenParen)?,
-            item: parser.parse()?,
-            close: parser.expect(Symbol::CloseParen)?,
+            item: parser.try_parse(),
+            prev_token_end,
+            next_token_start,
         })
     }
 }
 
-impl<T: Format> Format for Parenthesized<T> {
+impl<T: Format> Format for Maybe<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.open)?;
-        fmt.format(&self.item)?;
-        fmt.format(&self.close)?;
+        if let Some(x) = &self.item {
+            fmt.format(x)?;
+        }
         Ok(())
     }
 }

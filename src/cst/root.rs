@@ -1,8 +1,10 @@
 use crate::cst;
-use crate::cst::primitives::{NonEmptyItems, Semicolon};
+use crate::cst::consts::{Dot, Semicolon};
+use crate::cst::primitives::NonEmptyItems;
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{AtomToken, Region, Symbol, SymbolToken, TokenRegion};
+use crate::token::{AtomToken, Region, TokenRegion};
+use efmt_derive::{Format, Parse, Region};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -12,10 +14,11 @@ pub struct RootItems {
 
 impl Region for RootItems {
     fn region(&self) -> TokenRegion {
-        TokenRegion::new(
-            self.items[0].region().start(),
-            self.items[self.items.len() - 1].region().end(),
-        )
+        if let (Some(first), Some(last)) = (self.items.first(), self.items.last()) {
+            TokenRegion::new(first.region().start(), last.region().end())
+        } else {
+            unreachable!()
+        }
     }
 }
 
@@ -38,69 +41,16 @@ impl Format for RootItems {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub enum RootItem {
     Attr(cst::attributes::Attr),
     FunDecl(FunDecl),
 }
 
-impl Region for RootItem {
-    fn region(&self) -> TokenRegion {
-        match self {
-            Self::Attr(x) => x.region(),
-            Self::FunDecl(x) => x.region(),
-        }
-    }
-}
-
-impl Parse for RootItem {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        if let Some(x) = parser.try_parse() {
-            Ok(Self::Attr(x))
-        } else if let Some(x) = parser.try_parse() {
-            Ok(Self::FunDecl(x))
-        } else {
-            Err(parser.take_last_error().expect("unreachable"))
-        }
-    }
-}
-
-impl Format for RootItem {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        match self {
-            Self::Attr(x) => x.format(fmt),
-            Self::FunDecl(x) => x.format(fmt),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct FunDecl {
     clauses: NonEmptyItems<cst::expressions::FunClause<AtomToken>, Semicolon>,
-    dot: SymbolToken,
-}
-
-impl Region for FunDecl {
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.clauses.region().start(), self.dot.region().end())
-    }
-}
-
-impl Parse for FunDecl {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        Ok(Self {
-            clauses: parser.parse()?,
-            dot: parser.expect(Symbol::Dot)?,
-        })
-    }
-}
-
-impl Format for FunDecl {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.clauses)?;
-        fmt.format(&self.dot)?;
-        Ok(())
-    }
+    dot: Dot,
 }
 
 #[cfg(test)]

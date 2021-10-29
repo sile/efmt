@@ -29,6 +29,10 @@ impl TokenRegion {
     pub const fn end(self) -> TokenPosition {
         self.end
     }
+
+    pub fn is_empty(self) -> bool {
+        self.end <= self.start
+    }
 }
 
 impl Region for TokenRegion {

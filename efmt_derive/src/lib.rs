@@ -118,7 +118,24 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
             }
             Fields::Unit => unimplemented!(),
         },
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() =>  Ok(Self::#name(x)) }
+            });
+            quote! {
+                #( if let Some(x) = parser.try_parse() { #arms } else )*
+                {
+                    Err(parser.take_last_error().expect("unreachable"))
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
     }
 }
 

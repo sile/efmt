@@ -1,13 +1,14 @@
-use crate::cst::primitives::{Comma, Items, Parenthesized};
+use crate::cst::consts::{Comma, Question};
+use crate::cst::primitives::{Items, Maybe, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, AnyToken, Or, Parse, Parser, ResumeParse};
 use crate::token::{
-    AtomToken, Keyword, Region, Symbol, SymbolToken, Token, TokenPosition, TokenRegion,
-    VariableToken,
+    AtomToken, Keyword, Region, Symbol, Token, TokenPosition, TokenRegion, VariableToken,
 };
+use efmt_derive::{Format, Parse, Region};
 use std::io::Write;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Format)]
 pub enum MacroName {
     Atom(AtomToken),
     Variable(VariableToken),
@@ -18,15 +19,6 @@ impl MacroName {
         match self {
             Self::Atom(x) => x.value(),
             Self::Variable(x) => x.value(),
-        }
-    }
-}
-
-impl Region for MacroName {
-    fn region(&self) -> TokenRegion {
-        match self {
-            Self::Atom(x) => x.region(),
-            Self::Variable(x) => x.region(),
         }
     }
 }
@@ -44,15 +36,6 @@ impl Parse for MacroName {
                 token,
                 "AtomToken or VariableToken",
             ))
-        }
-    }
-}
-
-impl Format for MacroName {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        match self {
-            Self::Atom(x) => x.format(fmt),
-            Self::Variable(x) => x.format(fmt),
         }
     }
 }
@@ -118,11 +101,11 @@ impl Format for Replacement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct MacroCall {
-    question: SymbolToken,
+    question: Question,
     name: MacroName,
-    args: Option<Parenthesized<Items<MacroArg, Comma>>>,
+    args: Maybe<Parenthesized<Items<MacroArg, Comma>>>,
 }
 
 impl MacroCall {
@@ -131,48 +114,21 @@ impl MacroCall {
     }
 
     pub fn args(&self) -> Option<&[MacroArg]> {
-        self.args.as_ref().map(|x| x.get().items())
+        self.args.get().map(|x| x.get().items())
     }
 }
 
-impl Region for MacroCall {
-    fn region(&self) -> TokenRegion {
-        let start = self.question.region().start();
-        let end = if let Some(x) = &self.args {
-            x.region().end()
-        } else {
-            self.name.region().end()
-        };
-        TokenRegion::new(start, end)
-    }
-}
-
-impl Parse for MacroCall {
-    fn parse(_parser: &mut Parser) -> parse::Result<Self> {
-        todo!("don't call this method.");
-    }
-}
-
-impl ResumeParse<(SymbolToken, MacroName, Option<usize>)> for MacroCall {
+impl ResumeParse<(Question, MacroName, Option<usize>)> for MacroCall {
     fn resume_parse(
         parser: &mut Parser,
-        (question, name, _arity): (SymbolToken, MacroName, Option<usize>),
+        (question, name, _arity): (Question, MacroName, Option<usize>),
     ) -> parse::Result<Self> {
         // TODO: check arity
         Ok(Self {
             question,
             name,
-            args: parser.try_parse(),
+            args: parser.parse()?,
         })
-    }
-}
-
-impl Format for MacroCall {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.question)?;
-        fmt.format(&self.name)?;
-        fmt.format_option(&self.args)?;
-        Ok(())
     }
 }
 
@@ -189,10 +145,11 @@ impl MacroArg {
 
 impl Region for MacroArg {
     fn region(&self) -> TokenRegion {
-        TokenRegion::new(
-            self.tokens[0].region().start(),
-            self.tokens[self.tokens.len() - 1].region().end(),
-        )
+        if let (Some(first), Some(last)) = (self.tokens.first(), self.tokens.last()) {
+            TokenRegion::new(first.region().start(), last.region().end())
+        } else {
+            unreachable!()
+        }
     }
 }
 
