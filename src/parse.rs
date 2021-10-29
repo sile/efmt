@@ -379,6 +379,26 @@ where
     }
 }
 
+impl<T, const N: usize> Expect for [T; N]
+where
+    T: Expect,
+    LexicalToken: From<T::Token>,
+{
+    type Token = [LexicalToken; N];
+
+    fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
+        let result = self
+            .into_iter()
+            .map(|x| parser.expect(x).map(|t| t.into()))
+            .collect::<Result<Vec<_>>>()?
+            .try_into();
+        match result {
+            Err(_) => unreachable!(),
+            Ok(x) => Ok(x),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AnyToken;
 

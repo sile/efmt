@@ -77,7 +77,7 @@ impl Parse for Replacement {
         let start = parser.current_position();
         let mut tokens = Vec::new();
         while parser
-            .peek_expect((Symbol::CloseParen, Symbol::Dot))
+            .peek_expect([Symbol::CloseParen, Symbol::Dot])
             .is_none()
         {
             let token = parser.read_token()?;
