@@ -4,8 +4,22 @@ use crate::cst::primitives::{Comma, Items, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
 use crate::token::{AtomToken, StringToken, Symbol, SymbolToken, VariableToken};
-use efmt_derive::Region;
+use efmt_derive::{Format, Parse, Region};
 use std::io::Write;
+
+pub const ATTR_NAMES: &[&str] = &["define", "include", "include_lib"];
+pub const ATTR_NAME_DEFINE: usize = 0;
+pub const ATTR_NAME_INCLUDE: usize = 1;
+pub const ATTR_NAME_INCLUDE_LIB: usize = 2;
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct AttrName<const I: usize>(AtomToken);
+
+impl<const I: usize> Parse for AttrName<I> {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(ATTR_NAMES[I]).map(Self)
+    }
+}
 
 #[derive(Debug, Clone, Region)]
 pub enum Attr {
@@ -72,74 +86,24 @@ impl Format for General {
     }
 }
 
-#[derive(Debug, Clone, Region)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Include {
     hyphen: SymbolToken,
-    include: AtomToken,
+    include: AttrName<ATTR_NAME_INCLUDE>,
     open: SymbolToken,
     file: StringToken,
     close: SymbolToken,
     dot: SymbolToken,
 }
 
-impl Parse for Include {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        Ok(Self {
-            hyphen: parser.expect(Symbol::Hyphen)?,
-            include: parser.expect("include")?,
-            open: parser.expect(Symbol::OpenParen)?,
-            file: parser.parse()?,
-            close: parser.expect(Symbol::CloseParen)?,
-            dot: parser.expect(Symbol::Dot)?,
-        })
-    }
-}
-
-impl Format for Include {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.hyphen)?;
-        fmt.format(&self.include)?;
-        fmt.format(&self.open)?;
-        fmt.format_child(&self.file)?;
-        fmt.format(&self.close)?;
-        fmt.format(&self.dot)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Region)]
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct IncludeLib {
     hyphen: SymbolToken,
-    include_lib: AtomToken,
+    include_lib: AttrName<ATTR_NAME_INCLUDE_LIB>,
     open: SymbolToken,
     file: StringToken,
     close: SymbolToken,
     dot: SymbolToken,
-}
-
-impl Parse for IncludeLib {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        Ok(Self {
-            hyphen: parser.expect(Symbol::Hyphen)?,
-            include_lib: parser.expect("include_lib")?,
-            open: parser.expect(Symbol::OpenParen)?,
-            file: parser.parse()?,
-            close: parser.expect(Symbol::CloseParen)?,
-            dot: parser.expect(Symbol::Dot)?,
-        })
-    }
-}
-
-impl Format for IncludeLib {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.hyphen)?;
-        fmt.format(&self.include_lib)?;
-        fmt.format(&self.open)?;
-        fmt.format_child(&self.file)?;
-        fmt.format(&self.close)?;
-        fmt.format(&self.dot)?;
-        Ok(())
-    }
 }
 
 #[derive(Debug, Clone, Region)]

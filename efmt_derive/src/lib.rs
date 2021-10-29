@@ -6,33 +6,21 @@ use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericPara
 
 #[proc_macro_derive(Region)]
 pub fn derive_region_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // Parse the input tokens into a syntax tree.
     let input = parse_macro_input!(input as DeriveInput);
-
-    // Used in the quasi-quotation below as `#name`.
     let name = input.ident;
-
-    // Add a bound `T: Region` to every type parameter T.
     let generics = add_region_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    // Generate an expression to sum up the heap size of each field.
-    let region = token_region(&input.data);
-
+    let region = generate_region_method_body(&input.data);
     let expanded = quote! {
-        // The generated impl.
         impl #impl_generics crate::token::Region for #name #ty_generics #where_clause {
             fn region(&self) -> crate::token::TokenRegion {
                 #region
             }
         }
     };
-
-    // Hand the output tokens back to the compiler.
     proc_macro::TokenStream::from(expanded)
 }
 
-// Add a bound `T: Region` to every type parameter T.
 fn add_region_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
@@ -42,8 +30,7 @@ fn add_region_trait_bounds(mut generics: Generics) -> Generics {
     generics
 }
 
-// Generate an expression to calculate the region of the struct.
-fn token_region(data: &Data) -> TokenStream {
+fn generate_region_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => match (fields.named.first(), fields.named.last()) {
@@ -74,6 +61,117 @@ fn token_region(data: &Data) -> TokenStream {
                     unimplemented!();
                 }
                 quote_spanned! { variant.span() => Self::#name(x) => x.region(), }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    }
+}
+
+#[proc_macro_derive(Parse)]
+pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let generics = add_parse_trait_bounds(input.generics);
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let parse = generate_parse_fun_body(&input.data);
+    let expanded = quote! {
+        impl #impl_generics crate::parse::Parse for #name #ty_generics #where_clause {
+            fn parse(parser: &mut crate::parse::Parser) -> crate::parse::Result<Self> {
+                #parse
+            }
+        }
+    };
+    proc_macro::TokenStream::from(expanded)
+}
+
+fn add_parse_trait_bounds(mut generics: Generics) -> Generics {
+    for param in &mut generics.params {
+        if let GenericParam::Type(ref mut type_param) = *param {
+            type_param.bounds.push(parse_quote!(crate::token::Parse));
+        }
+    }
+    generics
+}
+
+fn generate_parse_fun_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let parse = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => #name: crate::parse::Parse::parse(parser)? }
+                });
+                quote! {
+                    Ok(Self{
+                        #(#parse ,)*
+                    })
+                }
+            }
+            Fields::Unnamed(_) | Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(_) | Data::Union(_) => unimplemented!(),
+    }
+}
+
+#[proc_macro_derive(Format)]
+pub fn derive_format_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let generics = add_format_trait_bounds(input.generics);
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let format = generate_format_method_body(&input.data);
+    let expanded = quote! {
+        impl #impl_generics crate::format::Format for #name #ty_generics #where_clause {
+            fn format<W: ::std::io::Write>(&self, fmt: &mut crate::format::Formatter<W>) -> crate::format::Result<()> {
+                #format
+            }
+        }
+    };
+    proc_macro::TokenStream::from(expanded)
+}
+
+fn add_format_trait_bounds(mut generics: Generics) -> Generics {
+    for param in &mut generics.params {
+        if let GenericParam::Type(ref mut type_param) = *param {
+            type_param.bounds.push(parse_quote!(crate::token::Format));
+        }
+    }
+    generics
+}
+
+fn generate_format_method_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let format = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => fmt.format(&self.#name)? }
+                });
+                quote! {
+                    #(#format ;)*
+                    Ok(())
+                }
+            }
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { self.0.format(fmt) }
+            }
+            Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() => Self::#name(x) => x.format(fmt), }
             });
             quote! {
                 match self {
