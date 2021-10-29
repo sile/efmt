@@ -1,26 +1,29 @@
-use crate::cst::primitives::{Atom, Variable};
+use crate::cst::primitives::{Comma, Items, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, AnyToken, Or, Parse, Parser, ResumeParse};
-use crate::token::{Keyword, LexicalToken, Region, Symbol, TokenPosition, TokenRegion};
+use crate::token::{
+    AtomToken, Keyword, Region, Symbol, SymbolToken, Token, TokenPosition, TokenRegion,
+    VariableToken,
+};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub enum MacroName {
-    Atom(Atom),
-    Variable(Variable),
+    Atom(AtomToken),
+    Variable(VariableToken),
 }
 
 impl MacroName {
     pub fn get(&self) -> &str {
         match self {
-            Self::Atom(x) => x.token().value(),
-            Self::Variable(x) => x.token().value(),
+            Self::Atom(x) => x.value(),
+            Self::Variable(x) => x.value(),
         }
     }
 }
 
 impl Region for MacroName {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         match self {
             Self::Atom(x) => x.region(),
             Self::Variable(x) => x.region(),
@@ -56,25 +59,32 @@ impl Format for MacroName {
 
 #[derive(Debug, Clone)]
 pub struct Replacement {
-    tokens: Vec<LexicalToken>,
-    region: TokenRegion,
+    tokens: Vec<Token>,
+    start_position: TokenPosition,
 }
 
 impl Replacement {
-    pub fn tokens(&self) -> &[LexicalToken] {
+    pub fn tokens(&self) -> &[Token] {
         &self.tokens
     }
 }
 
 impl Region for Replacement {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        if self.tokens.is_empty() {
+            TokenRegion::new(self.start_position, self.start_position)
+        } else {
+            TokenRegion::new(
+                self.tokens[0].region().start(),
+                self.tokens[self.tokens.len() - 1].region().end(),
+            )
+        }
     }
 }
 
 impl Parse for Replacement {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
+        let start_position = parser.current_position();
         let mut tokens = Vec::new();
         while parser
             .peek_expect([Symbol::CloseParen, Symbol::Dot])
@@ -82,7 +92,7 @@ impl Parse for Replacement {
         {
             let token = parser.read_token()?;
             match &token {
-                LexicalToken::Symbol(x) if x.value() == Symbol::Dot => {
+                Token::Symbol(x) if x.value() == Symbol::Dot => {
                     return Err(parse::Error::unexpected_token(
                         parser,
                         token.clone(),
@@ -96,7 +106,7 @@ impl Parse for Replacement {
 
         Ok(Self {
             tokens,
-            region: parser.region(start),
+            start_position,
         })
     }
 }
@@ -110,9 +120,9 @@ impl Format for Replacement {
 
 #[derive(Debug, Clone)]
 pub struct MacroCall {
+    question: SymbolToken,
     name: MacroName,
-    args: Option<Vec<MacroArg>>,
-    region: TokenRegion,
+    args: Option<Parenthesized<Items<MacroArg, Comma>>>,
 }
 
 impl MacroCall {
@@ -121,13 +131,19 @@ impl MacroCall {
     }
 
     pub fn args(&self) -> Option<&[MacroArg]> {
-        self.args.as_ref().map(|x| x.as_slice())
+        self.args.as_ref().map(|x| x.get().items())
     }
 }
 
 impl Region for MacroCall {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        let start = self.question.region().start();
+        let end = if let Some(x) = &self.args {
+            x.region().end()
+        } else {
+            self.name.region().end()
+        };
+        TokenRegion::new(start, end)
     }
 }
 
@@ -137,65 +153,51 @@ impl Parse for MacroCall {
     }
 }
 
-impl ResumeParse<(TokenPosition, MacroName, Option<usize>)> for MacroCall {
+impl ResumeParse<(SymbolToken, MacroName, Option<usize>)> for MacroCall {
     fn resume_parse(
         parser: &mut Parser,
-        (start, name, arity): (TokenPosition, MacroName, Option<usize>),
+        (question, name, _arity): (SymbolToken, MacroName, Option<usize>),
     ) -> parse::Result<Self> {
-        let args = if let Some(arity) = arity {
-            parser.expect(Symbol::OpenParen)?;
-            let args = parser.parse_items(Symbol::Comma)?;
-            parser.expect(Symbol::CloseParen)?;
-            if args.len() != arity {
-                todo!();
-            }
-            Some(args)
-        } else {
-            None
-        };
+        // TODO: check arity
         Ok(Self {
+            question,
             name,
-            args,
-            region: parser.region(start),
+            args: parser.try_parse(),
         })
     }
 }
 
 impl Format for MacroCall {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "?")?;
+        fmt.format(&self.question)?;
         fmt.format(&self.name)?;
-        if let Some(args) = &self.args {
-            write!(fmt, "(")?;
-            fmt.format_children(args, ",")?;
-            write!(fmt, ")")?;
-        }
+        fmt.format_option(&self.args)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct MacroArg {
-    tokens: Vec<LexicalToken>,
-    region: TokenRegion,
+    tokens: Vec<Token>,
 }
 
 impl MacroArg {
-    pub fn tokens(&self) -> &[LexicalToken] {
+    pub fn tokens(&self) -> &[Token] {
         &self.tokens
     }
 }
 
 impl Region for MacroArg {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(
+            self.tokens[0].region().start(),
+            self.tokens[self.tokens.len() - 1].region().end(),
+        )
     }
 }
 
 impl Parse for MacroArg {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-
         #[derive(Debug, Default, PartialEq, Eq)]
         struct Level {
             paren: usize,
@@ -221,7 +223,7 @@ impl Parse for MacroArg {
         {
             let token = parser.read_token()?;
             match &token {
-                LexicalToken::Symbol(x) => match x.value() {
+                Token::Symbol(x) => match x.value() {
                     Symbol::OpenParen => {
                         level.paren += 1;
                     }
@@ -260,7 +262,7 @@ impl Parse for MacroArg {
                     }
                     _ => {}
                 },
-                LexicalToken::Keyword(x) => match x.value() {
+                Token::Keyword(x) => match x.value() {
                     Keyword::Begin | Keyword::Try | Keyword::Case | Keyword::If => {
                         level.block += 1;
                     }
@@ -284,10 +286,7 @@ impl Parse for MacroArg {
             tokens.push(token);
         }
 
-        Ok(Self {
-            tokens,
-            region: parser.region(start),
-        })
+        Ok(Self { tokens })
     }
 }
 

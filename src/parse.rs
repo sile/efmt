@@ -1,8 +1,5 @@
 use crate::lex::{self, Lexer};
-use crate::token::{
-    AtomToken, IntegerToken, Keyword, KeywordToken, LexicalToken, Region, StringToken, Symbol,
-    SymbolToken, TokenIndex, TokenPosition, TokenRegion, VariableToken,
-};
+use crate::token::{AtomToken, Region, Symbol, Token, TokenIndex, TokenPosition, TokenRegion};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -12,7 +9,7 @@ pub enum Error {
     #[error("expected {expected}, but got {token:?}")]
     UnexpectedToken {
         index: TokenIndex,
-        token: LexicalToken,
+        token: Token,
         expected: String,
     },
 
@@ -29,7 +26,7 @@ impl Error {
         }
     }
 
-    pub fn unexpected_token(parser: &Parser, token: LexicalToken, expected: &str) -> Self {
+    pub fn unexpected_token(parser: &Parser, token: Token, expected: &str) -> Self {
         Self::UnexpectedToken {
             index: parser.lexer.current_token_index(),
             token,
@@ -62,11 +59,6 @@ impl<'a> Parser<'a> {
 
     pub fn current_position(&self) -> TokenPosition {
         self.lexer.current_position()
-    }
-
-    pub fn region(&self, start: TokenPosition) -> TokenRegion {
-        // TokenRegion::new(start, self.current_position())
-        TokenRegion::new(start, self.lexer.last_end_postion())
     }
 
     pub fn parse<T: Parse>(&mut self) -> Result<T> {
@@ -186,7 +178,7 @@ impl<'a> Parser<'a> {
         self.last_error.take()
     }
 
-    pub fn read_token(&mut self) -> Result<LexicalToken> {
+    pub fn read_token(&mut self) -> Result<Token> {
         self.lexer.read_token()?.ok_or(Error::UnexpectedEof)
     }
 }
@@ -199,19 +191,11 @@ pub trait ResumeParse<T>: Parse {
     fn resume_parse(lexer: &mut Parser, args: T) -> Result<Self>;
 }
 
+// TODO: remove
 pub trait Expect {
     type Token; //TODO: rename (Item?)
 
     fn expect(self, parser: &mut Parser) -> Result<Self::Token>;
-}
-
-impl Parse for AtomToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::Atom(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "AtomToken")),
-        }
-    }
 }
 
 impl Expect for &str {
@@ -227,59 +211,6 @@ impl Expect for &str {
                 token.into(),
                 &format!("{:?}", self),
             ))
-        }
-    }
-}
-
-impl Parse for IntegerToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::Integer(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "IntegerToken")),
-        }
-    }
-}
-
-impl Parse for SymbolToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::Symbol(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "SymbolToken")),
-        }
-    }
-}
-
-impl Expect for Symbol {
-    type Token = SymbolToken;
-
-    fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
-        let token = parser.parse::<Self::Token>()?;
-        if token.value() == self {
-            Ok(token)
-        } else {
-            Err(Error::unexpected_token(
-                parser,
-                token.into(),
-                &format!("{:?}", self),
-            ))
-        }
-    }
-}
-
-impl Parse for VariableToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::Variable(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "VariableToken")),
-        }
-    }
-}
-
-impl Parse for StringToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::String(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "StringToken")),
         }
     }
 }
@@ -305,10 +236,10 @@ pub enum Either<A, B> {
     B(B),
 }
 
-impl<A, B> From<Either<A, B>> for LexicalToken
+impl<A, B> From<Either<A, B>> for Token
 where
-    A: Into<LexicalToken>,
-    B: Into<LexicalToken>,
+    A: Into<Token>,
+    B: Into<Token>,
 {
     fn from(x: Either<A, B>) -> Self {
         match x {
@@ -337,7 +268,7 @@ where
     A: Region,
     B: Region,
 {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         match self {
             Self::A(x) => x.region(),
             Self::B(x) => x.region(),
@@ -382,9 +313,9 @@ where
 impl<T, const N: usize> Expect for [T; N]
 where
     T: Expect,
-    LexicalToken: From<T::Token>,
+    Token: From<T::Token>,
 {
-    type Token = [LexicalToken; N];
+    type Token = [Token; N];
 
     fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
         let result = self
@@ -403,35 +334,9 @@ where
 pub struct AnyToken;
 
 impl Expect for AnyToken {
-    type Token = LexicalToken;
+    type Token = Token;
 
     fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
         parser.read_token()
-    }
-}
-
-impl Parse for KeywordToken {
-    fn parse(parser: &mut Parser) -> Result<Self> {
-        match parser.read_token()? {
-            LexicalToken::Keyword(token) => Ok(token),
-            token => Err(Error::unexpected_token(parser, token, "KeywordToken")),
-        }
-    }
-}
-
-impl Expect for Keyword {
-    type Token = KeywordToken;
-
-    fn expect(self, parser: &mut Parser) -> Result<Self::Token> {
-        let token = parser.parse::<Self::Token>()?;
-        if token.value() == self {
-            Ok(token)
-        } else {
-            Err(Error::unexpected_token(
-                parser,
-                token.into(),
-                &format!("{:?}", self),
-            ))
-        }
     }
 }

@@ -1,41 +1,38 @@
 use crate::cst;
-use crate::cst::primitives::Atom;
+use crate::cst::primitives::{NonEmptyItems, Semicolon};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{Region, Symbol, TokenRegion};
+use crate::token::{AtomToken, Region, Symbol, SymbolToken, TokenRegion};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub struct RootItems {
     items: Vec<RootItem>,
-    region: TokenRegion,
 }
 
 impl Region for RootItems {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(
+            self.items[0].region().start(),
+            self.items[self.items.len() - 1].region().end(),
+        )
     }
 }
 
 impl Parse for RootItems {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let mut items = Vec::new();
+        let mut items = vec![parser.parse()?];
         while !parser.is_eof()? {
             items.push(parser.parse()?);
         }
-        Ok(Self {
-            items,
-            region: parser.region(start),
-        })
+        Ok(Self { items })
     }
 }
 
 impl Format for RootItems {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         for item in &self.items {
-            fmt.format(item)?;
-            writeln!(fmt)?;
+            fmt.format_toplevel_item(item)?;
         }
         Ok(())
     }
@@ -48,7 +45,7 @@ pub enum RootItem {
 }
 
 impl Region for RootItem {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         match self {
             Self::Attr(x) => x.region(),
             Self::FunDecl(x) => x.region(),
@@ -79,32 +76,29 @@ impl Format for RootItem {
 
 #[derive(Debug, Clone)]
 pub struct FunDecl {
-    clauses: Vec<cst::expressions::FunClause<Atom>>,
-    region: TokenRegion,
+    clauses: NonEmptyItems<cst::expressions::FunClause<AtomToken>, Semicolon>,
+    dot: SymbolToken,
 }
 
 impl Region for FunDecl {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.clauses.region().start(), self.dot.region().end())
     }
 }
 
 impl Parse for FunDecl {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let clauses = parser.parse_items(Symbol::Semicolon)?;
-        parser.expect(Symbol::Dot)?;
         Ok(Self {
-            clauses,
-            region: parser.region(start),
+            clauses: parser.parse()?,
+            dot: parser.expect(Symbol::Dot)?,
         })
     }
 }
 
 impl Format for FunDecl {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_clauses(&self.clauses)?;
-        write!(fmt, ".")?;
+        fmt.format(&self.clauses)?;
+        fmt.format(&self.dot)?;
         Ok(())
     }
 }

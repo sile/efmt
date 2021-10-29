@@ -1,9 +1,11 @@
 use crate::cst::expressions::Expr;
 use crate::cst::macros::{MacroName, Replacement};
-use crate::cst::primitives::{Atom, String, Variable};
+use crate::cst::primitives::{Comma, Items, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{Region, Symbol, TokenRegion};
+use crate::token::{
+    AtomToken, Region, StringToken, Symbol, SymbolToken, TokenRegion, VariableToken,
+};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
@@ -15,7 +17,7 @@ pub enum Attr {
 }
 
 impl Region for Attr {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         match self {
             Self::Define(x) => x.region(),
             Self::Include(x) => x.region(),
@@ -55,145 +57,144 @@ impl Format for Attr {
 
 #[derive(Debug, Clone)]
 pub struct General {
-    name: Atom,
-    items: Option<Vec<Expr>>,
-    region: TokenRegion,
+    hyphen: SymbolToken,
+    name: AtomToken,
+    items: Option<Parenthesized<Items<Expr, Comma>>>,
+    dot: SymbolToken,
 }
 
 impl Region for General {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
     }
 }
 
 impl Parse for General {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        parser.expect(Symbol::Hyphen)?;
-        let name = Atom::parse(parser)?;
-
-        let items = if parser.try_expect(Symbol::OpenParen).is_some() {
-            let items = parser.parse_items(Symbol::Comma)?;
-            parser.expect(Symbol::CloseParen)?;
-            Some(items)
-        } else {
-            None
-        };
-        parser.expect(Symbol::Dot)?;
         Ok(Self {
-            name,
-            items,
-            region: parser.region(start),
+            hyphen: parser.expect(Symbol::Hyphen)?,
+            name: parser.parse()?,
+            items: parser.try_parse(),
+            dot: parser.expect(Symbol::Dot)?,
         })
     }
 }
 
 impl Format for General {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "-")?;
+        fmt.format(&self.hyphen)?;
         fmt.format(&self.name)?;
-        if let Some(items) = &self.items {
-            write!(fmt, "(")?;
-            fmt.format_children(items, ",")?;
-            write!(fmt, ")")?;
-        }
-        write!(fmt, ".")?;
+        fmt.format_option(&self.items)?;
+        fmt.format(&self.dot)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Include {
-    file: String,
-    region: TokenRegion,
+    hyphen: SymbolToken,
+    include: AtomToken,
+    open: SymbolToken,
+    file: StringToken,
+    close: SymbolToken,
+    dot: SymbolToken,
 }
 
 impl Region for Include {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
     }
 }
 
 impl Parse for Include {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        parser.expect(Symbol::Hyphen)?;
-        parser.expect("include")?;
-        parser.expect(Symbol::OpenParen)?;
-        let file = String::parse(parser)?;
-        parser.expect(Symbol::CloseParen)?;
-        parser.expect(Symbol::Dot)?;
         Ok(Self {
-            file,
-            region: parser.region(start),
+            hyphen: parser.expect(Symbol::Hyphen)?,
+            include: parser.expect("include")?,
+            open: parser.expect(Symbol::OpenParen)?,
+            file: parser.parse()?,
+            close: parser.expect(Symbol::CloseParen)?,
+            dot: parser.expect(Symbol::Dot)?,
         })
     }
 }
 
 impl Format for Include {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "-include(")?;
+        fmt.format(&self.hyphen)?;
+        fmt.format(&self.include)?;
+        fmt.format(&self.open)?;
         fmt.format_child(&self.file)?;
-        write!(fmt, ").")?;
+        fmt.format(&self.close)?;
+        fmt.format(&self.dot)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct IncludeLib {
-    file: String,
-    region: TokenRegion,
+    hyphen: SymbolToken,
+    include_lib: AtomToken,
+    open: SymbolToken,
+    file: StringToken,
+    close: SymbolToken,
+    dot: SymbolToken,
 }
 
 impl Region for IncludeLib {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
     }
 }
 
 impl Parse for IncludeLib {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        parser.expect(Symbol::Hyphen)?;
-        parser.expect("include_lib")?;
-        parser.expect(Symbol::OpenParen)?;
-        let file = String::parse(parser)?;
-        parser.expect(Symbol::CloseParen)?;
-        parser.expect(Symbol::Dot)?;
         Ok(Self {
-            file,
-            region: parser.region(start),
+            hyphen: parser.expect(Symbol::Hyphen)?,
+            include_lib: parser.expect("include_lib")?,
+            open: parser.expect(Symbol::OpenParen)?,
+            file: parser.parse()?,
+            close: parser.expect(Symbol::CloseParen)?,
+            dot: parser.expect(Symbol::Dot)?,
         })
     }
 }
 
 impl Format for IncludeLib {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "-include_lib(")?;
+        fmt.format(&self.hyphen)?;
+        fmt.format(&self.include_lib)?;
+        fmt.format(&self.open)?;
         fmt.format_child(&self.file)?;
-        write!(fmt, ").")?;
+        fmt.format(&self.close)?;
+        fmt.format(&self.dot)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Define {
+    hyphen: SymbolToken,
+    define: AtomToken,
+    open: SymbolToken,
     macro_name: MacroName,
-    variables: Option<Vec<Variable>>,
+    variables: Option<Parenthesized<Items<VariableToken, Comma>>>,
+    comma: SymbolToken,
     replacement: Replacement,
-    region: TokenRegion,
+    close: SymbolToken,
+    dot: SymbolToken,
 }
 
 impl Define {
     pub fn macro_name(&self) -> &str {
         match &self.macro_name {
-            MacroName::Atom(x) => x.token().value(),
-            MacroName::Variable(x) => x.token().value(),
+            MacroName::Atom(x) => x.value(),
+            MacroName::Variable(x) => x.value(),
         }
     }
 
-    pub fn variables(&self) -> Option<&[Variable]> {
-        self.variables.as_ref().map(|x| x.as_slice())
+    pub fn variables(&self) -> Option<&[VariableToken]> {
+        self.variables.as_ref().map(|x| x.get().items())
     }
 
     pub fn replacement(&self) -> &Replacement {
@@ -202,59 +203,38 @@ impl Define {
 }
 
 impl Region for Define {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
     }
 }
 
 impl Parse for Define {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        parser.expect(Symbol::Hyphen)?;
-        parser.expect("define")?;
-        parser.expect(Symbol::OpenParen)?;
-
-        // Name.
-        let macro_name = parser.parse()?;
-
-        // Variables.
-        let variables = if parser.try_expect(Symbol::OpenParen).is_some() {
-            let variables = parser.parse_items(Symbol::Comma)?;
-            parser.expect(Symbol::CloseParen)?;
-            Some(variables)
-        } else {
-            None
-        };
-        parser.expect(Symbol::Comma)?;
-
-        // Replacement.
-        let replacement = parser.parse()?;
-        parser.expect(Symbol::CloseParen)?;
-        parser.expect(Symbol::Dot)?;
-
         Ok(Self {
-            macro_name,
-            variables,
-            replacement,
-            region: parser.region(start),
+            hyphen: parser.expect(Symbol::Hyphen)?,
+            define: parser.expect("define")?,
+            open: parser.expect(Symbol::OpenParen)?,
+            macro_name: parser.parse()?,
+            variables: parser.try_parse(),
+            comma: parser.expect(Symbol::Comma)?,
+            replacement: parser.parse()?,
+            close: parser.expect(Symbol::CloseParen)?,
+            dot: parser.expect(Symbol::Dot)?,
         })
     }
 }
 
 impl Format for Define {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "-define(")?;
+        fmt.format(&self.hyphen)?;
+        fmt.format(&self.define)?;
+        fmt.format(&self.open)?;
         fmt.format(&self.macro_name)?;
-
-        if let Some(vars) = &self.variables {
-            write!(fmt, "(")?;
-            fmt.format_children(vars, ",")?;
-            write!(fmt, ")")?;
-        }
-        write!(fmt, ",")?;
-
+        fmt.format_option(&self.variables)?;
+        fmt.format(&self.comma)?;
         fmt.format_child(&self.replacement)?;
-        write!(fmt, ").")?;
+        fmt.format(&self.close)?;
+        fmt.format(&self.dot)?;
         Ok(())
     }
 }

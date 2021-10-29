@@ -1,27 +1,34 @@
-use crate::cst::primitives::{Atom, Integer, NameAndArity, Parenthesized, String, Variable};
+use crate::cst::primitives::{Comma, Items, NameAndArity, NonEmptyItems, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Either, Parse, Parser};
-use crate::token::{Keyword, Region, Symbol, TokenRegion};
+use crate::token::{
+    AtomToken, CharToken, FloatToken, IntegerToken, Keyword, Region, StringToken, Symbol,
+    SymbolToken, TokenRegion, VariableToken,
+};
 use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Atom(Atom),
-    Variable(Variable),
-    String(String),
-    Integer(Integer),
+    Atom(AtomToken),
+    Char(CharToken),
+    Float(FloatToken),
+    Integer(IntegerToken),
+    String(StringToken),
+    Variable(VariableToken),
     List(Box<List>),
     FunCall(Box<FunCall>),
-    NameAndArity(NameAndArity<Atom, Integer>), // For attributes such as `-export`.
+    NameAndArity(NameAndArity<AtomToken, IntegerToken>), // For attributes such as `-export`.
 }
 
 impl Region for Expr {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         match self {
             Self::Atom(x) => x.region(),
-            Self::Variable(x) => x.region(),
-            Self::String(x) => x.region(),
+            Self::Char(x) => x.region(),
+            Self::Float(x) => x.region(),
             Self::Integer(x) => x.region(),
+            Self::String(x) => x.region(),
+            Self::Variable(x) => x.region(),
             Self::List(x) => x.region(),
             Self::FunCall(x) => x.region(),
             Self::NameAndArity(x) => x.region(),
@@ -38,11 +45,15 @@ impl Parse for Expr {
         } else if let Some(x) = parser.try_parse() {
             Self::Atom(x)
         } else if let Some(x) = parser.try_parse() {
-            Self::Variable(x)
+            Self::Char(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Float(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Integer(x)
         } else if let Some(x) = parser.try_parse() {
             Self::String(x)
         } else if let Some(x) = parser.try_parse() {
-            Self::Integer(x)
+            Self::Variable(x)
         } else if let Some(x) = parser.try_parse() {
             Self::List(x)
         } else {
@@ -57,9 +68,11 @@ impl Format for Expr {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         match self {
             Self::Atom(x) => x.format(fmt),
-            Self::Variable(x) => x.format(fmt),
-            Self::String(x) => x.format(fmt),
+            Self::Char(x) => x.format(fmt),
+            Self::Float(x) => x.format(fmt),
             Self::Integer(x) => x.format(fmt),
+            Self::String(x) => x.format(fmt),
+            Self::Variable(x) => x.format(fmt),
             Self::List(x) => x.format(fmt),
             Self::FunCall(x) => x.format(fmt),
             Self::NameAndArity(x) => x.format(fmt),
@@ -69,34 +82,32 @@ impl Format for Expr {
 
 #[derive(Debug, Clone)]
 pub struct List {
-    items: Vec<Expr>,
-    region: TokenRegion,
+    open: SymbolToken,
+    items: Items<Expr, Comma>,
+    close: SymbolToken,
 }
 
 impl Region for List {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.open.region().start(), self.close.region().end())
     }
 }
 
 impl Parse for List {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        parser.expect(Symbol::OpenSquare)?;
-        let items = parser.parse_items(Symbol::Comma)?;
-        parser.expect(Symbol::CloseSquare)?;
         Ok(Self {
-            items,
-            region: parser.region(start),
+            open: parser.expect(Symbol::OpenSquare)?,
+            items: parser.parse()?,
+            close: parser.expect(Symbol::CloseSquare)?,
         })
     }
 }
 
 impl Format for List {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        write!(fmt, "[")?;
-        fmt.format_children(&self.items, ",")?;
-        write!(fmt, "]")?;
+        fmt.format(&self.open)?;
+        fmt.format(&self.items)?;
+        fmt.format(&self.close)?;
         Ok(())
     }
 }
@@ -104,34 +115,26 @@ impl Format for List {
 #[derive(Debug, Clone)]
 pub struct FunClause<Name> {
     name: Name,
-    params: Vec<Expr>,
+    params: Parenthesized<Items<Expr, Comma>>,
     guard: Option<Guard>,
+    arrow: SymbolToken,
     body: Body,
-    region: TokenRegion,
 }
 
-impl<Name> Region for FunClause<Name> {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+impl<Name: Region> Region for FunClause<Name> {
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.name.region().start(), self.body.region().end())
     }
 }
 
 impl<Name: Parse> Parse for FunClause<Name> {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let name = parser.parse()?;
-        parser.expect(Symbol::OpenParen)?;
-        let params = parser.parse_items(Symbol::Comma)?;
-        parser.expect(Symbol::CloseParen)?;
-        let guard = parser.try_parse();
-        parser.expect(Symbol::RightArrow)?;
-        let body = parser.parse()?;
         Ok(Self {
-            name,
-            params,
-            guard,
-            body,
-            region: parser.region(start),
+            name: parser.parse()?,
+            params: parser.parse()?,
+            guard: parser.try_parse(),
+            arrow: parser.expect(Symbol::RightArrow)?,
+            body: parser.parse()?,
         })
     }
 }
@@ -139,13 +142,9 @@ impl<Name: Parse> Parse for FunClause<Name> {
 impl<Name: Format> Format for FunClause<Name> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.format(&self.name)?;
-        write!(fmt, "(")?;
-        fmt.format_children(&self.params, ",")?;
-        write!(fmt, ")")?;
-        if let Some(guard) = &self.guard {
-            fmt.format(guard)?;
-        }
-        write!(fmt, "->")?;
+        fmt.format(&self.params)?;
+        fmt.format_option(&self.guard)?;
+        fmt.format(&self.arrow)?;
         fmt.format(&self.body)?;
         Ok(())
     }
@@ -153,30 +152,26 @@ impl<Name: Format> Format for FunClause<Name> {
 
 #[derive(Debug, Clone)]
 pub struct Body {
-    exprs: Vec<Expr>,
-    region: TokenRegion,
+    exprs: NonEmptyItems<Expr, Comma>,
 }
 
 impl Region for Body {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        self.exprs.region()
     }
 }
 
 impl Parse for Body {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let exprs = parser.parse_items(Symbol::Comma)?;
         Ok(Self {
-            exprs,
-            region: parser.region(start),
+            exprs: parser.parse()?,
         })
     }
 }
 
 impl Format for Body {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_children(&self.exprs, ",")?;
+        fmt.format(&self.exprs)?;
         Ok(())
     }
 }
@@ -185,7 +180,7 @@ impl Format for Body {
 pub struct Guard {}
 
 impl Region for Guard {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         todo!()
     }
 }
@@ -205,11 +200,11 @@ impl Format for Guard {
 
 #[derive(Debug, Clone)]
 pub struct FunCallName {
-    name: Either<Parenthesized<Expr>, Either<Atom, Variable>>,
+    name: Either<Parenthesized<Expr>, Either<AtomToken, VariableToken>>,
 }
 
 impl Region for FunCallName {
-    fn region(&self) -> &TokenRegion {
+    fn region(&self) -> TokenRegion {
         self.name.region()
     }
 }
@@ -230,24 +225,21 @@ impl Format for FunCallName {
 
 #[derive(Debug, Clone)]
 pub struct FunCallModule {
-    module: Either<Parenthesized<Expr>, Either<Atom, Variable>>,
-    region: TokenRegion,
+    module: Either<Parenthesized<Expr>, Either<AtomToken, VariableToken>>,
+    colon: SymbolToken,
 }
 
 impl Region for FunCallModule {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        TokenRegion::new(self.module.region().start(), self.colon.region().end())
     }
 }
 
 impl Parse for FunCallModule {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let module = parser.parse()?;
-        parser.expect(Symbol::Colon)?;
         Ok(Self {
-            module,
-            region: parser.region(start),
+            module: parser.parse()?,
+            colon: parser.expect(Symbol::Colon)?,
         })
     }
 }
@@ -255,7 +247,7 @@ impl Parse for FunCallModule {
 impl Format for FunCallModule {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.format(&self.module)?;
-        write!(fmt, ":")?;
+        fmt.format(&self.colon)?;
         Ok(())
     }
 }
@@ -264,42 +256,35 @@ impl Format for FunCallModule {
 pub struct FunCall {
     module: Option<FunCallModule>,
     name: FunCallName,
-    args: Vec<Expr>,
-    region: TokenRegion,
+    args: Parenthesized<Items<Expr, Comma>>,
 }
 
 impl Region for FunCall {
-    fn region(&self) -> &TokenRegion {
-        &self.region
+    fn region(&self) -> TokenRegion {
+        let start = if let Some(x) = &self.module {
+            x.region().start()
+        } else {
+            self.name.region().start()
+        };
+        TokenRegion::new(start, self.args.region().end())
     }
 }
 
 impl Parse for FunCall {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start = parser.current_position();
-        let module = parser.try_parse();
-        let name = parser.parse()?;
-        parser.expect(Symbol::OpenParen)?;
-        let args = parser.parse_items(Symbol::Comma)?;
-        parser.expect(Symbol::CloseParen)?;
         Ok(Self {
-            module,
-            name,
-            args,
-            region: parser.region(start),
+            module: parser.try_parse(),
+            name: parser.parse()?,
+            args: parser.parse()?,
         })
     }
 }
 
 impl Format for FunCall {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        if let Some(module) = &self.module {
-            fmt.format(module)?;
-        }
+        fmt.format_option(&self.module)?;
         fmt.format(&self.name)?;
-        write!(fmt, "(")?;
-        fmt.format_children(&self.args, ",")?;
-        write!(fmt, ")")?;
+        fmt.format(&self.args)?;
         Ok(())
     }
 }

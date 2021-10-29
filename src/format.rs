@@ -42,11 +42,11 @@ impl<W: Write> Formatter<W> {
             .map(|x| x.region().clone())
     }
 
-    fn remove_macro_calls(&mut self, region: &TokenRegion) -> usize {
+    fn remove_macro_calls(&mut self, region: TokenRegion) -> usize {
         let mut count = 0;
         while let Some(m) = self.next_macro_call_region() {
             if region.start() <= m.start() && m.end() <= region.end() {
-                self.text.macro_calls.remove(m.start());
+                self.text.macro_calls.remove(&m.start());
                 count += 1;
             } else {
                 break;
@@ -74,7 +74,7 @@ impl<W: Write> Formatter<W> {
                 let macro_call = self
                     .text
                     .macro_calls
-                    .remove(macro_call_region.start())
+                    .remove(&macro_call_region.start())
                     .expect("unreachable");
                 macro_call.format(self)?;
                 return Ok(());
@@ -90,7 +90,7 @@ impl<W: Write> Formatter<W> {
         } else {
             match self.with_scope(|this| item.format(this)) {
                 (Err(Error::UnalignedMacroCall { region }), _) => {
-                    let count = self.remove_macro_calls(&item_region);
+                    let count = self.remove_macro_calls(item_region);
                     if count > 0 {
                         assert_eq!(count, 1);
                         let text = &self.text.original_text
@@ -114,9 +114,8 @@ impl<W: Write> Formatter<W> {
         if !self.text.comments.is_empty() {
             todo!();
         }
-
-        let item_start = item.region().start().clone();
-        let item_end = item.region().end().clone();
+        let item_start = item.region().start();
+        let item_end = item.region().end();
 
         if let Some(macro_call_region) = self.next_macro_call_region() {
             self.do_format_with_macro_calls(item, noformat, macro_call_region)
@@ -131,6 +130,19 @@ impl<W: Write> Formatter<W> {
         }
     }
 
+    pub fn format_toplevel_item(&mut self, item: &impl Format) -> Result<()> {
+        self.format(item)?;
+        writeln!(self.writer)?;
+        Ok(())
+    }
+
+    pub fn format_option(&mut self, item: &Option<impl Format>) -> Result<()> {
+        item.as_ref()
+            .map(|x| self.format(x))
+            .transpose()
+            .map(|_| ())
+    }
+
     pub fn format(&mut self, item: &impl Format) -> Result<()> {
         self.do_format(item, false)
     }
@@ -139,30 +151,35 @@ impl<W: Write> Formatter<W> {
         self.do_format(item, true)
     }
 
-    pub fn format_child(&mut self, child: &impl Format) -> Result<()> {
+    pub fn format_child(&mut self, child: &(impl Format + Region)) -> Result<()> {
         // TODO: indent handling
         self.format(child)?;
         Ok(())
     }
 
-    pub fn format_children<T: Format>(&mut self, children: &[T], delimiter: &str) -> Result<()> {
-        for (i, child) in children.iter().enumerate() {
-            self.format_child(child)?;
-            if i + 1 < children.len() {
-                write!(self, "{} ", delimiter)?;
-            }
+    pub fn format_children<T: Format, D: Format>(
+        &mut self,
+        children: &[T],
+        delimiters: &[D],
+    ) -> Result<()> {
+        self.format_child(&children[0])?;
+        for (c, d) in children.iter().skip(1).zip(delimiters.iter()) {
+            self.format(d)?;
+            write!(self.writer, " ")?;
+            self.format_child(c)?;
         }
         Ok(())
     }
 
-    pub fn format_clauses<T: Format>(&mut self, clauses: &[T]) -> Result<()> {
-        for (i, clause) in clauses.iter().enumerate() {
-            self.format(clause)?;
-            if i + 1 < clauses.len() {
-                writeln!(self, ";")?;
-            }
-        }
-        Ok(())
+    pub fn format_clauses<T: Format + Region>(&mut self, _clauses: &[T]) -> Result<()> {
+        // for (i, clause) in clauses.iter().enumerate() {
+        //     self.format(clause)?;
+        //     if i + 1 < clauses.len() {
+        //         writeln!(self, ";")?;
+        //     }
+        // }
+        // Ok(())
+        todo!()
     }
 
     fn with_scope<F, T>(&mut self, f: F) -> (T, Vec<u8>)
@@ -172,16 +189,6 @@ impl<W: Write> Formatter<W> {
         self.writer.buf_stack.push(Vec::new());
         let value = f(self);
         (value, self.writer.buf_stack.pop().expect("unreachable"))
-    }
-}
-
-impl<W: Write> Write for Formatter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.writer.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.writer.flush()
     }
 }
 
