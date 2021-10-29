@@ -92,7 +92,7 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 fn add_parse_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(crate::token::Parse));
+            type_param.bounds.push(parse_quote!(crate::parse::Parse));
         }
     }
     generics
@@ -112,7 +112,11 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                     })
                 }
             }
-            Fields::Unnamed(_) | Fields::Unit => unimplemented!(),
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { parser.parse().map(Self) }
+            }
+            Fields::Unit => unimplemented!(),
         },
         Data::Enum(_) | Data::Union(_) => unimplemented!(),
     }
@@ -138,7 +142,7 @@ pub fn derive_format_trait(input: proc_macro::TokenStream) -> proc_macro::TokenS
 fn add_format_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(crate::token::Format));
+            type_param.bounds.push(parse_quote!(crate::format::Format));
         }
     }
     generics
