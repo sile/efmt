@@ -66,10 +66,20 @@ name = "efmt"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "efmt_derive",
  "erl_tokenize",
  "log",
  "structopt",
  "thiserror",
+]
+
+[[package]]
+name = "efmt_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -3,28 +3,16 @@ use crate::cst::macros::{MacroName, Replacement};
 use crate::cst::primitives::{Comma, Items, Parenthesized};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
-use crate::token::{
-    AtomToken, Region, StringToken, Symbol, SymbolToken, TokenRegion, VariableToken,
-};
+use crate::token::{AtomToken, StringToken, Symbol, SymbolToken, VariableToken};
+use efmt_derive::Region;
 use std::io::Write;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub enum Attr {
     Define(Define),
     Include(Include),
     IncludeLib(IncludeLib),
     General(General),
-}
-
-impl Region for Attr {
-    fn region(&self) -> TokenRegion {
-        match self {
-            Self::Define(x) => x.region(),
-            Self::Include(x) => x.region(),
-            Self::IncludeLib(x) => x.region(),
-            Self::General(x) => x.region(),
-        }
-    }
 }
 
 impl Parse for Attr {
@@ -55,18 +43,12 @@ impl Format for Attr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct General {
     hyphen: SymbolToken,
     name: AtomToken,
     items: Option<Parenthesized<Items<Expr, Comma>>>,
     dot: SymbolToken,
-}
-
-impl Region for General {
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
-    }
 }
 
 impl Parse for General {
@@ -90,7 +72,7 @@ impl Format for General {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct Include {
     hyphen: SymbolToken,
     include: AtomToken,
@@ -98,12 +80,6 @@ pub struct Include {
     file: StringToken,
     close: SymbolToken,
     dot: SymbolToken,
-}
-
-impl Region for Include {
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
-    }
 }
 
 impl Parse for Include {
@@ -131,7 +107,7 @@ impl Format for Include {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct IncludeLib {
     hyphen: SymbolToken,
     include_lib: AtomToken,
@@ -139,12 +115,6 @@ pub struct IncludeLib {
     file: StringToken,
     close: SymbolToken,
     dot: SymbolToken,
-}
-
-impl Region for IncludeLib {
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
-    }
 }
 
 impl Parse for IncludeLib {
@@ -172,7 +142,7 @@ impl Format for IncludeLib {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct Define {
     hyphen: SymbolToken,
     define: AtomToken,
@@ -199,12 +169,6 @@ impl Define {
 
     pub fn replacement(&self) -> &Replacement {
         &self.replacement
-    }
-}
-
-impl Region for Define {
-    fn region(&self) -> TokenRegion {
-        TokenRegion::new(self.hyphen.region().start(), self.dot.region().end())
     }
 }
 

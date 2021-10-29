@@ -1,16 +1,11 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
 use crate::token::{Region, Symbol, SymbolToken, TokenPosition, TokenRegion};
+use efmt_derive::Region;
 use std::io::Write;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct Comma(SymbolToken);
-
-impl Region for Comma {
-    fn region(&self) -> TokenRegion {
-        self.0.region()
-    }
-}
 
 impl Parse for Comma {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
@@ -24,14 +19,8 @@ impl Format for Comma {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Region)]
 pub struct Semicolon(SymbolToken);
-
-impl Region for Semicolon {
-    fn region(&self) -> TokenRegion {
-        self.0.region()
-    }
-}
 
 impl Parse for Semicolon {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {

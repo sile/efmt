@@ -1,10 +1,12 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, Parser};
+use efmt_derive::Region;
 use erl_tokenize::PositionRange;
 use std::io::Write;
 
 pub use erl_tokenize::values::{Keyword, Symbol};
 
+// TODO: Span?
 pub trait Region {
     fn region(&self) -> TokenRegion;
 }
@@ -88,7 +90,7 @@ impl From<erl_tokenize::Position> for TokenPosition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Region)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -98,21 +100,6 @@ pub enum Token {
     String(StringToken),
     Symbol(SymbolToken),
     Variable(VariableToken),
-}
-
-impl Region for Token {
-    fn region(&self) -> TokenRegion {
-        match self {
-            Self::Atom(x) => x.region(),
-            Self::Char(x) => x.region(),
-            Self::Float(x) => x.region(),
-            Self::Integer(x) => x.region(),
-            Self::Keyword(x) => x.region(),
-            Self::String(x) => x.region(),
-            Self::Symbol(x) => x.region(),
-            Self::Variable(x) => x.region(),
-        }
-    }
 }
 
 impl From<AtomToken> for Token {

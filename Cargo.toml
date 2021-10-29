@@ -6,7 +6,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+efmt_derive = { path = "efmt_derive" }
 erl_tokenize = "0.4"
 log = "0.4"
 structopt = "0.3"
 thiserror = "1"
+
+[workspace]
+members = ["efmt_derive"]
