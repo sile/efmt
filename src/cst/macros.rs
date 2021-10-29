@@ -222,6 +222,11 @@ impl Parse for MacroArg {
                 .is_none()
         {
             let token = parser.read_token()?;
+            if parser.is_macro_expanded(&token) {
+                tokens.push(token);
+                continue;
+            }
+
             match &token {
                 Token::Symbol(x) => match x.value() {
                     Symbol::OpenParen => {
@@ -229,7 +234,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseParen => {
                         if level.paren == 0 {
-                            todo!();
+                            todo!()
                         }
                         level.paren -= 1;
                     }

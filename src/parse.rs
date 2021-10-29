@@ -181,6 +181,10 @@ impl<'a> Parser<'a> {
     pub fn read_token(&mut self) -> Result<Token> {
         self.lexer.read_token()?.ok_or(Error::UnexpectedEof)
     }
+
+    pub fn is_macro_expanded(&self, token: &Token) -> bool {
+        self.lexer.is_macro_expanded(token)
+    }
 }
 
 pub trait Parse: Sized {

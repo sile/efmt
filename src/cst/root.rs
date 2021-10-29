@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn root_items_works() {
-        let testnames = ["weird-macro"];
+        let testnames = ["weird-macro", "empty-macro"];
         for testname in testnames {
             test_parse_and_format::<RootItems>(&format!("cst/root/{}", testname)).expect(testname);
         }

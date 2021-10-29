@@ -1,10 +1,11 @@
 use crate::lex::LexedText;
 use crate::parse::Either;
-use crate::token::{Region, TokenRegion};
+use crate::token::{Region, TokenPosition, TokenRegion};
 use std::io::Write;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    // TODO: remove
     #[error("TODO: unaligned macro call")]
     UnalignedMacroCall { region: TokenRegion },
 
@@ -18,12 +19,18 @@ pub trait Format: Region {
     // Note that this method isn't intended to be called by users directly.
     // Please use `Formatter::format()` inside the method implementation instead.
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
+
+    // TODO: remove
+    fn need_spaces_if_macro(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug)]
 pub struct Formatter<W> {
     writer: ScopedWriter<W>,
     text: LexedText,
+    next_position: TokenPosition,
 }
 
 impl<W: Write> Formatter<W> {
@@ -31,6 +38,7 @@ impl<W: Write> Formatter<W> {
         Self {
             writer: ScopedWriter::new(writer),
             text,
+            next_position: TokenPosition::new(0, 1, 1),
         }
     }
 
@@ -42,31 +50,18 @@ impl<W: Write> Formatter<W> {
             .map(|x| x.region().clone())
     }
 
-    fn remove_macro_calls(&mut self, region: TokenRegion) -> usize {
-        let mut count = 0;
-        while let Some(m) = self.next_macro_call_region() {
-            if region.start() <= m.start() && m.end() <= region.end() {
-                self.text.macro_calls.remove(&m.start());
-                count += 1;
-            } else {
-                break;
-            }
-        }
-        count
-    }
-
     fn do_format_with_macro_calls(
         &mut self,
         item: &impl Format,
-        noformat: bool,
         macro_call_region: TokenRegion,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let item_region = item.region().clone();
         if macro_call_region.start() < item_region.start() {
-            dbg!(&item_region);
-            return Err(Error::UnalignedMacroCall {
-                region: macro_call_region,
-            });
+            // dbg!(&item_region);
+            // return Err(Error::UnalignedMacroCall {
+            //     region: macro_call_region,
+            // });
+            todo!()
         }
 
         if item_region.start() == macro_call_region.start() {
@@ -76,58 +71,54 @@ impl<W: Write> Formatter<W> {
                     .macro_calls
                     .remove(&macro_call_region.start())
                     .expect("unreachable");
+                // dbg!(macro_call.macro_name());
                 macro_call.format(self)?;
-                return Ok(());
+                if item.need_spaces_if_macro() {
+                    // TODO: Changed to put a space if the next visible token could be ambiguous
+                    //       (e.g, atom, variable, integer, float, keyword)
+                    // MEMO: We might be able to search the original text to detect the next character
+                    write!(self.writer, " ")?;
+                }
+
+                return Ok(true);
             } else if item_region.end() < macro_call_region.end() {
                 todo!() // unreachable?
             }
         }
 
-        if noformat {
-            let text =
-                &self.text.original_text[item_region.start().offset()..item_region.end().offset()];
-            write!(self.writer, "{}", text)?;
-        } else {
-            match self.with_scope(|this| item.format(this)) {
-                (Err(Error::UnalignedMacroCall { region }), _) => {
-                    let count = self.remove_macro_calls(item_region);
-                    if count > 0 {
-                        assert_eq!(count, 1);
-                        let text = &self.text.original_text
-                            [item_region.start().offset()..item_region.end().offset()];
-                        dbg!(text);
-                        write!(self.writer, "{}", text)?;
-                    } else {
-                        return Err(Error::UnalignedMacroCall { region });
-                    }
-                }
-                (Err(e), _) => return Err(e),
-                (Ok(()), buf) => {
-                    self.writer.write_all(&buf)?;
-                }
-            }
-        }
-        Ok(())
+        Ok(false)
     }
 
     fn do_format(&mut self, item: &impl Format, noformat: bool) -> Result<()> {
         if !self.text.comments.is_empty() {
             todo!();
         }
+
         let item_start = item.region().start();
         let item_end = item.region().end();
 
-        if let Some(macro_call_region) = self.next_macro_call_region() {
-            self.do_format_with_macro_calls(item, noformat, macro_call_region)
-        } else {
-            if noformat {
-                let text = &self.text.original_text[item_start.offset()..item_end.offset()];
-                write!(self.writer, "{}", text)?;
-            } else {
-                item.format(self)?;
-            }
-            Ok(())
+        if item.region().end() <= self.next_position {
+            // May be a macro expanded item.
+            // eprintln!("[SKIP] {:?} (next={:?})", item.region(), self.next_position);
+            return Ok(());
         }
+
+        if let Some(macro_call_region) = self.next_macro_call_region() {
+            if self.do_format_with_macro_calls(item, macro_call_region)? {
+                return Ok(());
+            }
+        }
+        if noformat {
+            // NOTE: `max` is for "max expanded" + "raw macro arg" case
+            let start = std::cmp::max(item_start.offset(), self.next_position.offset());
+            let end = item_end.offset();
+            let text = &self.text.original_text[start..end];
+            write!(self.writer, "{}", text)?;
+        } else {
+            item.format(self)?;
+        }
+        self.next_position = item.region().end();
+        Ok(())
     }
 
     pub fn format_toplevel_item(&mut self, item: &impl Format) -> Result<()> {
@@ -182,14 +173,14 @@ impl<W: Write> Formatter<W> {
         todo!()
     }
 
-    fn with_scope<F, T>(&mut self, f: F) -> (T, Vec<u8>)
-    where
-        F: FnOnce(&mut Self) -> T,
-    {
-        self.writer.buf_stack.push(Vec::new());
-        let value = f(self);
-        (value, self.writer.buf_stack.pop().expect("unreachable"))
-    }
+    // fn with_scope<F, T>(&mut self, f: F) -> (T, Vec<u8>)
+    // where
+    //     F: FnOnce(&mut Self) -> T,
+    // {
+    //     self.writer.buf_stack.push(Vec::new());
+    //     let value = f(self);
+    //     (value, self.writer.buf_stack.pop().expect("unreachable"))
+    // }
 }
 
 impl<A, B> Format for Either<A, B>

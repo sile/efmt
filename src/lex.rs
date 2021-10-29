@@ -131,6 +131,10 @@ impl Lexer {
         Ok(None)
     }
 
+    pub fn is_macro_expanded(&self, token: &Token) -> bool {
+        self.macro_calls.contains_key(&token.region().start())
+    }
+
     fn expand_macro(&mut self, question: SymbolToken) -> Result<()> {
         let start = self.current - 1;
         let start_position = self.tokens[start].region().start();
