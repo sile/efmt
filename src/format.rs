@@ -19,11 +19,6 @@ pub trait Format: Region {
     // Note that this method isn't intended to be called by users directly.
     // Please use `Formatter::format()` inside the method implementation instead.
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
-
-    // TODO: remove
-    fn need_spaces_if_macro(&self) -> bool {
-        false
-    }
 }
 
 #[derive(Debug)]
@@ -73,7 +68,7 @@ impl<W: Write> Formatter<W> {
                     .expect("unreachable");
                 // dbg!(macro_call.macro_name());
                 macro_call.format(self)?;
-                if item.need_spaces_if_macro() {
+                if macro_call.args().is_none() {
                     // TODO: Changed to put a space if the next visible token could be ambiguous
                     //       (e.g, atom, variable, integer, float, keyword)
                     // MEMO: We might be able to search the original text to detect the next character

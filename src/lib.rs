@@ -27,7 +27,7 @@ mod tests {
 
         let formatted = String::from_utf8_lossy(&buf);
         anyhow::ensure!(
-            formatted == expected.trim(),
+            formatted.trim() == expected.trim(),
             "unexpected formatted code.\n[SOURCE] {}\n{}\n\n[FORMATTED] \n{}\n\n[EXPECTED] {}\n{}",
             text_path,
             text,

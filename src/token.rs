@@ -443,10 +443,6 @@ impl Format for SymbolToken {
         fmt.noformat(self)?;
         Ok(())
     }
-
-    fn need_spaces_if_macro(&self) -> bool {
-        true
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
