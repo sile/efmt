@@ -1,8 +1,8 @@
--module('weird-empty-macro-before').
+-module('empty-macro-before').
 
 -define(EMPTY,).
 
-?EMPTY.
+?EMPTY
 
 main() ->
     hello.

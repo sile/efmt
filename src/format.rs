@@ -52,11 +52,15 @@ impl<W: Write> Formatter<W> {
     ) -> Result<bool> {
         let item_region = item.region().clone();
         if macro_call_region.start() < item_region.start() {
-            // dbg!(&item_region);
-            // return Err(Error::UnalignedMacroCall {
-            //     region: macro_call_region,
-            // });
-            todo!()
+            // Maybe the macro call was expanded to empty tokens.
+            let macro_call = self
+                .text
+                .macro_calls
+                .remove(&macro_call_region.start())
+                .expect("unreachable");
+            macro_call.format(self)?;
+            writeln!(self.writer)?; // TODO
+            return Ok(false);
         }
 
         if item_region.start() == macro_call_region.start() {
@@ -66,7 +70,6 @@ impl<W: Write> Formatter<W> {
                     .macro_calls
                     .remove(&macro_call_region.start())
                     .expect("unreachable");
-                // dbg!(macro_call.macro_name());
                 macro_call.format(self)?;
                 if macro_call.args().is_none() {
                     // TODO: Changed to put a space if the next visible token could be ambiguous
