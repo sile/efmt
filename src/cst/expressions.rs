@@ -1,10 +1,15 @@
-use crate::cst::consts::{CloseSquare, Colon, Comma, OpenSquare, RightArrow};
-use crate::cst::primitives::{Child, Items, Maybe, NameAndArity, NonEmptyItems, Parenthesized};
+use crate::cst::consts::{
+    self, CloseBrace, CloseSquare, Colon, Comma, OpenBrace, OpenSquare, RightArrow,
+};
+use crate::cst::primitives::{
+    Child, Items, Maybe, NameAndArity, NonEmptyItems, Parenthesized, WithLeftSpace, WithNewline,
+    WithSpace,
+};
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Either, Parse, Parser};
+use crate::parse::{self, Either, Parse, Parser, ResumeParse};
 use crate::token::{
-    AtomToken, CharToken, FloatToken, IntegerToken, Keyword, Region, StringToken, TokenRegion,
-    VariableToken,
+    AtomToken, CharToken, FloatToken, IntegerToken, Keyword, Region, StringToken, Symbol, Token,
+    TokenRegion, VariableToken,
 };
 use efmt_derive::{Format, Parse, Region};
 use std::io::Write;
@@ -18,7 +23,11 @@ pub enum Expr {
     String(StringToken),
     Variable(VariableToken),
     List(Box<List>),
+    Tuple(Box<Tuple>),
     FunCall(Box<FunCall>),
+    BinaryOpCall(Box<BinaryOpCall>),
+    Case(Box<Case>),
+    Receive(Box<Receive>),
     NameAndArity(NameAndArity<AtomToken, IntegerToken>), // For attributes such as `-export`.
 }
 
@@ -42,11 +51,110 @@ impl Parse for Expr {
             Self::Variable(x)
         } else if let Some(x) = parser.try_parse() {
             Self::List(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Tuple(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Case(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Receive(x)
         } else {
             let e = parser.take_last_error().expect("unreachable");
             return Err(e);
         };
-        Ok(expr)
+
+        if let Some(x) = parser.try_resume_parse(expr.clone()) {
+            Ok(Self::BinaryOpCall(x))
+        } else {
+            Ok(expr)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Case {
+    case: consts::Case,
+    pattern: Expr,
+    of: consts::Of,
+    clauses: Items<Clause, consts::Semicolon>,
+    end: WithNewline<consts::End>,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Receive {
+    receive: consts::Receive,
+    clauses: Items<Clause, consts::Semicolon>,
+    after: Maybe<ReceiveAfter>,
+    end: WithNewline<consts::End>,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct ReceiveAfter {
+    after: WithNewline<consts::After>,
+    clause: WithLeftSpace<Clause>,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct BinaryOpCall {
+    left: Expr,
+    op: WithSpace<BinaryOp>,
+    right: Expr,
+}
+
+impl ResumeParse<Expr> for BinaryOpCall {
+    fn resume_parse(parser: &mut Parser, left: Expr) -> parse::Result<Self> {
+        Ok(Self {
+            left,
+            op: parser.parse()?,
+            right: parser.parse()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct BinaryOp(Token);
+
+impl Parse for BinaryOp {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let token = parser.read_token()?;
+        let ok = match &token {
+            Token::Symbol(x) => matches!(
+                x.value(),
+                Symbol::Not
+                    | Symbol::Plus
+                    | Symbol::Hyphen
+                    | Symbol::Multiply
+                    | Symbol::Slash
+                    | Symbol::Eq
+                    | Symbol::ExactEq
+                    | Symbol::ExactNotEq
+                    | Symbol::Less
+                    | Symbol::LessEq
+                    | Symbol::Greater
+                    | Symbol::GreaterEq
+            ),
+            Token::Keyword(x) => matches!(
+                x.value(),
+                Keyword::Bor
+                    | Keyword::Band
+                    | Keyword::Bsl
+                    | Keyword::Bsr
+                    | Keyword::Div
+                    | Keyword::Rem
+                    | Keyword::Or
+                    | Keyword::Orelse
+                    | Keyword::And
+                    | Keyword::Andalso
+            ),
+            _ => false,
+        };
+        if !ok {
+            return Err(parse::Error::unexpected_token(
+                parser,
+                token,
+                "binary operator",
+            ));
+        }
+        Ok(Self(token))
     }
 }
 
@@ -58,17 +166,49 @@ pub struct List {
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Tuple {
+    open: OpenBrace,
+    items: Child<Items<Expr, Comma>>,
+    close: CloseBrace,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct FunClause<Name> {
     name: Name,
     params: Parenthesized<Items<Expr, Comma>>,
     guard: Maybe<Guard>,
-    arrow: RightArrow,
+    arrow: WithLeftSpace<RightArrow>,
     body: Body,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Clause {
+    pattern: Expr,
+    guard: Maybe<Guard>,
+    arrow: WithLeftSpace<RightArrow>,
+    body: Body,
+}
+
+#[derive(Debug, Clone, Region, Parse)]
 pub struct Body {
     exprs: NonEmptyItems<Expr, Comma>,
+}
+
+impl Body {
+    pub fn exprs(&self) -> &[Expr] {
+        self.exprs.items()
+    }
+
+    pub fn delimiters(&self) -> &[Comma] {
+        self.exprs.delimiters()
+    }
+}
+
+impl Format for Body {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_body(self)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]

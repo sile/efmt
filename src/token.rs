@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Expect, Parse, Parser};
-use efmt_derive::Region;
+use efmt_derive::{Format, Region};
 use erl_tokenize::PositionRange;
 use std::io::Write;
 
@@ -98,7 +98,7 @@ impl From<erl_tokenize::Position> for TokenPosition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Region)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Region, Format)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),

@@ -15,6 +15,10 @@ impl<T, D> NonEmptyItems<T, D> {
     pub fn items(&self) -> &[T] {
         &self.items
     }
+
+    pub fn delimiters(&self) -> &[D] {
+        &self.delimiters
+    }
 }
 impl<T, D> Region for NonEmptyItems<T, D>
 where
@@ -101,6 +105,59 @@ impl<T> Child<T> {
 impl<T: Format> Format for Child<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.format_child(&self.0)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse)]
+pub struct WithNewline<T>(T);
+
+impl<T> WithNewline<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for WithNewline<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.write_newline()?;
+        fmt.format(&self.0)?;
+        Ok(())
+    }
+}
+
+// TODO: delete
+#[derive(Debug, Clone, Region, Parse)]
+pub struct WithLeftSpace<T>(T);
+
+impl<T> WithLeftSpace<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for WithLeftSpace<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_space()?;
+        fmt.format(&self.0)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse)]
+pub struct WithSpace<T>(T);
+
+impl<T> WithSpace<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for WithSpace<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_space()?;
+        fmt.format(&self.0)?;
+        fmt.format_space()?;
         Ok(())
     }
 }

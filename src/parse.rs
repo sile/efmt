@@ -71,10 +71,10 @@ impl<'a> Parser<'a> {
         writeln!(&mut m, "{} | {}", line, line_string).unwrap();
         writeln!(
             &mut m,
-            "{:column_width$} | {:>token_column$} unexpected token",
-            " ",
+            "{:line_width$} | {:>token_column$} unexpected token",
+            "",
             "^",
-            column_width = column.to_string().len(),
+            line_width = line.to_string().len(),
             token_column = column
         )
         .unwrap();

@@ -1,3 +1,4 @@
+use crate::cst::expressions::Body;
 use crate::lex::LexedText;
 use crate::parse::Either;
 use crate::token::{Region, TokenPosition, TokenRegion};
@@ -27,6 +28,7 @@ pub struct Formatter<W> {
     text: LexedText,
     next_position: TokenPosition,
     max_line: usize,
+    indent_level: usize,
 }
 
 impl<W: Write> Formatter<W> {
@@ -36,7 +38,18 @@ impl<W: Write> Formatter<W> {
             text,
             next_position: TokenPosition::new(0, 1, 1),
             max_line: 100,
+            indent_level: 0,
         }
+    }
+
+    pub fn write_indent(&mut self) -> Result<()> {
+        write!(
+            self.writer,
+            "{:indent$}",
+            "",
+            indent = self.indent_level * 4
+        )?;
+        Ok(())
     }
 
     fn next_macro_call_region(&self) -> Option<TokenRegion> {
@@ -89,10 +102,27 @@ impl<W: Write> Formatter<W> {
         Ok(false)
     }
 
-    fn do_format(&mut self, item: &impl Format, noformat: bool) -> Result<()> {
-        if !self.text.comments.is_empty() {
-            todo!();
+    pub fn finish(self) -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    fn write_comments(&mut self, item: &impl Format) -> Result<()> {
+        // TODO: improve
+        if let Some(comment) = self.text.comments.values().next() {
+            if comment.region().start() < item.region().start() {
+                let start = comment.region().start();
+                let end = comment.region().end();
+                let text = &self.text.original_text[start.offset()..end.offset()];
+                writeln!(self.writer, "{}", text)?;
+                self.text.comments.remove(&start);
+            }
         }
+        Ok(())
+    }
+
+    fn do_format(&mut self, item: &impl Format, noformat: bool) -> Result<()> {
+        self.write_comments(item)?;
 
         let item_start = item.region().start();
         let item_end = item.region().end();
@@ -124,6 +154,7 @@ impl<W: Write> Formatter<W> {
     pub fn format_toplevel_item(&mut self, item: &impl Format) -> Result<()> {
         self.format(item)?;
         writeln!(self.writer)?;
+        writeln!(self.writer)?;
         Ok(())
     }
 
@@ -132,6 +163,50 @@ impl<W: Write> Formatter<W> {
             .map(|x| self.format(x))
             .transpose()
             .map(|_| ())
+    }
+
+    pub fn format_space(&mut self) -> Result<()> {
+        // TODO: omit if the current position is the end of a line.
+        write!(self.writer, " ")?;
+        Ok(())
+    }
+
+    pub fn format_body(&mut self, body: &Body) -> Result<()> {
+        if body.exprs().len() == 1 {
+            // TODO: check line length
+            // TODO: switch mode if the formatted code contains newlines
+            write!(self.writer, " ")?;
+            self.with_block(|this| this.format(&body.exprs()[0]))?;
+        } else {
+            writeln!(self.writer)?;
+            self.with_block(|this| {
+                this.write_indent()?;
+                this.format(&body.exprs()[0])?;
+                for (delimiter, expr) in body.delimiters().iter().zip(body.exprs().iter().skip(1)) {
+                    this.format(delimiter)?;
+                    this.write_newline()?;
+                    this.format(expr)?;
+                }
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
+    pub fn with_block<F>(&mut self, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Self) -> Result<()>,
+    {
+        self.indent_level += 1;
+        let result = f(self);
+        self.indent_level -= 1;
+        result
+    }
+
+    pub fn write_newline(&mut self) -> Result<()> {
+        writeln!(self.writer)?;
+        self.write_indent()?;
+        Ok(())
     }
 
     pub fn format(&mut self, item: &impl Format) -> Result<()> {

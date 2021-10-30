@@ -27,6 +27,7 @@ mod tests {
         let mut buf = Vec::new();
         let mut fmt = Formatter::new(&mut buf, lexer.finish());
         fmt.format(&item).with_context(|| "cannot format")?;
+        fmt.finish()?;
 
         let formatted = String::from_utf8_lossy(&buf);
         anyhow::ensure!(

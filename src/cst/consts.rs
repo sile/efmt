@@ -1,6 +1,51 @@
 use crate::parse::{self, Parse, Parser};
-use crate::token::{Symbol, SymbolToken, Token};
+use crate::token::{Keyword, KeywordToken, Symbol, SymbolToken, Token};
 use efmt_derive::{Format, Region};
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct Receive(KeywordToken);
+
+impl Parse for Receive {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::Receive).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct End(KeywordToken);
+
+impl Parse for End {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::End).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct Case(KeywordToken);
+
+impl Parse for Case {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::Case).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct Of(KeywordToken);
+
+impl Parse for Of {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::Of).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct After(KeywordToken);
+
+impl Parse for After {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::After).map(Self)
+    }
+}
 
 #[derive(Debug, Clone, Region, Format)]
 pub struct Hyphen(SymbolToken);
