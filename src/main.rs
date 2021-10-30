@@ -1,20 +1,31 @@
+use efmt::cst::root::RootItems;
+use efmt::format::Formatter;
+use efmt::lex::Lexer;
+use efmt::parse::Parser;
+use efmt::tokenize::Tokenizer;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-enum Opt {
-    // Tokenize(efmt::commands::tokenize::TokenizeOpt),
-// Pp(efmt::commands::pp::PreprocessOpt),
-// Parse(efmt::commands::ParseOpt),
-// Format(efmt::commands::FormatOpt),
+struct Opt {
+    file: PathBuf,
 }
 
 fn main() -> anyhow::Result<()> {
-    let _opt = Opt::from_args();
-    // match opt {
-    // Opt::Tokenize(opt) => opt.run()?,
-    // Opt::Pp(opt) => opt.run()?,
-    // Opt::Parse(opt) => opt.run()?,
-    // Opt::Format(opt) => opt.run()?,
-    // }
+    let opt = Opt::from_args();
+
+    let text = std::fs::read_to_string(&opt.file)?;
+    let mut tokenizer = Tokenizer::new(text);
+    tokenizer.set_filepath(&opt.file);
+
+    let mut lexer = Lexer::new(tokenizer);
+    let mut parser = Parser::new(&mut lexer);
+    let items: RootItems = parser.parse()?;
+
+    let stdout = std::io::stdout();
+    let mut fmt = Formatter::new(stdout.lock(), lexer.finish());
+    fmt.format(&items)?;
+    fmt.finish()?;
+
     Ok(())
 }
