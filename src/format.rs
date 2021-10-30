@@ -26,6 +26,7 @@ pub struct Formatter<W> {
     writer: ScopedWriter<W>,
     text: LexedText,
     next_position: TokenPosition,
+    max_line: usize,
 }
 
 impl<W: Write> Formatter<W> {
@@ -34,6 +35,7 @@ impl<W: Write> Formatter<W> {
             writer: ScopedWriter::new(writer),
             text,
             next_position: TokenPosition::new(0, 1, 1),
+            max_line: 100,
         }
     }
 

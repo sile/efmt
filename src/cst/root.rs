@@ -65,4 +65,14 @@ mod tests {
             test_parse_and_format::<RootItems>(&format!("cst/root/{}", testname)).expect(testname);
         }
     }
+
+    #[test]
+    fn examples_works() {
+        // http://www1.erlang.org/examples/examples-2.0.html
+        let testnames = ["ftp-client", "ftp-server"];
+        for testname in testnames {
+            test_parse_and_format::<RootItems>(&format!("cst/root/example-{}", testname))
+                .expect(testname);
+        }
+    }
 }
