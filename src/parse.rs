@@ -6,11 +6,12 @@ pub enum Error {
     #[error("unexpected EOF")]
     UnexpectedEof,
 
-    #[error("expected {expected}, but got {token:?}")]
+    #[error("expected {expected}, but got {token:?}\n\n{place}\n")]
     UnexpectedToken {
         index: TokenIndex,
         token: Token,
         expected: String,
+        place: String,
     },
 
     #[error(transparent)]
@@ -27,10 +28,12 @@ impl Error {
     }
 
     pub fn unexpected_token(parser: &Parser, token: Token, expected: &str) -> Self {
+        let place = parser.generate_error_place(&token);
         Self::UnexpectedToken {
             index: parser.lexer.current_token_index(),
             token,
             expected: expected.to_owned(),
+            place,
         }
     }
 }
@@ -49,6 +52,44 @@ impl<'a> Parser<'a> {
             lexer,
             last_error: None,
         }
+    }
+
+    fn generate_error_place(&self, unexpected_token: &Token) -> String {
+        use std::fmt::Write;
+
+        let line = unexpected_token.region().start().line();
+        let column = unexpected_token.region().start().column();
+        let file = self
+            .lexer
+            .filepath()
+            .and_then(|x| x.to_str().map(|x| x.to_owned()))
+            .unwrap_or_else(|| "<anonymous>".to_owned());
+        let line_string = self.get_line_string(unexpected_token);
+
+        let mut m = String::new();
+        writeln!(&mut m, "--> {}:{}:{}", file, line, column).unwrap();
+        writeln!(&mut m, "{} | {}", line, line_string).unwrap();
+        writeln!(
+            &mut m,
+            "{:column_width$} | {:>token_column$} unexpected token",
+            " ",
+            "^",
+            column_width = column.to_string().len(),
+            token_column = column
+        )
+        .unwrap();
+        m
+    }
+
+    fn get_line_string(&self, token: &Token) -> &str {
+        let text = self.lexer.text();
+        let offset = token.region().start().offset();
+        let line_start = (&text[..offset]).rfind("\n").unwrap_or(0);
+        let line_end = (&text[offset..])
+            .find('\n')
+            .map(|x| x + offset)
+            .unwrap_or_else(|| text.len());
+        (&text[line_start..line_end]).trim_matches(char::is_control)
     }
 
     // pub fn save_checkpoint() // parser cannot rolback before the checkpoint (this could improve error message)

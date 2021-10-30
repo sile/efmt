@@ -86,6 +86,10 @@ impl TokenPosition {
     pub const fn line(self) -> usize {
         self.line
     }
+
+    pub const fn column(self) -> usize {
+        self.column
+    }
 }
 
 impl From<erl_tokenize::Position> for TokenPosition {

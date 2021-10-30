@@ -9,6 +9,7 @@ use crate::token::{
 use crate::tokenize::{self, Tokenizer};
 use erl_tokenize::PositionRange as _;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -49,6 +50,14 @@ impl Lexer {
             transaction_seqno: 0,
             transactions: HashSet::new(),
         }
+    }
+
+    pub fn text(&self) -> &str {
+        self.tokenizer.text()
+    }
+
+    pub fn filepath(&self) -> Option<PathBuf> {
+        self.tokenizer.next_position().filepath().cloned()
     }
 
     pub fn finish(self) -> LexedText {

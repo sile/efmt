@@ -17,7 +17,10 @@ mod tests {
     pub fn test_parse_and_format<T: Parse + Format>(testname: &str) -> anyhow::Result<()> {
         let (text_path, text, expected_path, expected) =
             load_testdata(testname).with_context(|| "cannot load testdata")?;
-        let mut lexer = Lexer::new(Tokenizer::new(text.clone()));
+        let mut tokenizer = Tokenizer::new(text.clone());
+        tokenizer.set_filepath(&text_path);
+
+        let mut lexer = Lexer::new(tokenizer);
         let mut parser = Parser::new(&mut lexer);
         let item = parser.parse::<T>().with_context(|| "cannot parse")?;
 
