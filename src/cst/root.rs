@@ -1,6 +1,6 @@
 use crate::cst;
 use crate::cst::consts::{Dot, Semicolon};
-use crate::cst::primitives::NonEmptyItems;
+use crate::cst::primitives::{NeedNewline, NonEmptyItems};
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
 use crate::token::{AtomToken, Region, TokenRegion};
@@ -49,7 +49,7 @@ pub enum RootItem {
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct FunDecl {
-    clauses: NonEmptyItems<cst::expressions::FunClause<AtomToken>, Semicolon>,
+    clauses: NonEmptyItems<cst::expressions::FunClause<AtomToken>, NeedNewline<Semicolon>>,
     dot: Dot,
 }
 
@@ -59,13 +59,13 @@ mod tests {
     use crate::tests::test_parse_and_format;
 
     // TODO
-    // #[test]
-    // fn root_items_works() {
-    //     let testnames = ["weird-macro", "empty-macro"];
-    //     for testname in testnames {
-    //         test_parse_and_format::<RootItems>(&format!("cst/root/{}", testname)).expect(testname);
-    //     }
-    // }
+    #[test]
+    fn macros_works() {
+        let testnames = ["weird-macro", "empty-macro"];
+        for testname in testnames {
+            test_parse_and_format::<RootItems>(&format!("cst/root/{}", testname)).expect(testname);
+        }
+    }
 
     #[test]
     fn examples_works() {

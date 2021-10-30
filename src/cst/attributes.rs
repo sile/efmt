@@ -1,7 +1,7 @@
 use crate::cst::consts::{CloseParen, Comma, Dot, Hyphen, OpenParen};
 use crate::cst::expressions::Expr;
 use crate::cst::macros::{MacroName, Replacement};
-use crate::cst::primitives::{Items, Maybe, Parenthesized};
+use crate::cst::primitives::{Items, Maybe, NeedRightSpace, Parenthesized};
 use crate::parse::{self, Parse, Parser};
 use crate::token::{AtomToken, StringToken, VariableToken};
 use efmt_derive::{Format, Parse, Region};
@@ -35,7 +35,7 @@ impl Parse for Attr {
 pub struct General {
     hyphen: Hyphen,
     name: AtomToken,
-    items: Maybe<Parenthesized<Items<Expr, Comma>>>,
+    items: Maybe<Parenthesized<Items<Expr, NeedRightSpace<Comma>>>>,
     dot: Dot,
 }
 
@@ -92,8 +92,8 @@ pub struct Define {
     define: AttrNameDefine,
     open: OpenParen,
     macro_name: MacroName,
-    variables: Maybe<Parenthesized<Items<VariableToken, Comma>>>,
-    comma: Comma,
+    variables: Maybe<Parenthesized<Items<VariableToken, NeedRightSpace<Comma>>>>,
+    comma: NeedRightSpace<Comma>,
     replacement: Replacement,
     close: CloseParen,
     dot: Dot,

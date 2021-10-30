@@ -55,7 +55,7 @@ where
     D: Format,
 {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_children(&self.items, &self.delimiters)?;
+        fmt.format_items(&self.items, &self.delimiters)?;
         Ok(())
     }
 }
@@ -83,82 +83,102 @@ pub struct NameAndArity<Name, Arity> {
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Parenthesized<T> {
     open: OpenParen,
-    item: Child<T>,
+    item: T,
     close: CloseParen,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        self.item.get()
+        &self.item
     }
 }
 
 #[derive(Debug, Clone, Region, Parse)]
-pub struct Child<T>(T);
+pub struct EnterBlock<T>(T);
 
-impl<T> Child<T> {
-    pub fn get(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T: Format> Format for Child<T> {
+impl<T: Format> Format for EnterBlock<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_child(&self.0)?;
+        fmt.format(&self.0)?;
+        fmt.enter_block()?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone, Region, Parse)]
-pub struct WithNewline<T>(T);
+pub struct LeaveBlock<T>(T);
 
-impl<T> WithNewline<T> {
+impl<T: Format> Format for LeaveBlock<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.leave_block()?;
+        fmt.format(&self.0)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse)]
+pub struct NeedNewline<T>(T);
+
+impl<T> NeedNewline<T> {
     pub fn get(&self) -> &T {
         &self.0
     }
 }
 
-impl<T: Format> Format for WithNewline<T> {
+impl<T: Format> Format for NeedNewline<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format(&self.0)?;
         fmt.write_newline()?;
-        fmt.format(&self.0)?;
-        Ok(())
-    }
-}
-
-// TODO: delete
-#[derive(Debug, Clone, Region, Parse)]
-pub struct WithLeftSpace<T>(T);
-
-impl<T> WithLeftSpace<T> {
-    pub fn get(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T: Format> Format for WithLeftSpace<T> {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_space()?;
-        fmt.format(&self.0)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone, Region, Parse)]
-pub struct WithSpace<T>(T);
+pub struct NeedSpace<T>(T);
 
-impl<T> WithSpace<T> {
+impl<T> NeedSpace<T> {
     pub fn get(&self) -> &T {
         &self.0
     }
 }
 
-impl<T: Format> Format for WithSpace<T> {
+impl<T: Format> Format for NeedSpace<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.format_space()?;
         fmt.format(&self.0)?;
         fmt.format_space()?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse)]
+pub struct NeedRightSpace<T>(T);
+
+impl<T> NeedRightSpace<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for NeedRightSpace<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format(&self.0)?;
+        fmt.format_space()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Region, Parse)]
+pub struct NewlineIfMultiline<T>(T);
+
+impl<T> NewlineIfMultiline<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format> Format for NewlineIfMultiline<T> {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_with_newline_if_multiline(&self.0)
     }
 }
 

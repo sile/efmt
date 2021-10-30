@@ -2,8 +2,8 @@ use crate::cst::consts::{
     self, CloseBrace, CloseSquare, Colon, Comma, OpenBrace, OpenSquare, RightArrow,
 };
 use crate::cst::primitives::{
-    Child, Items, Maybe, NameAndArity, NonEmptyItems, Parenthesized, WithLeftSpace, WithNewline,
-    WithSpace,
+    EnterBlock, Items, LeaveBlock, Maybe, NameAndArity, NeedNewline, NeedRightSpace, NeedSpace,
+    NewlineIfMultiline, NonEmptyItems, Parenthesized,
 };
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Either, Parse, Parser, ResumeParse};
@@ -27,7 +27,10 @@ pub enum Expr {
     FunCall(Box<FunCall>),
     BinaryOpCall(Box<BinaryOpCall>),
     Case(Box<Case>),
+    If(Box<If>),
     Receive(Box<Receive>),
+    Catch(Box<Catch>),
+    Parenthesized(Box<Parenthesized<Expr>>),
     NameAndArity(NameAndArity<AtomToken, IntegerToken>), // For attributes such as `-export`.
 }
 
@@ -56,7 +59,13 @@ impl Parse for Expr {
         } else if let Some(x) = parser.try_parse() {
             Self::Case(x)
         } else if let Some(x) = parser.try_parse() {
+            Self::If(x)
+        } else if let Some(x) = parser.try_parse() {
             Self::Receive(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Catch(x)
+        } else if let Some(x) = parser.try_parse() {
+            Self::Parenthesized(x)
         } else {
             let e = parser.take_last_error().expect("unreachable");
             return Err(e);
@@ -71,33 +80,53 @@ impl Parse for Expr {
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
+pub struct Catch {
+    catch: NeedRightSpace<consts::Catch>,
+    expr: Expr,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct If {
+    k_if: EnterBlock<consts::If>,
+    clauses: NonEmptyItems<IfClause, NeedNewline<consts::Semicolon>>,
+    end: LeaveBlock<consts::End>,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
+pub struct IfClause {
+    condition: Expr,
+    arrow: NeedSpace<RightArrow>,
+    body: Body,
+}
+
+#[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Case {
     case: consts::Case,
-    pattern: Expr,
-    of: consts::Of,
-    clauses: Items<Clause, consts::Semicolon>,
-    end: WithNewline<consts::End>,
+    pattern: NeedSpace<Expr>,
+    of: EnterBlock<consts::Of>,
+    clauses: Items<Clause, NeedNewline<consts::Semicolon>>,
+    end: LeaveBlock<consts::End>,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Receive {
-    receive: consts::Receive,
-    clauses: Items<Clause, consts::Semicolon>,
+    receive: EnterBlock<consts::Receive>,
+    clauses: Items<Clause, NeedNewline<consts::Semicolon>>,
     after: Maybe<ReceiveAfter>,
-    end: WithNewline<consts::End>,
+    end: LeaveBlock<consts::End>,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct ReceiveAfter {
-    after: WithNewline<consts::After>,
-    clause: WithLeftSpace<Clause>,
+    after: LeaveBlock<EnterBlock<consts::After>>,
+    clause: Clause,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct BinaryOpCall {
     left: Expr,
-    op: WithSpace<BinaryOp>,
-    right: Expr,
+    op: NeedSpace<BinaryOp>,
+    right: NewlineIfMultiline<Expr>,
 }
 
 impl ResumeParse<Expr> for BinaryOpCall {
@@ -131,6 +160,7 @@ impl Parse for BinaryOp {
                     | Symbol::LessEq
                     | Symbol::Greater
                     | Symbol::GreaterEq
+                    | Symbol::Match
             ),
             Token::Keyword(x) => matches!(
                 x.value(),
@@ -161,23 +191,23 @@ impl Parse for BinaryOp {
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct List {
     open: OpenSquare,
-    items: Child<Items<Expr, Comma>>,
+    items: Items<Expr, NeedRightSpace<Comma>>,
     close: CloseSquare,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct Tuple {
     open: OpenBrace,
-    items: Child<Items<Expr, Comma>>,
+    items: Items<Expr, NeedRightSpace<Comma>>,
     close: CloseBrace,
 }
 
 #[derive(Debug, Clone, Region, Parse, Format)]
 pub struct FunClause<Name> {
     name: Name,
-    params: Parenthesized<Items<Expr, Comma>>,
+    params: Parenthesized<Items<Expr, NeedRightSpace<Comma>>>,
     guard: Maybe<Guard>,
-    arrow: WithLeftSpace<RightArrow>,
+    arrow: NeedSpace<RightArrow>,
     body: Body,
 }
 
@@ -185,7 +215,7 @@ pub struct FunClause<Name> {
 pub struct Clause {
     pattern: Expr,
     guard: Maybe<Guard>,
-    arrow: WithLeftSpace<RightArrow>,
+    arrow: NeedSpace<RightArrow>,
     body: Body,
 }
 
@@ -248,7 +278,7 @@ pub struct FunCallModule {
 pub struct FunCall {
     module: Maybe<FunCallModule>,
     name: FunCallName,
-    args: Parenthesized<Items<Expr, Comma>>,
+    args: Parenthesized<Items<Expr, NeedRightSpace<Comma>>>,
 }
 
 #[cfg(test)]

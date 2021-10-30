@@ -16,29 +16,40 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait Format: Region {
+// TODO: remove Debug
+pub trait Format: Region + std::fmt::Debug {
     // Note that this method isn't intended to be called by users directly.
     // Please use `Formatter::format()` inside the method implementation instead.
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
 }
 
+#[derive(Debug, Clone)]
+struct FormatterState {
+    next_position: TokenPosition, // source (TODO: rename)
+    indent_level: usize,
+    need_space: bool,
+}
+
 #[derive(Debug)]
 pub struct Formatter<W> {
-    writer: ScopedWriter<W>,
+    writer: Either<ColumnCounter<W>, ColumnCounter<NewlineForbidWriter>>,
     text: LexedText,
-    next_position: TokenPosition,
-    max_line: usize,
-    indent_level: usize,
+    max_column: usize,
+    state: FormatterState,
 }
 
 impl<W: Write> Formatter<W> {
     pub fn new(writer: W, text: LexedText) -> Self {
-        Self {
-            writer: ScopedWriter::new(writer),
-            text,
+        let state = FormatterState {
             next_position: TokenPosition::new(0, 1, 1),
-            max_line: 100,
             indent_level: 0,
+            need_space: false,
+        };
+        Self {
+            writer: Either::A(ColumnCounter::new(writer)),
+            text,
+            max_column: 100,
+            state,
         }
     }
 
@@ -47,7 +58,7 @@ impl<W: Write> Formatter<W> {
             self.writer,
             "{:indent$}",
             "",
-            indent = self.indent_level * 4
+            indent = self.state.indent_level * 4
         )?;
         Ok(())
     }
@@ -55,9 +66,28 @@ impl<W: Write> Formatter<W> {
     fn next_macro_call_region(&self) -> Option<TokenRegion> {
         self.text
             .macro_calls
-            .values()
+            .range(self.state.next_position..)
             .next()
-            .map(|x| x.region().clone())
+            .map(|(_, x)| x.region().clone())
+    }
+
+    pub fn finish(self) -> Result<()> {
+        // TODO: handle remaining comments and macro calls
+        Ok(())
+    }
+
+    fn write_comments(&mut self, item: &impl Format) -> Result<()> {
+        // TODO: improve
+        if let Some((_, comment)) = self.text.comments.range(self.state.next_position..).next() {
+            if comment.region().start() < item.region().start() {
+                let start = comment.region().start();
+                let end = comment.region().end();
+                let text = &self.text.original_text[start.offset()..end.offset()];
+                writeln!(self.writer, "{}", text)?;
+                self.state.next_position = end;
+            }
+        }
+        Ok(())
     }
 
     fn do_format_with_macro_calls(
@@ -68,11 +98,7 @@ impl<W: Write> Formatter<W> {
         let item_region = item.region().clone();
         if macro_call_region.start() < item_region.start() {
             // Maybe the macro call was expanded to empty tokens.
-            let macro_call = self
-                .text
-                .macro_calls
-                .remove(&macro_call_region.start())
-                .expect("unreachable");
+            let macro_call = self.text.macro_calls[&macro_call_region.start()].clone();
             macro_call.format(self)?;
             writeln!(self.writer)?; // TODO
             return Ok(false);
@@ -90,35 +116,24 @@ impl<W: Write> Formatter<W> {
                     // TODO: Changed to put a space if the next visible token could be ambiguous
                     //       (e.g, atom, variable, integer, float, keyword)
                     // MEMO: We might be able to search the original text to detect the next character
-                    write!(self.writer, " ")?;
+                    self.state.need_space = true;
                 }
 
                 return Ok(true);
             } else if item_region.end() < macro_call_region.end() {
-                todo!() // unreachable?
+                if item_region.start().offset() + 1 == item.region().end().offset() {
+                    // This should be '?'.
+                    // TODO: improve this case handling
+                } else {
+                    dbg!(item);
+                    dbg!(item_region);
+                    dbg!(macro_call_region);
+                    todo!() // unreachable?
+                }
             }
         }
 
         Ok(false)
-    }
-
-    pub fn finish(self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
-
-    fn write_comments(&mut self, item: &impl Format) -> Result<()> {
-        // TODO: improve
-        if let Some(comment) = self.text.comments.values().next() {
-            if comment.region().start() < item.region().start() {
-                let start = comment.region().start();
-                let end = comment.region().end();
-                let text = &self.text.original_text[start.offset()..end.offset()];
-                writeln!(self.writer, "{}", text)?;
-                self.text.comments.remove(&start);
-            }
-        }
-        Ok(())
     }
 
     fn do_format(&mut self, item: &impl Format, noformat: bool) -> Result<()> {
@@ -127,7 +142,7 @@ impl<W: Write> Formatter<W> {
         let item_start = item.region().start();
         let item_end = item.region().end();
 
-        if item.region().end() <= self.next_position {
+        if item.region().end() <= self.state.next_position {
             // May be a macro expanded item.
             // eprintln!("[SKIP] {:?} (next={:?})", item.region(), self.next_position);
             return Ok(());
@@ -138,16 +153,22 @@ impl<W: Write> Formatter<W> {
                 return Ok(());
             }
         }
+
         if noformat {
+            if self.state.need_space {
+                write!(self.writer, " ")?;
+                self.state.need_space = false;
+            }
+
             // NOTE: `max` is for "max expanded" + "raw macro arg" case
-            let start = std::cmp::max(item_start.offset(), self.next_position.offset());
+            let start = std::cmp::max(item_start.offset(), self.state.next_position.offset());
             let end = item_end.offset();
             let text = &self.text.original_text[start..end];
             write!(self.writer, "{}", text)?;
         } else {
             item.format(self)?;
         }
-        self.next_position = item.region().end();
+        self.state.next_position = item.region().end();
         Ok(())
     }
 
@@ -158,54 +179,88 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn format_option(&mut self, item: &Option<impl Format>) -> Result<()> {
-        item.as_ref()
-            .map(|x| self.format(x))
-            .transpose()
-            .map(|_| ())
+    pub fn format_space(&mut self) -> Result<()> {
+        self.state.need_space = true;
+        Ok(())
     }
 
-    pub fn format_space(&mut self) -> Result<()> {
-        // TODO: omit if the current position is the end of a line.
-        write!(self.writer, " ")?;
+    pub fn enter_block(&mut self) -> Result<()> {
+        self.state.indent_level += 1;
+        self.write_newline()?;
+        Ok(())
+    }
+
+    pub fn leave_block(&mut self) -> Result<()> {
+        self.state.indent_level -= 1;
+        self.write_newline()?;
+        Ok(())
+    }
+
+    fn calc_required_column(&mut self, item: &impl Format) -> Result<usize> {
+        let state = self.state.clone();
+        let column = self.writer.column();
+        let writer = std::mem::replace(
+            &mut self.writer,
+            Either::B(ColumnCounter {
+                inner: NewlineForbidWriter,
+                column,
+            }),
+        );
+        let result = self.format(item);
+
+        self.state = state;
+        let column = self.writer.column();
+        self.writer = writer;
+
+        result.map(|_| column)
+    }
+
+    pub fn format_with_newline_if_multiline(&mut self, item: &impl Format) -> Result<()> {
+        if let Ok(column) = self.calc_required_column(item) {
+            if column <= self.max_column {
+                self.format(item)?;
+                return Ok(());
+            }
+            dbg!((column, self.max_column));
+        } else {
+            dbg!("error");
+        }
+
+        self.state.indent_level += 1;
+        self.write_newline()?;
+        self.format(item)?;
+        self.state.indent_level -= 1;
+
         Ok(())
     }
 
     pub fn format_body(&mut self, body: &Body) -> Result<()> {
         if body.exprs().len() == 1 {
-            // TODO: check line length
-            // TODO: switch mode if the formatted code contains newlines
-            write!(self.writer, " ")?;
-            self.with_block(|this| this.format(&body.exprs()[0]))?;
-        } else {
-            writeln!(self.writer)?;
-            self.with_block(|this| {
-                this.write_indent()?;
-                this.format(&body.exprs()[0])?;
-                for (delimiter, expr) in body.delimiters().iter().zip(body.exprs().iter().skip(1)) {
-                    this.format(delimiter)?;
-                    this.write_newline()?;
-                    this.format(expr)?;
+            if let Ok(column) = self.calc_required_column(&body.exprs()[0]) {
+                if column <= self.max_column {
+                    self.format(&body.exprs()[0])?;
+                    return Ok(());
                 }
-                Ok(())
-            })?;
+            }
         }
-        Ok(())
-    }
 
-    pub fn with_block<F>(&mut self, f: F) -> Result<()>
-    where
-        F: FnOnce(&mut Self) -> Result<()>,
-    {
-        self.indent_level += 1;
-        let result = f(self);
-        self.indent_level -= 1;
-        result
+        self.state.indent_level += 1;
+        self.write_newline()?;
+        self.format(&body.exprs()[0])?;
+        for (delimiter, expr) in body.delimiters().iter().zip(body.exprs().iter().skip(1)) {
+            self.format(delimiter)?;
+            self.write_newline()?;
+            self.format(expr)?;
+        }
+        self.state.indent_level -= 1;
+
+        Ok(())
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
         writeln!(self.writer)?;
         self.write_indent()?;
+        self.state.need_space = false;
         Ok(())
     }
 
@@ -213,51 +268,27 @@ impl<W: Write> Formatter<W> {
         self.do_format(item, false)
     }
 
+    // TODO: rename
     pub fn noformat(&mut self, item: &impl Format) -> Result<()> {
         self.do_format(item, true)
     }
 
-    pub fn format_child(&mut self, child: &(impl Format + Region)) -> Result<()> {
-        // TODO: indent handling
-        self.format(child)?;
-        Ok(())
-    }
-
-    pub fn format_children<T: Format, D: Format>(
+    pub fn format_items<T: Format, D: Format>(
         &mut self,
-        children: &[T],
+        items: &[T],
         delimiters: &[D],
     ) -> Result<()> {
-        self.format_child(&children[0])?;
-        for (c, d) in children.iter().skip(1).zip(delimiters.iter()) {
+        self.format(&items[0])?;
+        for (c, d) in items.iter().skip(1).zip(delimiters.iter()) {
             self.format(d)?;
-            write!(self.writer, " ")?;
-            self.format_child(c)?;
+            // TODO: insert newline if the formatted code of the next item will be too long
+            self.format(c)?;
         }
         Ok(())
     }
-
-    pub fn format_clauses<T: Format + Region>(&mut self, _clauses: &[T]) -> Result<()> {
-        // for (i, clause) in clauses.iter().enumerate() {
-        //     self.format(clause)?;
-        //     if i + 1 < clauses.len() {
-        //         writeln!(self, ";")?;
-        //     }
-        // }
-        // Ok(())
-        todo!()
-    }
-
-    // fn with_scope<F, T>(&mut self, f: F) -> (T, Vec<u8>)
-    // where
-    //     F: FnOnce(&mut Self) -> T,
-    // {
-    //     self.writer.buf_stack.push(Vec::new());
-    //     let value = f(self);
-    //     (value, self.writer.buf_stack.pop().expect("unreachable"))
-    // }
 }
 
+// TODO
 impl<A, B> Format for Either<A, B>
 where
     A: Format,
@@ -271,35 +302,80 @@ where
     }
 }
 
-// TODO: rename
-#[derive(Debug)]
-struct ScopedWriter<W> {
-    inner: W,
-    buf_stack: Vec<Vec<u8>>,
-}
-
-impl<W> ScopedWriter<W> {
-    fn new(inner: W) -> Self {
-        Self {
-            inner,
-            buf_stack: Vec::new(),
-        }
-    }
-}
-
-impl<W: Write> Write for ScopedWriter<W> {
+impl<A, B> Write for Either<A, B>
+where
+    A: Write,
+    B: Write,
+{
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if let Some(x) = self.buf_stack.last_mut() {
-            x.write(buf)
-        } else {
-            self.inner.write(buf)
+        match self {
+            Self::A(x) => x.write(buf),
+            Self::B(x) => x.write(buf),
         }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        if self.buf_stack.is_empty() {
-            self.inner.flush()?;
+        match self {
+            Self::A(x) => x.flush(),
+            Self::B(x) => x.flush(),
         }
+    }
+}
+
+impl<A, B> Either<ColumnCounter<A>, ColumnCounter<B>> {
+    fn column(&self) -> usize {
+        match self {
+            Self::A(x) => x.column,
+            Self::B(x) => x.column,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct NewlineForbidWriter;
+
+impl Write for NewlineForbidWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if buf.contains(&b'\n') {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "a newline was detected",
+            ));
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+struct ColumnCounter<W> {
+    inner: W,
+    column: usize,
+}
+
+impl<W: Write> ColumnCounter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, column: 0 }
+    }
+}
+
+impl<W: Write> Write for ColumnCounter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        let buf = &buf[..written];
+        // TODO: consider control characters such as '\r'
+        if let Some(x) = buf.rsplit(|b| *b == b'\n').next() {
+            self.column = x.len();
+        } else {
+            self.column += buf.len();
+        }
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
     }
 }

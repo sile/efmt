@@ -1,4 +1,3 @@
--module('weird-macro-before').
 -define(FOO, /).
 -define(BAR, :format().
 -define(baz(A), A).

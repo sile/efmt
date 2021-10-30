@@ -21,6 +21,24 @@ impl Parse for End {
 }
 
 #[derive(Debug, Clone, Region, Format)]
+pub struct If(KeywordToken);
+
+impl Parse for If {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::If).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct Catch(KeywordToken);
+
+impl Parse for Catch {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Keyword::Catch).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
 pub struct Case(KeywordToken);
 
 impl Parse for Case {
@@ -125,6 +143,15 @@ pub struct Comma(SymbolToken);
 impl Parse for Comma {
     fn parse(parser: &mut Parser) -> parse::Result<Self> {
         parser.expect(Symbol::Comma).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Region, Format)]
+pub struct Match(SymbolToken);
+
+impl Parse for Match {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        parser.expect(Symbol::Match).map(Self)
     }
 }
 

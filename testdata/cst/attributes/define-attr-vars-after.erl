@@ -1,1 +1,1 @@
--define(FOO(Bar, Baz),[Bar, Baz]).
+-define(FOO(Bar, Baz), [Bar, Baz]).

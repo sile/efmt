@@ -1,6 +1,4 @@
--module('empty-macro-before').
-
--define(EMPTY,).
+-define(EMPTY, ).
 
 ?EMPTY
-main()->hello.
+main() -> hello.
