@@ -25,7 +25,7 @@ loop(Users, N) ->
                             Pid ! {ftp_server, {error, too_many_connections}},
                             loop(Users, N);
                         true ->
-                            New = spawn_link(?MODULE , handler, [Pid]),
+                            New = spawn_link(?MODULE, handler, [Pid]),
                             Pid ! {ftp_server, {ok, New}},
                             loop(Users, N + 1)
                     end;

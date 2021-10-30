@@ -217,6 +217,7 @@ impl<W: Write> Formatter<W> {
 
     pub fn format_with_newline_if_multiline(&mut self, item: &impl Format) -> Result<()> {
         if let Ok(column) = self.calc_required_column(item) {
+            dbg!(column);
             if column <= self.max_column {
                 self.format(item)?;
                 return Ok(());
@@ -366,11 +367,17 @@ impl<W: Write> Write for ColumnCounter<W> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let written = self.inner.write(buf)?;
         let buf = &buf[..written];
+
         // TODO: consider control characters such as '\r'
-        if let Some(x) = buf.rsplit(|b| *b == b'\n').next() {
-            self.column = x.len();
-        } else {
-            self.column += buf.len();
+        let mut split = buf.rsplit(|b| *b == b'\n');
+        match (split.next(), split.next()) {
+            (Some(_), None) => {
+                self.column += buf.len();
+            }
+            (Some(x), Some(_)) => {
+                self.column = x.len();
+            }
+            _ => unreachable!(),
         }
         Ok(written)
     }

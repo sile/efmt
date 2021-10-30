@@ -1,4 +1,3 @@
-// pub mod commands;
 pub mod cst;
 pub mod format;
 pub mod lex;

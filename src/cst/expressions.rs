@@ -293,4 +293,12 @@ mod tests {
                 .expect(testname);
         }
     }
+
+    #[test]
+    fn match_works() {
+        for testname in ["too-long-value"] {
+            test_parse_and_format::<Expr>(&format!("cst/expressions/match-{}", testname))
+                .expect(testname);
+        }
+    }
 }
