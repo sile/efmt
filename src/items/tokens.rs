@@ -17,8 +17,8 @@ pub enum Token {
     Variable(VariableToken),
 }
 
-macro_rules! derive_traits {
-    ($name:ident, $variant:ident, $expected:expr) => {
+macro_rules! impl_traits {
+    ($name:ident, $variant:ident) => {
         impl Span for $name {
             fn start_position(&self) -> Position {
                 self.start
@@ -33,7 +33,11 @@ macro_rules! derive_traits {
             fn parse(parser: &mut Parser) -> parse::Result<Self> {
                 match parser.parse()? {
                     Token::$variant(token) => Ok(token),
-                    token => Err(parse::Error::unexpected_token(parser, token, $expected)),
+                    token => Err(parse::Error::unexpected_token(
+                        parser,
+                        token,
+                        &stringify!($variant).to_lowercase(),
+                    )),
                 }
             }
         }
@@ -74,7 +78,7 @@ impl AtomToken {
     }
 }
 
-derive_traits!(AtomToken, Atom, "atom");
+impl_traits!(AtomToken, Atom);
 
 #[derive(Debug, Clone)]
 pub struct CharToken {
@@ -88,7 +92,7 @@ impl CharToken {
     }
 }
 
-derive_traits!(CharToken, Char, "character");
+impl_traits!(CharToken, Char);
 
 #[derive(Debug, Clone)]
 pub struct FloatToken {
@@ -102,7 +106,7 @@ impl FloatToken {
     }
 }
 
-derive_traits!(FloatToken, Float, "float");
+impl_traits!(FloatToken, Float);
 
 #[derive(Debug, Clone)]
 pub struct IntegerToken {
@@ -116,7 +120,7 @@ impl IntegerToken {
     }
 }
 
-derive_traits!(IntegerToken, Integer, "integer");
+impl_traits!(IntegerToken, Integer);
 
 #[derive(Debug, Clone)]
 pub struct KeywordToken {
@@ -135,7 +139,7 @@ impl KeywordToken {
     }
 }
 
-derive_traits!(KeywordToken, Keyword, "keyword");
+impl_traits!(KeywordToken, Keyword);
 
 #[derive(Debug, Clone)]
 pub struct StringToken {
@@ -149,7 +153,7 @@ impl StringToken {
     }
 }
 
-derive_traits!(StringToken, String, "string");
+impl_traits!(StringToken, String);
 
 #[derive(Debug, Clone)]
 pub struct SymbolToken {
@@ -168,7 +172,7 @@ impl SymbolToken {
     }
 }
 
-derive_traits!(SymbolToken, Symbol, "symbol");
+impl_traits!(SymbolToken, Symbol);
 
 #[derive(Debug, Clone)]
 pub struct VariableToken {
@@ -191,7 +195,7 @@ impl VariableToken {
     }
 }
 
-derive_traits!(VariableToken, Variable, "Variable");
+impl_traits!(VariableToken, Variable);
 
 #[derive(Debug, Clone)]
 pub struct CommentToken {
