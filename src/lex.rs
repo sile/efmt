@@ -1,13 +1,14 @@
-use crate::items::forms::DefineDirective;
+use crate::items::forms::{DefineDirective, IncludeDirective};
+use crate::items::generics::Either;
 use crate::items::macros::Macro;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, StringToken,
     SymbolToken, Token, VariableToken,
 };
-use crate::parse;
+use crate::parse::{self, Parser};
 use crate::span::{Position, Span};
-use erl_tokenize::PositionRange as _;
-use erl_tokenize::Tokenizer;
+use erl_tokenize::values::Symbol;
+use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -170,22 +171,24 @@ impl Lexer {
             self.tokens.push(token.clone());
             self.current_token_index += 1;
 
-            // let token = match Question::new(token) {
-            //     Ok(question) => {
-            //         self.expand_macro(question)?;
-            //         return self.read_token();
-            //     }
-            //     Err(token) => token,
-            // };
-
-            // match &token {
-            //     Token::Symbol(x) if x.value() == Symbol::Hyphen => {
-            //         let index = self.current;
-            //         self.try_handle_directives()?;
-            //         self.current = index;
-            //     }
-            //     _ => {}
-            // }
+            match &token {
+                Token::Symbol(x) if x.value() == Symbol::Question => {
+                    // let token = match Question::new(token) {
+                    //     Ok(question) => {
+                    //         self.expand_macro(question)?;
+                    //         return self.read_token();
+                    //     }
+                    //     Err(token) => token,
+                    // };
+                    todo!()
+                }
+                Token::Symbol(x) if x.value() == Symbol::Hyphen => {
+                    let index = self.current_token_index;
+                    self.try_handle_directives()?;
+                    self.current_token_index = index;
+                }
+                _ => {}
+            }
 
             return Ok(Some(token));
         }
@@ -267,33 +270,24 @@ impl Lexer {
     //         Ok(())
     //     }
 
-    //     fn try_handle_directives(&mut self) -> Result<()> {
-    //         let is_target = match self.read_token()? {
-    //             Some(Token::Atom(x)) if matches!(x.value(), "define" | "include" | "include_lib") => {
-    //                 true
-    //             }
-    //             _ => false,
-    //         };
-    //         if !is_target {
-    //             return Ok(());
-    //         }
+    fn try_handle_directives(&mut self) -> Result<()> {
+        self.current_token_index -= 1;
+        match Parser::new(self).try_parse() {
+            Some(Either::A(x)) => {
+                self.macro_defines
+                    .insert(DefineDirective::macro_name(&x).to_owned(), x);
+            }
+            Some(Either::B(x)) => {
+                self.handle_include(x);
+            }
+            None => {}
+        }
+        Ok(())
+    }
 
-    //         self.current -= 2;
-    //         let mut parser = Parser::new(self);
-    //         match parser.try_parse::<Attr>() {
-    //             Some(Attr::Define(x)) => {
-    //                 self.macro_defines.insert(x.macro_name().to_owned(), x);
-    //             }
-    //             Some(Attr::Include(x)) => {
-    //                 eprintln!("TODO: {:?}", x)
-    //             }
-    //             Some(Attr::IncludeLib(x)) => {
-    //                 eprintln!("TODO: {:?}", x)
-    //             }
-    //             _ => {}
-    //         }
-    //         Ok(())
-    //     }
+    fn handle_include(&mut self, include: IncludeDirective) {
+        eprintln!("TODO: {:?}", include);
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
