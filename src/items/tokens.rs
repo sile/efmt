@@ -33,11 +33,7 @@ macro_rules! impl_traits {
             fn parse(parser: &mut Parser) -> parse::Result<Self> {
                 match parser.parse()? {
                     Token::$variant(token) => Ok(token),
-                    token => Err(parse::Error::unexpected_token(
-                        parser,
-                        token,
-                        &stringify!($variant).to_lowercase(),
-                    )),
+                    token => Err(parse::Error::unexpected_token(parser, token)),
                 }
             }
         }

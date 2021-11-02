@@ -12,11 +12,7 @@ macro_rules! impl_parse {
                 if token.value() == Keyword::$value {
                     Ok(Self(token))
                 } else {
-                    Err(parse::Error::unexpected_token(
-                        parser,
-                        token.into(),
-                        &format!("{:?}", Keyword::$value.as_str()),
-                    ))
+                    Err(parse::Error::unexpected_token(parser, token.into()))
                 }
             }
         }

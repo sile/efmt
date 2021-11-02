@@ -1,8 +1,8 @@
-use crate::items::macros::MacroCall;
+use crate::items::macros::Macro;
 use crate::items::tokens::{CommentToken, Token};
 use crate::lex::{self, Lexer};
 use crate::span::Position;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub use efmt_derive::Parse;
 
@@ -11,19 +11,15 @@ pub enum Error {
     #[error("unexpected EOF")]
     UnexpectedEof,
 
-    #[error("expected {expected:?}, but got {token:?}\n\n{location}\n")]
-    UnexpectedToken {
-        token: Token,
-        expected: BTreeSet<String>,
-        location: String,
-    },
+    #[error("{message}")]
+    UnexpectedToken { token: Token, message: String },
 
     #[error(transparent)]
     LexError(#[from] lex::Error),
 }
 
 impl Error {
-    pub fn unexpected_token(_parser: &mut Parser, _token: Token, _expected: &str) -> Self {
+    pub fn unexpected_token(_parser: &mut Parser, _token: Token) -> Self {
         todo!()
     }
 }
@@ -81,8 +77,8 @@ impl<'a> Parser<'a> {
         self.lexer.comments()
     }
 
-    pub fn macro_calls(&self) -> &BTreeMap<Position, MacroCall> {
-        self.lexer.macro_calls()
+    pub fn macros(&self) -> &BTreeMap<Position, Macro> {
+        self.lexer.macros()
     }
 
     pub fn prev_token_end_position(&mut self) -> Result<Position> {

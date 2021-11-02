@@ -1,5 +1,5 @@
-use crate::items::forms::MacroDefine;
-use crate::items::macros::MacroCall;
+use crate::items::forms::DefineDirective;
+use crate::items::macros::Macro;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, StringToken,
     SymbolToken, Token, VariableToken,
@@ -31,8 +31,8 @@ pub struct Lexer {
     tokens: Vec<Token>,
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
-    macro_calls: BTreeMap<Position, MacroCall>,
-    macro_defines: HashMap<String, MacroDefine>,
+    macros: BTreeMap<Position, Macro>,
+    macro_defines: HashMap<String, DefineDirective>,
     transaction_seqno: u64,
     transactions: HashSet<Transaction>,
 }
@@ -44,7 +44,7 @@ impl Lexer {
             tokens: Vec::new(),
             current_token_index: 0,
             comments: BTreeMap::new(),
-            macro_calls: BTreeMap::new(),
+            macros: BTreeMap::new(),
             macro_defines: HashMap::new(),
             transaction_seqno: 0,
             transactions: HashSet::new(),
@@ -63,8 +63,8 @@ impl Lexer {
         &self.comments
     }
 
-    pub fn macro_calls(&self) -> &BTreeMap<Position, MacroCall> {
-        &self.macro_calls
+    pub fn macros(&self) -> &BTreeMap<Position, Macro> {
+        &self.macros
     }
 
     pub fn is_eof(&mut self) -> Result<bool> {
@@ -194,7 +194,7 @@ impl Lexer {
     }
 
     //     pub fn is_macro_expanded(&self, token: &Token) -> bool {
-    //         self.macro_calls.contains_key(&token.region().start())
+    //         self.macros.contains_key(&token.region().start())
     //     }
 
     //     fn expand_macro(&mut self, question: Question) -> Result<()> {
@@ -207,7 +207,7 @@ impl Lexer {
     //         let (replacement, macro_call) =
     //             if let Some(define) = self.macro_defines.get(macro_name.get()).cloned() {
     //                 if let Some(vars) = define.variables() {
-    //                     let macro_call: MacroCall = Parser::new(self)
+    //                     let macro_call: Macro = Parser::new(self)
     //                         .resume_parse((question, macro_name, Some(vars.len())))
     //                         .map_err(anyhow::Error::from)?;
     //                     let args = vars
@@ -240,7 +240,7 @@ impl Lexer {
     //                     "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
     //                     macro_name.get()
     //                 );
-    //                 let macro_call: MacroCall = Parser::new(self)
+    //                 let macro_call: Macro = Parser::new(self)
     //                     .resume_parse((question, macro_name.clone(), None))
     //                     .map_err(anyhow::Error::from)?;
     //                 let dummy_token = AtomToken::new("EFMT_DUMMY", macro_call.region());
@@ -263,7 +263,7 @@ impl Lexer {
     //         self.tokens.extend(replacement);
     //         self.tokens.extend(unread_tokens);
     //         self.current = start;
-    //         self.macro_calls.insert(start_position, macro_call);
+    //         self.macros.insert(start_position, macro_call);
     //         Ok(())
     //     }
 

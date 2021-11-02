@@ -12,11 +12,7 @@ macro_rules! impl_parse {
                 if token.value() == Symbol::$value {
                     Ok(Self(token))
                 } else {
-                    Err(parse::Error::unexpected_token(
-                        parser,
-                        token.into(),
-                        &format!("{:?}", Symbol::$value.as_str()),
-                    ))
+                    Err(parse::Error::unexpected_token(parser, token.into()))
                 }
             }
         }
