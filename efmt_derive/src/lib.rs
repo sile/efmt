@@ -4,74 +4,6 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics};
 
-#[proc_macro_derive(Region)]
-pub fn derive_region_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-    let generics = add_region_trait_bounds(input.generics);
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let region = generate_region_method_body(&input.data);
-    let expanded = quote! {
-        impl #impl_generics crate::token::Region for #name #ty_generics #where_clause {
-            fn region(&self) -> crate::token::TokenRegion {
-                #region
-            }
-        }
-    };
-    proc_macro::TokenStream::from(expanded)
-}
-
-fn add_region_trait_bounds(mut generics: Generics) -> Generics {
-    for param in &mut generics.params {
-        if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(crate::token::Region));
-        }
-    }
-    generics
-}
-
-fn generate_region_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => match (fields.named.first(), fields.named.last()) {
-                (Some(start), Some(end)) => {
-                    let start_name = &start.ident;
-                    let end_name = &end.ident;
-                    quote! {
-                        crate::token::TokenRegion::new(
-                            crate::token::Region::region(&self.#start_name).start(),
-                            crate::token::Region::region(&self.#end_name).end()
-                        )
-                    }
-                }
-                _ => unimplemented!(),
-            },
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.region() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.region(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
-}
-
 #[proc_macro_derive(Parse)]
 pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -193,6 +125,110 @@ fn generate_format_method_body(data: &Data) -> TokenStream {
                     unimplemented!();
                 }
                 quote_spanned! { variant.span() => Self::#name(x) => x.format(fmt), }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    }
+}
+
+#[proc_macro_derive(Span)]
+pub fn derive_span_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let generics = add_span_trait_bounds(input.generics);
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let start_position = generate_span_start_position_method_body(&input.data);
+    let end_position = generate_span_end_position_method_body(&input.data);
+    let expanded = quote! {
+        impl #impl_generics crate::span::Span for #name #ty_generics #where_clause {
+            fn start_position(&self) -> crate::span::Position {
+                #start_position
+            }
+            fn end_position(&self) -> crate::span::Position {
+                #end_position
+            }
+        }
+    };
+    proc_macro::TokenStream::from(expanded)
+}
+
+fn add_span_trait_bounds(mut generics: Generics) -> Generics {
+    for param in &mut generics.params {
+        if let GenericParam::Type(ref mut type_param) = *param {
+            type_param.bounds.push(parse_quote!(crate::span::Span));
+        }
+    }
+    generics
+}
+
+fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                if let Some(field) = fields.named.first() {
+                    let name = &field.ident;
+                    quote! { self.#name.start_position() }
+                } else {
+                    unimplemented!()
+                }
+            }
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { self.0.start_position() }
+            }
+            Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() => Self::#name(x) => x.start_position(), }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    }
+}
+
+fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                if let Some(field) = fields.named.last() {
+                    let name = &field.ident;
+                    quote! { self.#name.end_position() }
+                } else {
+                    unimplemented!()
+                }
+            }
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { self.0.end_position() }
+            }
+            Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() => Self::#name(x) => x.end_position(), }
             });
             quote! {
                 match self {
