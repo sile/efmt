@@ -1,1 +1,0 @@
-- define ( bar ( A , B ) , [ A , B ] ) . main ( ) -> [ C , "10" ] .

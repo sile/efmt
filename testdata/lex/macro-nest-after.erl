@@ -1,1 +1,0 @@
-- define ( FOO , foo ) . - define ( BAR ( X ) , [ X ] ) . - define ( BAZ ( A , B ) , [ A , [ B ] ] ) . main ( ) -> [ C , [ foo ] ] .
