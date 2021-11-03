@@ -1,6 +1,7 @@
 use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::generics::Either;
 use crate::items::macros::Macro;
+use crate::items::symbols::QuestionSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, StringToken,
     SymbolToken, Token, VariableToken,
@@ -173,14 +174,8 @@ impl Lexer {
 
             match &token {
                 Token::Symbol(x) if x.value() == Symbol::Question => {
-                    // let token = match Question::new(token) {
-                    //     Ok(question) => {
-                    //         self.expand_macro(question)?;
-                    //         return self.read_token();
-                    //     }
-                    //     Err(token) => token,
-                    // };
-                    todo!()
+                    self.expand_macro()?;
+                    return self.read_token();
                 }
                 Token::Symbol(x) if x.value() == Symbol::Hyphen => {
                     let index = self.current_token_index;
@@ -196,79 +191,44 @@ impl Lexer {
         Ok(None)
     }
 
-    //     pub fn is_macro_expanded(&self, token: &Token) -> bool {
-    //         self.macros.contains_key(&token.region().start())
-    //     }
+    fn expand_macro(&mut self) -> Result<()> {
+        // TODO:
+        use crate::items::macros::MacroName;
 
-    //     fn expand_macro(&mut self, question: Question) -> Result<()> {
-    //         let start = self.current - 1;
-    //         let start_position = self.tokens[start].region().start();
+        let start_index = self.current_token_index - 1;
+        let start_position = self.tokens[start_index].start_position();
+        let macro_name: MacroName = Parser::new(self).parse().map_err(Box::new)?;
+        let (variables, replacement) =
+            if let Some(define) = self.macro_defines.get(macro_name.value()) {
+                (
+                    define.variables().map(|x| x.to_owned()),
+                    define.replacement().to_owned(),
+                )
+            } else {
+                // TODO: check predefined macro
+                // TODO: use logger
+                eprintln!(
+                    "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
+                    macro_name.value()
+                );
+                let dummy_token = AtomToken::new("EFMT_DUMMY", start_position, start_position);
+                let replacement = vec![Token::from(dummy_token)];
+                (None, replacement)
+            };
+        let arity = variables.as_ref().map(|x| x.len());
+        let question = QuestionSymbol::new(start_position);
+        let r#macro =
+            Macro::parse(&mut Parser::new(self), question, macro_name, arity).map_err(Box::new)?;
+        let replacement = r#macro.expand(variables, replacement);
 
-    //         let macro_name = Parser::new(self)
-    //             .parse::<MacroName>()
-    //             .map_err(anyhow::Error::from)?;
-    //         let (replacement, macro_call) =
-    //             if let Some(define) = self.macro_defines.get(macro_name.get()).cloned() {
-    //                 if let Some(vars) = define.variables() {
-    //                     let macro_call: Macro = Parser::new(self)
-    //                         .resume_parse((question, macro_name, Some(vars.len())))
-    //                         .map_err(anyhow::Error::from)?;
-    //                     let args = vars
-    //                         .iter()
-    //                         .map(|x| x.value())
-    //                         .zip(macro_call.args().expect("unreachable").iter())
-    //                         .collect::<BTreeMap<_, _>>();
-    //                     let mut tokens = Vec::new();
-    //                     for token in define.replacement().tokens().iter().cloned() {
-    //                         match token {
-    //                             Token::Variable(x) if args.contains_key(x.value()) => {
-    //                                 tokens.extend(args[x.value()].tokens().iter().cloned());
-    //                             }
-    //                             token => {
-    //                                 tokens.push(token);
-    //                             }
-    //                         }
-    //                     }
-    //                     (tokens, macro_call)
-    //                 } else {
-    //                     let macro_call = Parser::new(self)
-    //                         .resume_parse((question, macro_name, None))
-    //                         .map_err(anyhow::Error::from)?;
-    //                     let tokens = define.replacement().tokens().to_owned();
-    //                     (tokens, macro_call)
-    //                 }
-    //             } else {
-    //                 // TODO: logger
-    //                 eprintln!(
-    //                     "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
-    //                     macro_name.get()
-    //                 );
-    //                 let macro_call: Macro = Parser::new(self)
-    //                     .resume_parse((question, macro_name.clone(), None))
-    //                     .map_err(anyhow::Error::from)?;
-    //                 let dummy_token = AtomToken::new("EFMT_DUMMY", macro_call.region());
-    //                 let tokens = vec![dummy_token.into()];
-    //                 (tokens, macro_call)
-    //             };
-    //         let replacement = replacement.into_iter().map(|token| match token {
-    //             Token::Atom(x) => AtomToken::new(x.value(), macro_call.region()).into(),
-    //             Token::Char(_) => CharToken::new(macro_call.region()).into(),
-    //             Token::Float(_) => FloatToken::new(macro_call.region()).into(),
-    //             Token::Integer(_) => IntegerToken::new(macro_call.region()).into(),
-    //             Token::Keyword(x) => KeywordToken::new(x.value(), macro_call.region()).into(),
-    //             Token::String(_) => StringToken::new(macro_call.region()).into(),
-    //             Token::Symbol(x) => SymbolToken::new(x.value(), macro_call.region()).into(),
-    //             Token::Variable(x) => VariableToken::new(x.value(), macro_call.region()).into(),
-    //         });
-
-    //         let unread_tokens = self.tokens.split_off(self.current);
-    //         self.tokens.truncate(start);
-    //         self.tokens.extend(replacement);
-    //         self.tokens.extend(unread_tokens);
-    //         self.current = start;
-    //         self.macros.insert(start_position, macro_call);
-    //         Ok(())
-    //     }
+        let unread_tokens = self.tokens.split_off(self.current_token_index);
+        self.tokens.truncate(start_index);
+        self.tokens.extend(replacement);
+        self.tokens.extend(unread_tokens);
+        self.current_token_index = start_index;
+        self.macros.insert(start_position, r#macro);
+        Ok(())
+    }
 
     fn try_handle_directives(&mut self) -> Result<()> {
         self.current_token_index -= 1;

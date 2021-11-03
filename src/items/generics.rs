@@ -12,6 +12,16 @@ pub struct Maybe<T> {
 }
 
 impl<T> Maybe<T> {
+    pub fn none(parser: &mut Parser) -> parse::Result<Self> {
+        let prev_token_end_position = parser.prev_token_end_position()?;
+        let next_token_start_position = parser.next_token_start_position()?;
+        Ok(Self {
+            item: None,
+            prev_token_end_position,
+            next_token_start_position,
+        })
+    }
+
     pub fn get(&self) -> Option<&T> {
         self.item.as_ref()
     }

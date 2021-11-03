@@ -1,7 +1,7 @@
 use crate::format::Format;
 use crate::items::tokens::SymbolToken;
 use crate::parse::{self, Parse, Parser};
-use crate::span::Span;
+use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 
 macro_rules! impl_parse {
@@ -98,6 +98,13 @@ impl_parse!(DoubleVerticalBarSymbol, DoubleVerticalBar);
 #[derive(Debug, Clone, Span, Format)]
 pub struct QuestionSymbol(SymbolToken);
 impl_parse!(QuestionSymbol, Question);
+
+impl QuestionSymbol {
+    pub fn new(start: Position) -> Self {
+        let end = Position::new(start.offset() + 1, start.line(), start.column() + 1);
+        Self(SymbolToken::new(Symbol::Question, start, end))
+    }
+}
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct DoubleQuestionSymbol(SymbolToken);

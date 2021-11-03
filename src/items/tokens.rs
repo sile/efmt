@@ -17,6 +17,23 @@ pub enum Token {
     Variable(VariableToken),
 }
 
+impl Token {
+    pub fn set_span(&mut self, span: &impl Span) {
+        let (start, end) = match self {
+            Self::Atom(x) => (&mut x.start, &mut x.end),
+            Self::Char(x) => (&mut x.start, &mut x.end),
+            Self::Float(x) => (&mut x.start, &mut x.end),
+            Self::Integer(x) => (&mut x.start, &mut x.end),
+            Self::Keyword(x) => (&mut x.start, &mut x.end),
+            Self::String(x) => (&mut x.start, &mut x.end),
+            Self::Symbol(x) => (&mut x.start, &mut x.end),
+            Self::Variable(x) => (&mut x.start, &mut x.end),
+        };
+        *start = span.start_position();
+        *end = span.end_position();
+    }
+}
+
 macro_rules! impl_traits {
     ($name:ident, $variant:ident) => {
         impl Span for $name {

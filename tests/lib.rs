@@ -12,6 +12,7 @@ fn parse_works() -> anyhow::Result<()> {
             continue;
         }
 
+        dbg!(&path);
         let text = std::fs::read_to_string(&path)?;
         let mut tokenizer = Tokenizer::new(text);
         tokenizer.set_filepath(path);

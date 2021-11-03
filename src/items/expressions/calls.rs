@@ -1,13 +1,14 @@
 use crate::format::Format;
 use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
-use crate::items::generics::{Items, Parenthesized};
+use crate::items::generics::{Items, Maybe, Parenthesized};
 use crate::items::keywords;
-use crate::items::symbols::{self, CommaSymbol};
+use crate::items::symbols::{self, ColonSymbol, CommaSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionCallExpr {
+    module: Maybe<(AtomLikeExpr, ColonSymbol)>,
     function: AtomLikeExpr,
     args: Parenthesized<Items<Expr, CommaSymbol>>,
 }
@@ -72,7 +73,7 @@ mod test {
 
     #[test]
     fn function_call_works() {
-        let texts = ["foo()", "Foo(1,2,3)", "(foo(Bar))(a,b,c())"];
+        let texts = ["foo()", "Foo(1,2,3)", "(foo(Bar))(a,b,c())", "foo:bar(baz)"];
         for text in texts {
             let x = parse_text(text).unwrap();
             assert!(matches!(

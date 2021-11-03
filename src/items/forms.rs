@@ -12,7 +12,7 @@ use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
     MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol, SemicolonSymbol,
 };
-use crate::items::tokens::{AtomToken, StringToken, VariableToken};
+use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::items::types::Type;
 use crate::parse::Parse;
 use crate::span::Span;
@@ -119,6 +119,14 @@ pub struct DefineDirective {
 impl DefineDirective {
     pub fn macro_name(&self) -> &str {
         self.macro_name.value()
+    }
+
+    pub fn variables(&self) -> Option<&[VariableToken]> {
+        self.variables.get().map(|x| x.get().get())
+    }
+
+    pub fn replacement(&self) -> &[Token] {
+        self.replacement.tokens()
     }
 }
 
