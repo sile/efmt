@@ -12,10 +12,10 @@ use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionExpr {
-    Defined(DefinedFunctionExpr),
-    Anonymous(AnonymousFunctionExpr),
-    Named(NamedFunctionExpr),
-    NameAndArity(NameAndArity), // For attributes such as `-export`
+    Defined(Box<DefinedFunctionExpr>),
+    Anonymous(Box<AnonymousFunctionExpr>),
+    Named(Box<NamedFunctionExpr>),
+    NameAndArity(Box<NameAndArity>), // For attributes such as `-export`
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

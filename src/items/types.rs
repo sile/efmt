@@ -140,9 +140,9 @@ pub struct BitstringType {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BitstringSize {
-    BinaryAndUnit((BitstringBinarySize, (CommaSymbol, BitstringUnitSize))),
-    Unit(BitstringUnitSize),
-    Binary(BitstringBinarySize),
+    BinaryAndUnit(Box<(BitstringBinarySize, (CommaSymbol, BitstringUnitSize))>),
+    Unit(Box<BitstringUnitSize>),
+    Binary(Box<BitstringBinarySize>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
