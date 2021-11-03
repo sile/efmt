@@ -1,14 +1,19 @@
 use crate::format::Format;
-use crate::items::atoms::{DefineAtom, IncludeAtom, IncludeLibAtom};
+use crate::items::atoms::{
+    CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
+    TypeAtom,
+};
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{Either, Items, Maybe, NonEmptyItems, Parenthesized};
-use crate::items::keywords::IfKeyword;
+use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
-    CloseParenSymbol, CommaSymbol, DotSymbol, HyphenSymbol, OpenParenSymbol, SemicolonSymbol,
+    CloseBraceSymbol, CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
+    MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, VariableToken};
+use crate::items::types::Type;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -16,12 +21,66 @@ use crate::span::Span;
 pub enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
-    Attr(Attr),
+    FunSpec(FunSpec),
     FunDecl(FunDecl),
-    // RecordDecl
-    // FunSpec
-    // TypeDecl
-    // CallbackSpec
+    TypeDecl(TypeDecl),
+    RecordDecl(RecordDecl),
+    Attr(Attr),
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct RecordDecl {
+    hyphen: HyphenSymbol,
+    record: RecordAtom,
+    open: OpenParenSymbol,
+    name: AtomToken,
+    comma: CommaSymbol,
+    field_start: OpenBraceSymbol,
+    fields: Items<RecordField, CommaSymbol>,
+    field_end: CloseBraceSymbol,
+    close: CloseParenSymbol,
+    dot: DotSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct RecordField {
+    name: AtomToken,
+    default: Maybe<(MatchSymbol, Expr)>,
+    r#type: Maybe<(DoubleColonSymbol, Type)>,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct TypeDecl {
+    hyphen: HyphenSymbol,
+    kind: Either<TypeAtom, OpaqueAtom>,
+    name: AtomToken,
+    params: Parenthesized<Items<VariableToken, CommaSymbol>>,
+    delimiter: DoubleColonSymbol,
+    r#type: Type,
+    dot: DotSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct FunSpec {
+    hyphen: HyphenSymbol,
+    kind: Either<SpecAtom, CallbackAtom>,
+    function_name: AtomToken,
+    clauses: NonEmptyItems<SpecClause, SemicolonSymbol>,
+    dot: DotSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct SpecClause {
+    params: Parenthesized<Items<Type, CommaSymbol>>,
+    arrow: RightArrowSymbol,
+    r#return: Type,
+    constraint: Maybe<Constraint>,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Constraint {
+    when: WhenKeyword,
+    constraints: NonEmptyItems<(VariableToken, (DoubleColonSymbol, Type)), CommaSymbol>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -126,6 +185,17 @@ mod tests {
     }
 
     #[test]
+    fn record_decl_works() {
+        let texts = [
+            "-record(foo, {}).",
+            "-record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).",
+        ];
+        for text in texts {
+            assert!(matches!(parse_text(text).unwrap(), Form::RecordDecl(_)));
+        }
+    }
+
+    #[test]
     fn fun_decl_works() {
         let texts = [
             "foo() -> bar.",
@@ -134,6 +204,29 @@ mod tests {
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::FunDecl(_)));
+        }
+    }
+
+    #[test]
+    fn fun_spec_works() {
+        let texts = [
+            "-spec foo(T1, T2) -> T3; (T4, T5) -> T6.",
+            "-spec id(X) -> X when X :: tuple().",
+            "-callback foo(atom()) -> {atom(), atom()}.",
+        ];
+        for text in texts {
+            assert!(matches!(parse_text(text).unwrap(), Form::FunSpec(_)));
+        }
+    }
+
+    #[test]
+    fn type_decl_works() {
+        let texts = [
+            "-type height() :: pos_integer().",
+            "-opaque orddict(Key, Val) :: [{Key, Val}].",
+        ];
+        for text in texts {
+            assert!(matches!(parse_text(text).unwrap(), Form::TypeDecl(_)));
         }
     }
 }

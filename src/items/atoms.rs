@@ -29,3 +29,23 @@ impl_parse!(IncludeAtom, "include");
 #[derive(Debug, Clone, Span, Format)]
 pub struct IncludeLibAtom(AtomToken);
 impl_parse!(IncludeLibAtom, "include_lib");
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct SpecAtom(AtomToken);
+impl_parse!(SpecAtom, "spec");
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct TypeAtom(AtomToken);
+impl_parse!(TypeAtom, "type");
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct OpaqueAtom(AtomToken);
+impl_parse!(OpaqueAtom, "opaque");
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct CallbackAtom(AtomToken);
+impl_parse!(CallbackAtom, "callback");
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct RecordAtom(AtomToken);
+impl_parse!(RecordAtom, "record");
