@@ -59,8 +59,18 @@ impl<A: Parse, B: Parse> Parse for (A, B) {
     }
 }
 
+// TODO: delete?
 pub trait ResumeParse<T>: Parse {
     fn resume_parse(lexer: &mut Parser, args: T) -> Result<Self>;
+}
+
+impl<T, U> ResumeParse<U> for Box<T>
+where
+    T: ResumeParse<U>,
+{
+    fn resume_parse(parser: &mut Parser, args: U) -> Result<Self> {
+        parser.resume_parse(args).map(Box::new)
+    }
 }
 
 #[cfg(test)]
@@ -115,9 +125,19 @@ impl<'a> Parser<'a> {
         T::parse(self)
     }
 
-    pub fn try_parse<T: Parse>(&mut self) -> Option<T> {
+    pub fn resume_parse<T, U>(&mut self, args: U) -> Result<T>
+    where
+        T: ResumeParse<U>,
+    {
+        T::resume_parse(self, args)
+    }
+
+    fn try_do<F, T>(&mut self, f: F) -> Option<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
         let transaction = self.lexer.start_transaction();
-        match self.parse() {
+        match f(self) {
             Ok(x) => {
                 self.lexer.commit(transaction).expect("unreachable");
                 Some(x)
@@ -134,6 +154,17 @@ impl<'a> Parser<'a> {
                 None
             }
         }
+    }
+
+    pub fn try_parse<T: Parse>(&mut self) -> Option<T> {
+        self.try_do(|this| this.parse())
+    }
+
+    pub fn try_resume_parse<T, U>(&mut self, args: U) -> Option<T>
+    where
+        T: ResumeParse<U>,
+    {
+        self.try_do(|this| this.resume_parse(args))
     }
 
     pub fn peek<T: Parse>(&mut self) -> bool {

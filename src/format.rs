@@ -17,6 +17,14 @@ pub trait Format: Span {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
 }
 
+impl<A: Format, B: Format> Format for (A, B) {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()> {
+        fmt.format(&self.0)?;
+        fmt.format(&self.1)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct Formatter<W> {
     writer: W,

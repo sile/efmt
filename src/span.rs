@@ -10,6 +10,16 @@ pub trait Span {
     }
 }
 
+impl<A: Span, B: Span> Span for (A, B) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.1.end_position()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position {
     offset: usize,
