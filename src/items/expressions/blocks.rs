@@ -12,12 +12,12 @@ use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BlockExpr {
-    Case(CaseExpr),
-    If(IfExpr),
-    Receive(ReceiveExpr),
-    Begin(BeginExpr),
-    Try(TryExpr),
-    Catch(CatchExpr),
+    Case(Box<CaseExpr>),
+    If(Box<IfExpr>),
+    Receive(Box<ReceiveExpr>),
+    Begin(Box<BeginExpr>),
+    Try(Box<TryExpr>),
+    Catch(Box<CatchExpr>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

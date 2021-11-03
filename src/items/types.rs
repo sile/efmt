@@ -112,11 +112,13 @@ pub struct TupleType {
     close: CloseBraceSymbol,
 }
 
+pub type MapItem = (Type, (Either<DoubleRightArrowSymbol, MapMatchSymbol>, Type));
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<(Type, (Either<DoubleRightArrowSymbol, MapMatchSymbol>, Type)), CommaSymbol>,
+    items: Items<MapItem, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 

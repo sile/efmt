@@ -10,8 +10,8 @@ use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum MapExpr {
-    Construct(MapConstructExpr),
-    Update(MapUpdateExpr),
+    Construct(Box<MapConstructExpr>),
+    Update(Box<MapUpdateExpr>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

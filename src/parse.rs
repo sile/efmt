@@ -209,7 +209,7 @@ impl<'a> Parser<'a> {
     fn get_line_string(&self, token: &Token) -> &str {
         let text = self.lexer.text();
         let offset = token.start_position().offset();
-        let line_start = (&text[..offset]).rfind("\n").unwrap_or(0);
+        let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
         let line_end = (&text[offset..])
             .find('\n')
             .map(|x| x + offset)

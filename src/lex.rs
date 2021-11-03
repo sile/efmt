@@ -91,13 +91,12 @@ impl Lexer {
 
     pub fn next_token_start_position(&mut self) -> Result<Position> {
         let index = self.current_token_index;
-        if index == self.tokens.len() {
-            if self.read_token()?.is_none() {
-                return Ok(self.tokenizer.next_position().into());
-            }
+        if index == self.tokens.len() && self.read_token()?.is_none() {
+            Ok(self.tokenizer.next_position().into())
+        } else {
+            self.current_token_index = index;
+            Ok(self.tokens[index].start_position())
         }
-        self.current_token_index = index;
-        Ok(self.tokens[index].start_position())
     }
 
     pub fn start_transaction(&mut self) -> Transaction {
