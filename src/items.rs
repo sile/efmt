@@ -7,5 +7,5 @@ pub mod macros;
 pub mod qualifiers;
 pub mod symbols;
 pub mod tokens;
+pub mod types;
 // pub mod styles;
-// pub mod types;
