@@ -28,6 +28,12 @@ impl<T: Format> Format for Space<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Indent<T>(T);
 
+impl<T> Indent<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
 impl<T: Format> Format for Indent<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.enter_block()?;

@@ -56,7 +56,7 @@ impl<W: Write> Formatter<W> {
         }
     }
 
-    pub fn format_module(&mut self, forms: &[Form]) -> Result<()> {
+    pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
         for form in forms {
             self.format_item(form)?;
             self.needs_newline()?;
@@ -65,13 +65,24 @@ impl<W: Write> Formatter<W> {
         let eof = Eof::new();
         // TODO: handle empty macro
         self.write_comments(&eof)?;
-        self.write_newline(&eof)?;
+        if self.state.needs_newline {
+            writeln!(self.writer)?;
+        }
 
         Ok(())
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
         item.format(self)?;
+        Ok(())
+    }
+
+    pub fn format_body(&mut self, body: &crate::items::expressions::Body) -> Result<()> {
+        if body.exprs().len() > 1 {
+            // TDOO: enable flat mode
+            self.needs_newline()?;
+        }
+        self.format_item(body.child())?;
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{self, Format, Formatter};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::{Indent, Space};
@@ -8,6 +8,7 @@ use crate::items::tokens::{
 };
 use crate::parse::Parse;
 use crate::span::Span;
+use std::io::Write;
 
 pub mod bitstrings;
 pub mod blocks;
@@ -78,9 +79,25 @@ pub enum IntegerLikeExpr {
     Expr(Parenthesized<Expr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Body {
     exprs: Indent<NonEmptyItems<Expr>>,
+}
+
+impl Body {
+    pub fn exprs(&self) -> &[Expr] {
+        self.exprs.get().get()
+    }
+
+    pub fn child(&self) -> &impl Format {
+        &self.exprs
+    }
+}
+
+impl Format for Body {
+    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
+        fmt.format_body(self)
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
