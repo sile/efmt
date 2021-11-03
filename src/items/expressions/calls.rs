@@ -2,7 +2,8 @@ use crate::format::Format;
 use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
 use crate::items::generics::{Items, Maybe, Parenthesized};
 use crate::items::keywords;
-use crate::items::symbols::{self, ColonSymbol, CommaSymbol};
+use crate::items::styles::Space;
+use crate::items::symbols::{self, ColonSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -10,7 +11,7 @@ use crate::span::Span;
 pub struct FunctionCallExpr {
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
     function: AtomLikeExpr,
-    args: Parenthesized<Items<Expr, CommaSymbol>>,
+    args: Parenthesized<Items<Expr>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -29,8 +30,8 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BinaryOpCallExpr {
-    left: NonLeftRecursiveExpr,
-    op: BinaryOp,
+    left: Space<NonLeftRecursiveExpr>,
+    op: Space<BinaryOp>,
     right: Expr,
 }
 

@@ -1,6 +1,7 @@
 use crate::format::Format;
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
+use crate::items::styles::{Indent, Space};
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, StringToken, VariableToken,
@@ -79,16 +80,16 @@ pub enum IntegerLikeExpr {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Body {
-    exprs: NonEmptyItems<Expr, CommaSymbol>,
+    exprs: Indent<NonEmptyItems<Expr>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Guard {
-    when: WhenKeyword,
+    when: Space<WhenKeyword>,
     condition: GuardCondition,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct GuardCondition {
-    conditions: NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>,
+    conditions: NonEmptyItems<Expr, Space<Either<CommaSymbol, SemicolonSymbol>>>,
 }

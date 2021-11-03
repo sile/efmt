@@ -1,5 +1,6 @@
 use crate::format::{self, Format, Formatter};
-use crate::items::symbols::{CloseParenSymbol, OpenParenSymbol};
+use crate::items::styles::{Newline, Space};
+use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use std::io::Write;
@@ -78,7 +79,7 @@ impl<T> Parenthesized<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NonEmptyItems<T, D> {
+pub struct NonEmptyItems<T, D = Space<CommaSymbol>> {
     items: Vec<T>,
     delimiters: Vec<D>,
 }
@@ -123,7 +124,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Items<T, D>(Maybe<NonEmptyItems<T, D>>);
+pub struct Items<T, D = Space<CommaSymbol>>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
     pub fn get(&self) -> &[T] {
@@ -132,5 +133,14 @@ impl<T, D> Items<T, D> {
         } else {
             &[]
         }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
+
+impl<T> Clauses<T> {
+    pub fn get(&self) -> &[T] {
+        self.0.get()
     }
 }

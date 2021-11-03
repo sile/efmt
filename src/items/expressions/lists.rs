@@ -2,8 +2,9 @@ use crate::format::Format;
 use crate::items::expressions::Expr;
 use crate::items::generics::{Items, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
+use crate::items::styles::Space;
 use crate::items::symbols::{
-    CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
+    CloseSquareSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
 use crate::parse::Parse;
 use crate::span::Span;
@@ -18,15 +19,15 @@ pub enum ListExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
-    items: Items<Expr, CommaSymbol>,
+    items: Items<Expr>,
     close: CloseSquareSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ImproperListExpr {
     open: OpenSquareSymbol,
-    items: NonEmptyItems<Expr, CommaSymbol>,
-    bar: VerticalBarSymbol,
+    items: Space<NonEmptyItems<Expr>>,
+    bar: Space<VerticalBarSymbol>,
     last_item: Expr,
     close: CloseSquareSymbol,
 }
@@ -36,7 +37,7 @@ pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
     item: Expr,
     bar: DoubleVerticalBarSymbol,
-    qualifiers: NonEmptyItems<Qualifier, CommaSymbol>,
+    qualifiers: NonEmptyItems<Qualifier>,
     close: CloseSquareSymbol,
 }
 

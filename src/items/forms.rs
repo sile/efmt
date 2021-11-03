@@ -5,7 +5,7 @@ use crate::items::atoms::{
 };
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, Items, Maybe, NonEmptyItems, Parenthesized};
+use crate::items::generics::{Clauses, Either, Items, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
@@ -85,7 +85,7 @@ pub struct Constraint {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunDecl {
-    clauses: NonEmptyItems<FunDeclClause, SemicolonSymbol>,
+    clauses: Clauses<FunDeclClause>,
     dot: DotSymbol,
 }
 

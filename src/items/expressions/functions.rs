@@ -2,6 +2,7 @@ use crate::format::Format;
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
 use crate::items::generics::{Items, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
+use crate::items::styles::Space;
 use crate::items::symbols::{
     ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol, SlashSymbol,
 };
@@ -40,9 +41,9 @@ pub struct NamedFunctionExpr {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionClause {
-    params: Parenthesized<Items<Expr, CommaSymbol>>,
-    guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    params: Space<Parenthesized<Items<Expr, CommaSymbol>>>,
+    guard: Space<Maybe<Guard>>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 

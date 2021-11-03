@@ -1,14 +1,14 @@
 use crate::format::Format;
 use crate::items::expressions::Expr;
 use crate::items::generics::Items;
-use crate::items::symbols::{CloseBraceSymbol, CommaSymbol, OpenBraceSymbol};
+use crate::items::symbols::{CloseBraceSymbol, OpenBraceSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleExpr {
     open: OpenBraceSymbol,
-    items: Items<Expr, CommaSymbol>,
+    items: Items<Expr>,
     close: CloseBraceSymbol,
 }
 
