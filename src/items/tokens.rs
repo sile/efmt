@@ -57,7 +57,7 @@ macro_rules! impl_traits {
 
         impl Format for $name {
             fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-                fmt.noformat(self)?;
+                fmt.write_text(self)?;
                 Ok(())
             }
         }
@@ -234,7 +234,7 @@ impl Span for CommentToken {
 
 impl Format for CommentToken {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.noformat(self)?;
+        fmt.write_text(self)?;
         Ok(())
     }
 }

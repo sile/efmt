@@ -4,6 +4,7 @@ pub mod lex;
 pub mod parse;
 pub mod span;
 
+// TODO: remove?
 pub fn format_file(path: impl AsRef<std::path::Path>) -> anyhow::Result<String> {
     use crate::items::forms::Form;
     use crate::lex::Lexer;

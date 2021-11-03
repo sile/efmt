@@ -52,7 +52,7 @@ impl<T: Parse> Parse for Maybe<T> {
 impl<T: Format> Format for Maybe<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         if let Some(x) = &self.item {
-            fmt.format(x)?;
+            fmt.format_item(x)?;
         }
         Ok(())
     }
@@ -113,10 +113,10 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format(&self.items[0])?;
+        fmt.format_item(&self.items[0])?;
         for (delimiter, item) in self.delimiters.iter().zip(self.items.iter().skip(1)) {
-            fmt.format(delimiter)?;
-            fmt.format(item)?;
+            fmt.format_item(delimiter)?;
+            fmt.format_item(item)?;
         }
         Ok(())
     }

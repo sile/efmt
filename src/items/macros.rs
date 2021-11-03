@@ -114,16 +114,8 @@ impl Parse for MacroReplacement {
         let start_position = parser.next_token_start_position()?;
         let mut tokens = Vec::new();
         while !parser.peek::<(CloseParenSymbol, DotSymbol)>() {
-            match parser.parse()? {
-                Token::Symbol(x) if x.value() == Symbol::Dot => {
-                    return Err(parse::Error::unexpected_token(parser, x.into()));
-                }
-                token => {
-                    tokens.push(token);
-                }
-            }
+            tokens.push(parser.parse()?);
         }
-
         Ok(Self {
             tokens,
             start_position,
@@ -134,7 +126,7 @@ impl Parse for MacroReplacement {
 impl Format for MacroReplacement {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         // TODO: try parse and format
-        fmt.noformat(self)
+        fmt.write_text(self)
     }
 }
 
@@ -262,6 +254,6 @@ impl Parse for MacroArg {
 impl Format for MacroArg {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         // TODO: try parse and format
-        fmt.noformat(self)
+        fmt.write_text(self)
     }
 }

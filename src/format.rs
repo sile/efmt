@@ -1,4 +1,8 @@
-use crate::span::Span;
+use crate::items::forms::Form;
+use crate::items::macros::Macro;
+use crate::items::tokens::CommentToken;
+use crate::span::{Position, Span};
+use std::collections::BTreeMap;
 use std::io::Write;
 
 pub use efmt_derive::Format;
@@ -19,8 +23,8 @@ pub trait Format: Span {
 
 impl<A: Format, B: Format> Format for (A, B) {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()> {
-        fmt.format(&self.0)?;
-        fmt.format(&self.1)?;
+        fmt.format_item(&self.0)?;
+        fmt.format_item(&self.1)?;
         Ok(())
     }
 }
@@ -28,15 +32,163 @@ impl<A: Format, B: Format> Format for (A, B) {
 #[derive(Debug)]
 pub struct Formatter<W> {
     writer: W,
+    state: FormatterState,
+    text: String,
+    macros: BTreeMap<Position, Macro>,
+    comments: BTreeMap<Position, CommentToken>,
+    max_columns: usize,
 }
 
 impl<W: Write> Formatter<W> {
-    pub fn format(&mut self, _item: &impl Format) -> Result<()> {
-        todo!()
+    pub fn new(
+        writer: W,
+        text: String,
+        comments: BTreeMap<Position, CommentToken>,
+        macros: BTreeMap<Position, Macro>,
+    ) -> Self {
+        Self {
+            writer,
+            state: FormatterState::new(),
+            text,
+            macros,
+            comments,
+            max_columns: 100,
+        }
     }
 
-    pub fn noformat(&mut self, _item: &impl Format) -> Result<()> {
-        todo!();
+    pub fn format_module(&mut self, forms: &[Form]) -> Result<()> {
+        for form in forms {
+            self.format_item(form)?;
+            self.needs_newline()?;
+        }
+
+        let eof = Eof::new();
+        // TODO: handle empty macro
+        self.write_comments(&eof)?;
+        self.write_newline(&eof)?;
+
+        Ok(())
+    }
+
+    pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
+        item.format(self)?;
+        Ok(())
+    }
+
+    pub fn write_text(&mut self, item: &impl Format) -> Result<()> {
+        self.write_comments(item)?;
+        self.write_newline(item)?;
+        self.write_space()?;
+
+        let text = &self.text[item.start_position().offset()..item.end_position().offset()];
+        write!(self.writer, "{}", text)?;
+        self.state.next_text_position = item.end_position();
+
+        Ok(())
+    }
+
+    pub fn enter_block(&mut self) -> Result<()> {
+        self.state.indent_level += 1;
+        Ok(())
+    }
+
+    pub fn leave_block(&mut self) -> Result<()> {
+        self.state.indent_level -= 1; // TODO: check
+        Ok(())
+    }
+
+    // TODO: rename
+    pub fn needs_newline(&mut self) -> Result<()> {
+        self.state.needs_newline = true;
+        Ok(())
+    }
+
+    pub fn needs_space(&mut self) -> Result<()> {
+        self.state.needs_space = 1;
+        Ok(())
+    }
+
+    fn write_newline(&mut self, next_item: &impl Span) -> Result<()> {
+        if !self.state.needs_newline {
+            return Ok(());
+        }
+
+        if self.state.next_text_position.line() + 1 < next_item.start_position().line() {
+            writeln!(self.writer)?;
+        }
+        write!(
+            self.writer,
+            "\n{:indent$}",
+            "",
+            indent = self.state.indent_level * 4
+        )?;
+        self.state.needs_newline = false;
+        self.state.needs_space = 0;
+        Ok(())
+    }
+
+    fn write_space(&mut self) -> Result<()> {
+        if self.state.needs_space == 0 {
+            return Ok(());
+        }
+
+        write!(self.writer, "{:width$}", "", width = self.state.needs_space)?;
+        self.state.needs_space = 0;
+        Ok(())
+    }
+
+    fn write_comments(&mut self, next_item: &impl Span) -> Result<()> {
+        while let Some(token) = self
+            .comments
+            .range(self.state.next_text_position..next_item.start_position())
+            .map(|x| x.1.clone())
+            .next()
+        {
+            if !self.state.needs_newline && self.state.next_text_position.offset() != 0 {
+                self.state.needs_space = 2;
+            }
+            self.write_text(&token)?;
+            self.needs_newline()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct FormatterState {
+    next_text_position: Position,
+    indent_level: usize,
+    needs_space: usize,
+    needs_newline: bool,
+}
+
+impl FormatterState {
+    fn new() -> Self {
+        Self {
+            next_text_position: Position::new(0, 1, 1),
+            indent_level: 0,
+            needs_space: 0,
+            needs_newline: false,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Eof(Position);
+
+impl Eof {
+    fn new() -> Self {
+        Self(Position::new(usize::MAX, usize::MAX, usize::MAX))
+    }
+}
+
+impl Span for Eof {
+    fn start_position(&self) -> Position {
+        self.0
+    }
+
+    fn end_position(&self) -> Position {
+        self.0
     }
 }
 
@@ -45,13 +197,6 @@ impl<W: Write> Formatter<W> {
 // use crate::parse::Either;
 // use crate::token::{Region, TokenPosition, TokenRegion};
 // use std::io::Write;
-
-// #[derive(Debug, Clone)]
-// struct FormatterState {
-//     next_position: TokenPosition, // source (TODO: rename)
-//     indent_level: usize,
-//     need_space: bool,
-// }
 
 // #[derive(Debug)]
 // pub struct Formatter<W> {
