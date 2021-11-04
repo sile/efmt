@@ -88,15 +88,15 @@ impl Body {
     pub fn exprs(&self) -> &[Expr] {
         self.exprs.get().get()
     }
-
-    pub fn child(&self) -> &impl Format {
-        &self.exprs
-    }
 }
 
 impl Format for Body {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_body(self)
+        if self.exprs().len() > 1 {
+            fmt.needs_newline()?;
+        }
+        fmt.format_item(&self.exprs)?;
+        Ok(())
     }
 }
 

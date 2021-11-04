@@ -77,15 +77,6 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn format_body(&mut self, body: &crate::items::expressions::Body) -> Result<()> {
-        if body.exprs().len() > 1 {
-            // TDOO: enable flat mode
-            self.needs_newline()?;
-        }
-        self.format_item(body.child())?;
-        Ok(())
-    }
-
     pub fn write_text(&mut self, item: &impl Format) -> Result<()> {
         self.write_comments(item)?;
         self.write_newline(item)?;
@@ -149,17 +140,15 @@ impl<W: Write> Formatter<W> {
     }
 
     fn write_comments(&mut self, next_item: &impl Span) -> Result<()> {
-        while let Some(token) = self
-            .comments
-            .range(self.state.next_text_position..next_item.start_position())
-            .map(|x| x.1.clone())
-            .next()
-        {
+        let end = next_item.start_position();
+        let mut start = std::cmp::min(self.state.next_text_position, end);
+        while let Some(token) = self.comments.range(start..end).map(|x| x.1.clone()).next() {
             if !self.state.needs_newline && self.state.next_text_position.offset() != 0 {
                 self.state.needs_space = 2;
             }
             self.write_text(&token)?;
             self.needs_newline()?;
+            start = std::cmp::min(self.state.next_text_position, end);
         }
         Ok(())
     }
@@ -176,7 +165,7 @@ struct FormatterState {
 impl FormatterState {
     fn new() -> Self {
         Self {
-            next_text_position: Position::new(0, 1, 1),
+            next_text_position: Position::new(0, 0, 0),
             indent_level: 0,
             needs_space: 0,
             needs_newline: false,
