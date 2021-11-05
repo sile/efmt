@@ -58,10 +58,6 @@ macro_rules! impl_traits {
             fn tree(&self) -> Tree {
                 Tree::Atomic(vec![self.to_item_span()])
             }
-
-            fn prefers_oneline(&self) -> bool {
-                true
-            }
         }
 
         impl From<$name> for Token {
@@ -237,10 +233,6 @@ impl Span for CommentToken {
 impl Item for CommentToken {
     fn tree(&self) -> Tree {
         Tree::Atomic(vec![self.to_item_span()])
-    }
-
-    fn needs_newline(&self) -> bool {
-        true
     }
 }
 

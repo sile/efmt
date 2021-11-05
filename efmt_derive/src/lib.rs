@@ -183,31 +183,11 @@ pub fn derive_item_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let tree = generate_tree_method_body(&input.data);
-    let children = generate_children_method_body(&input.data);
-    let indent_offset = generate_indent_offset_method_body(&input.data);
-    let preferes_oneline = generate_prefers_oneline_method_body(&input.data);
-    let needs_space = generate_needs_space_method_body(&input.data);
-    let needs_newline = generate_needs_newline_method_body(&input.data);
 
     let expanded = quote! {
         impl #impl_generics crate::format::Item for #name #ty_generics #where_clause {
             fn tree(&self) -> crate::format::Tree{
                 #tree
-            }
-            fn children(&self) -> Vec<&dyn Item> {
-                #children
-            }
-            fn indent_offset(&self) -> usize {
-                #indent_offset
-            }
-            fn prefers_oneline(&self) -> bool {
-                #preferes_oneline
-             }
-            fn needs_space(&self) -> bool {
-                #needs_space
-            }
-            fn needs_newline(&self) -> bool {
-                #needs_newline
             }
         }
     };
@@ -221,51 +201,6 @@ fn add_item_trait_bounds(mut generics: Generics) -> Generics {
         }
     }
     generics
-}
-
-fn generate_children_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
-                let format = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    quote_spanned! { f.span() => {
-                        children.push({
-                            let x: &dyn crate::format::Item = &self.#name;
-                            x
-                        })
-                    }}
-                });
-                quote! {
-                    let mut children = Vec::new();
-                    #(#format ;)*
-                    children
-                }
-            }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.children() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.children(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
 }
 
 fn generate_tree_method_body(data: &Data) -> TokenStream {
@@ -297,134 +232,6 @@ fn generate_tree_method_body(data: &Data) -> TokenStream {
                     unimplemented!();
                 }
                 quote_spanned! { variant.span() => Self::#name(x) => x.tree(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
-}
-
-fn generate_indent_offset_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(_) => {
-                quote! { 0 }
-            }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.indent_offset() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.indent_offset(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
-}
-
-fn generate_prefers_oneline_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(_) => {
-                quote! { false }
-            }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.prefers_oneline() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.prefers_oneline(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
-}
-
-fn generate_needs_space_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(_) => {
-                quote! { false }
-            }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.needs_space() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.needs_space(), }
-            });
-            quote! {
-                match self {
-                    #(#arms)*
-                }
-            }
-        }
-        Data::Union(_) => unimplemented!(),
-    }
-}
-
-fn generate_needs_newline_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(_) => {
-                quote! { false }
-            }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.needs_newline() }
-            }
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(ref data) => {
-            let arms = data.variants.iter().map(|variant| {
-                let name = &variant.ident;
-                if let Fields::Unnamed(fields) = &variant.fields {
-                    assert_eq!(fields.unnamed.len(), 1);
-                } else {
-                    unimplemented!();
-                }
-                quote_spanned! { variant.span() => Self::#name(x) => x.needs_newline(), }
             });
             quote! {
                 match self {

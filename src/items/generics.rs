@@ -57,22 +57,6 @@ impl<T: Item> Item for Maybe<T> {
             Tree::None
         }
     }
-
-    fn children(&self) -> Vec<&dyn Item> {
-        if let Some(x) = self.get() {
-            x.children()
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn indent_offset(&self) -> usize {
-        self.get().map_or(0, |x| x.indent_offset())
-    }
-
-    fn prefers_oneline(&self) -> bool {
-        self.get().map_or(false, |x| x.prefers_oneline())
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
@@ -144,16 +128,6 @@ impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
             };
         }
         tree
-    }
-
-    fn children(&self) -> Vec<&dyn Item> {
-        // TODO: change struct layout like `items: Vec<(T, D)>, last_item: T`
-        let mut children = vec![&self.items[0] as &dyn Item];
-        for (delimiter, item) in self.delimiters.iter().zip(self.items.iter().skip(1)) {
-            children.push(delimiter);
-            children.push(item);
-        }
-        children
     }
 }
 

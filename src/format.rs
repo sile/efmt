@@ -16,10 +16,6 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl<A: Item, B: Item> Item for (A, B) {
-    fn children(&self) -> Vec<&dyn Item> {
-        vec![&self.0, &self.1]
-    }
-
     fn tree(&self) -> Tree {
         Tree::Compound(vec![self.0.tree(), self.1.tree()])
     }
@@ -55,8 +51,10 @@ pub enum Tree {
     Atomic(Vec<ItemSpan>),
     Compound(Vec<Tree>),
     Child(Box<Tree>), // increment indent
-    Space,            // TODO: delete?
-    IndentOffset(usize),
+    IndentOffset {
+        offset: usize,
+        tree: Box<Tree>,
+    },
     Unbalanced {
         left: Box<Tree>,
         delimiter: ItemSpan,
@@ -67,17 +65,32 @@ pub enum Tree {
         delimiter: ItemSpan,
         right: Box<Tree>,
     },
+    SideEffect(Box<Tree>),
     None,
 }
 
 impl Tree {
+    // TODO: rename
+    pub fn is_pattern(&self) -> bool {
+        match self {
+            Self::Atomic(_) => true,
+            Self::Compound(x) => x.iter().all(|x| x.is_pattern()),
+            Self::Child(x) => x.is_pattern(),
+            Self::SideEffect(_) => false,
+            Self::Unbalanced { .. } => false, // TODO
+            Self::Balanced { left, right, .. } => left.is_pattern() && right.is_pattern(),
+            Self::IndentOffset { tree, .. } => tree.is_pattern(),
+            Self::None => true,
+        }
+    }
+
     pub fn next_position(&self) -> Option<Position> {
         match self {
             Self::Atomic(x) => x.first().map(|x| x.start_position()),
             Self::Compound(x) => x.first().and_then(|x| x.next_position()),
             Self::Child(x) => x.next_position(),
-            Self::Space => None,
-            Self::IndentOffset(_) => None,
+            Self::SideEffect(x) => x.next_position(),
+            Self::IndentOffset { tree, .. } => tree.next_position(),
             Self::Unbalanced { left, .. } => left.next_position(),
             Self::Balanced { left, .. } => left.next_position(),
             Self::None => None,
@@ -85,62 +98,15 @@ impl Tree {
     }
 }
 
+// TODO: rename
 pub trait Item: Span {
     fn tree(&self) -> Tree;
-
-    fn children(&self) -> Vec<&dyn Item> {
-        Vec::new()
-    }
-
-    fn indent_offset(&self) -> usize {
-        0
-    }
-
-    fn prefers_oneline(&self) -> bool {
-        false
-    }
-
-    // TODO: rename
-    fn needs_linefeed(&self) -> bool {
-        false
-    }
-
-    fn needs_space(&self) -> bool {
-        false
-    }
-
-    fn needs_newline(&self) -> bool {
-        false
-    }
 }
 
+// TODO: remove?
 impl<T: Item + ?Sized> Item for &T {
     fn tree(&self) -> Tree {
         (**self).tree()
-    }
-
-    fn children(&self) -> Vec<&dyn Item> {
-        (**self).children()
-    }
-
-    fn indent_offset(&self) -> usize {
-        (**self).indent_offset()
-    }
-
-    fn prefers_oneline(&self) -> bool {
-        (**self).prefers_oneline()
-    }
-
-    fn needs_linefeed(&self) -> bool {
-        (**self).needs_linefeed()
-    }
-
-    fn needs_space(&self) -> bool {
-        (**self).needs_space()
-    }
-
-    fn needs_newline(&self) -> bool {
-        (**self).needs_newline()
     }
 }
 
@@ -184,9 +150,12 @@ impl<W: Write> Formatter<W> {
                 }
             }
             Tree::Child(x) => {
-                self.state.indent_level += 4;
+                self.state.indent_level += 4; // TODO: increment only if in newline mode
                 self.format_tree(&x)?;
                 self.state.indent_level -= 4;
+            }
+            Tree::SideEffect(x) => {
+                self.format_tree(x)?;
             }
             Tree::Unbalanced {
                 left,
@@ -195,6 +164,7 @@ impl<W: Write> Formatter<W> {
             } => {
                 // TODO:
                 self.format_tree(left)?;
+                self.needs_space()?;
                 self.write_text(delimiter)?; // TODO
                 self.needs_space()?;
                 self.format_tree(right)?;
@@ -207,52 +177,21 @@ impl<W: Write> Formatter<W> {
                 // TODO:
                 self.format_tree(left)?;
                 self.write_text(delimiter)?; // TODO
-                self.needs_space()?;
+                if right.is_pattern() {
+                    self.needs_space()?;
+                } else {
+                    self.needs_newline()?;
+                }
                 self.format_tree(right)?;
             }
+            Tree::IndentOffset { offset, tree } => {
+                self.state.indent_level += *offset;
+                self.format_tree(tree)?;
+                self.state.indent_level -= *offset;
+            }
             Tree::None => {}
-            Tree::Space => todo!(),
-            Tree::IndentOffset(_) => todo!(),
         }
 
-        Ok(())
-    }
-
-    pub fn format(&mut self, item: &impl Item) -> Result<()> {
-        if item.needs_linefeed() {
-            self.needs_newline()?;
-            // TODO: enable newline mode
-        }
-
-        self.state.indent_level += item.indent_offset();
-
-        let children = item.children();
-        if children.is_empty() {
-            self.write_text(item)?;
-
-            // TODO: factor out
-            self.state.indent_level -= item.indent_offset();
-            if item.needs_space() {
-                self.needs_space()?;
-            }
-            if item.needs_newline() {
-                self.needs_newline()?;
-            }
-
-            return Ok(());
-        } else {
-            for child in children {
-                self.format(&child)?;
-            }
-        }
-
-        self.state.indent_level -= item.indent_offset();
-        if item.needs_space() {
-            self.needs_space()?;
-        }
-        if item.needs_newline() {
-            self.needs_newline()?;
-        }
         Ok(())
     }
 
@@ -272,7 +211,7 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
+    fn write_text(&mut self, item: &impl Span) -> Result<()> {
         self.write_comments(item)?;
         self.write_newline(item)?;
         self.write_space()?;
@@ -288,12 +227,12 @@ impl<W: Write> Formatter<W> {
     }
 
     // TODO: rename
-    pub fn needs_newline(&mut self) -> Result<()> {
+    fn needs_newline(&mut self) -> Result<()> {
         self.state.needs_newline = true;
         Ok(())
     }
 
-    pub fn needs_space(&mut self) -> Result<()> {
+    fn needs_space(&mut self) -> Result<()> {
         self.state.needs_space = 1;
         Ok(())
     }

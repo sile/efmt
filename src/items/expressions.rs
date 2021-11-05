@@ -93,18 +93,6 @@ impl Item for Body {
     fn tree(&self) -> Tree {
         Tree::Child(Box::new(self.exprs.tree()))
     }
-
-    fn children(&self) -> Vec<&dyn Item> {
-        self.exprs.children()
-    }
-
-    fn indent_offset(&self) -> usize {
-        4
-    }
-
-    fn needs_linefeed(&self) -> bool {
-        self.exprs.get().len() > 1
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
