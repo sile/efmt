@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::Space;
@@ -90,6 +90,10 @@ impl Body {
 }
 
 impl Item for Body {
+    fn tree(&self) -> Tree {
+        Tree::Child(Box::new(self.exprs.tree()))
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         self.exprs.children()
     }

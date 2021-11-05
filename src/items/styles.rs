@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -6,7 +6,12 @@ use crate::span::Span;
 pub struct Newline<T>(T);
 
 // TODO: use derive trait attribute
+// TODO: remove
 impl<T: Item> Item for Newline<T> {
+    fn tree(&self) -> Tree {
+        self.0.tree()
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         self.0.children()
     }
@@ -36,6 +41,10 @@ impl<T: Item> Item for Newline<T> {
 pub struct Space<T>(T);
 
 impl<T: Item> Item for Space<T> {
+    fn tree(&self) -> Tree {
+        self.0.tree()
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         self.0.children()
     }
@@ -71,6 +80,10 @@ impl<T, const I: usize> Indent<T, I> {
 }
 
 impl<T: Item, const I: usize> Item for Indent<T, I> {
+    fn tree(&self) -> Tree {
+        self.0.tree()
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         self.0.children()
     }

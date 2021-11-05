@@ -182,6 +182,7 @@ pub fn derive_item_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let generics = add_item_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let tree = generate_tree_method_body(&input.data);
     let children = generate_children_method_body(&input.data);
     let indent_offset = generate_indent_offset_method_body(&input.data);
     let preferes_oneline = generate_prefers_oneline_method_body(&input.data);
@@ -190,6 +191,9 @@ pub fn derive_item_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
     let expanded = quote! {
         impl #impl_generics crate::format::Item for #name #ty_generics #where_clause {
+            fn tree(&self) -> crate::format::Tree{
+                #tree
+            }
             fn children(&self) -> Vec<&dyn Item> {
                 #children
             }
@@ -253,6 +257,46 @@ fn generate_children_method_body(data: &Data) -> TokenStream {
                     unimplemented!();
                 }
                 quote_spanned! { variant.span() => Self::#name(x) => x.children(), }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    }
+}
+
+fn generate_tree_method_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let format = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => children.push(self.#name.tree()) }
+                });
+                quote! {
+                    let mut children = Vec::new();
+                    #(#format ;)*
+                    crate::format::Tree::Compound(children)
+                }
+            }
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { self.0.tree() }
+            }
+            Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() => Self::#name(x) => x.tree(), }
             });
             quote! {
                 match self {

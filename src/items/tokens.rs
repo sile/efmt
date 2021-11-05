@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -55,6 +55,10 @@ macro_rules! impl_traits {
         }
 
         impl Item for $name {
+            fn tree(&self) -> Tree {
+                Tree::Atomic(vec![self.to_item_span()])
+            }
+
             fn prefers_oneline(&self) -> bool {
                 true
             }
@@ -231,6 +235,10 @@ impl Span for CommentToken {
 }
 
 impl Item for CommentToken {
+    fn tree(&self) -> Tree {
+        Tree::Atomic(vec![self.to_item_span()])
+    }
+
     fn needs_newline(&self) -> bool {
         true
     }

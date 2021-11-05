@@ -19,9 +19,75 @@ impl<A: Item, B: Item> Item for (A, B) {
     fn children(&self) -> Vec<&dyn Item> {
         vec![&self.0, &self.1]
     }
+
+    fn tree(&self) -> Tree {
+        Tree::Compound(vec![self.0.tree(), self.1.tree()])
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ItemSpan {
+    start_position: Position,
+    end_position: Position,
+}
+
+impl ItemSpan {
+    pub fn new(start_position: Position, end_position: Position) -> Self {
+        Self {
+            start_position,
+            end_position,
+        }
+    }
+}
+
+impl Span for ItemSpan {
+    fn start_position(&self) -> Position {
+        self.start_position
+    }
+
+    fn end_position(&self) -> Position {
+        self.end_position
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Tree {
+    Atomic(Vec<ItemSpan>),
+    Compound(Vec<Tree>),
+    Child(Box<Tree>), // increment indent
+    Space,            // TODO: delete?
+    IndentOffset(usize),
+    Unbalanced {
+        left: Box<Tree>,
+        delimiter: ItemSpan,
+        right: Box<Tree>,
+    },
+    Balanced {
+        left: Box<Tree>,
+        delimiter: ItemSpan,
+        right: Box<Tree>,
+    },
+    None,
+}
+
+impl Tree {
+    pub fn next_position(&self) -> Option<Position> {
+        match self {
+            Self::Atomic(x) => x.first().map(|x| x.start_position()),
+            Self::Compound(x) => x.first().and_then(|x| x.next_position()),
+            Self::Child(x) => x.next_position(),
+            Self::Space => None,
+            Self::IndentOffset(_) => None,
+            Self::Unbalanced { left, .. } => left.next_position(),
+            Self::Balanced { left, .. } => left.next_position(),
+            Self::None => None,
+        }
+    }
 }
 
 pub trait Item: Span {
+    fn tree(&self) -> Tree;
+
     fn children(&self) -> Vec<&dyn Item> {
         Vec::new()
     }
@@ -49,6 +115,10 @@ pub trait Item: Span {
 }
 
 impl<T: Item + ?Sized> Item for &T {
+    fn tree(&self) -> Tree {
+        (**self).tree()
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         (**self).children()
     }
@@ -101,6 +171,53 @@ impl<W: Write> Formatter<W> {
         }
     }
 
+    pub fn format_tree(&mut self, tree: &Tree) -> Result<()> {
+        match tree {
+            Tree::Atomic(x) => {
+                for x in x {
+                    self.write_text(x)?;
+                }
+            }
+            Tree::Compound(x) => {
+                for x in x {
+                    self.format_tree(x)?;
+                }
+            }
+            Tree::Child(x) => {
+                self.state.indent_level += 4;
+                self.format_tree(&x)?;
+                self.state.indent_level -= 4;
+            }
+            Tree::Unbalanced {
+                left,
+                delimiter,
+                right,
+            } => {
+                // TODO:
+                self.format_tree(left)?;
+                self.write_text(delimiter)?; // TODO
+                self.needs_space()?;
+                self.format_tree(right)?;
+            }
+            Tree::Balanced {
+                left,
+                delimiter,
+                right,
+            } => {
+                // TODO:
+                self.format_tree(left)?;
+                self.write_text(delimiter)?; // TODO
+                self.needs_space()?;
+                self.format_tree(right)?;
+            }
+            Tree::None => {}
+            Tree::Space => todo!(),
+            Tree::IndentOffset(_) => todo!(),
+        }
+
+        Ok(())
+    }
+
     pub fn format(&mut self, item: &impl Item) -> Result<()> {
         if item.needs_linefeed() {
             self.needs_newline()?;
@@ -141,7 +258,7 @@ impl<W: Write> Formatter<W> {
 
     pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
         for form in forms {
-            self.format(form)?;
+            self.format_tree(&form.tree())?;
             self.needs_newline()?;
         }
 
@@ -155,7 +272,7 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn write_text(&mut self, item: &impl Item) -> Result<()> {
+    pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
         self.write_comments(item)?;
         self.write_newline(item)?;
         self.write_space()?;
@@ -167,16 +284,6 @@ impl<W: Write> Formatter<W> {
         write!(self.writer, "{}", text)?;
         self.state.next_text_position = item.end_position();
 
-        Ok(())
-    }
-
-    pub fn enter_block(&mut self) -> Result<()> {
-        self.state.indent_level += 1;
-        Ok(())
-    }
-
-    pub fn leave_block(&mut self) -> Result<()> {
-        self.state.indent_level -= 1; // TODO: check
         Ok(())
     }
 

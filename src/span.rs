@@ -8,6 +8,11 @@ pub trait Span {
         // TODO: Add a note comment about the cases where the end position would be smaller than the start one.
         self.end_position() <= self.start_position()
     }
+
+    // TODO
+    fn to_item_span(&self) -> crate::format::ItemSpan {
+        crate::format::ItemSpan::new(self.start_position(), self.end_position())
+    }
 }
 
 impl<T: Span + ?Sized> Span for &T {

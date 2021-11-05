@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
@@ -125,6 +125,9 @@ impl Parse for MacroReplacement {
 impl Item for MacroReplacement {
     // TODO: try parse
     // TODO: consider comment (by formatter)
+    fn tree(&self) -> Tree {
+        Tree::Atomic(vec![self.to_item_span()])
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -250,4 +253,7 @@ impl Parse for MacroArg {
 impl Item for MacroArg {
     // TODO: try parse
     // TODO: consider comment (by formatter)
+    fn tree(&self) -> Tree {
+        Tree::Atomic(vec![self.to_item_span()])
+    }
 }

@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::items::styles::{Indent, Newline, Space};
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
@@ -50,6 +50,14 @@ impl<T: Parse> Parse for Maybe<T> {
 }
 
 impl<T: Item> Item for Maybe<T> {
+    fn tree(&self) -> Tree {
+        if let Some(x) = self.get() {
+            x.tree()
+        } else {
+            Tree::None
+        }
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         if let Some(x) = self.get() {
             x.children()
@@ -121,6 +129,23 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 }
 
 impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
+    fn tree(&self) -> Tree {
+        let mut tree = self.items.last().unwrap().tree();
+        for (delimiter, item) in self
+            .delimiters
+            .iter()
+            .rev()
+            .zip(self.items.iter().rev().skip(1))
+        {
+            tree = Tree::Balanced {
+                left: Box::new(item.tree()),
+                delimiter: delimiter.to_item_span(),
+                right: Box::new(tree),
+            };
+        }
+        tree
+    }
+
     fn children(&self) -> Vec<&dyn Item> {
         // TODO: change struct layout like `items: Vec<(T, D)>, last_item: T`
         let mut children = vec![&self.items[0] as &dyn Item];
