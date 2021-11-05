@@ -5,7 +5,7 @@ use erl_tokenize::values::{Keyword, Symbol};
 use std::io::Write;
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Item)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -235,6 +235,12 @@ impl Span for CommentToken {
 
     fn end_position(&self) -> Position {
         self.end
+    }
+}
+
+impl Item for CommentToken {
+    fn needs_newline(&self) -> bool {
+        true
     }
 }
 

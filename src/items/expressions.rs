@@ -1,7 +1,7 @@
-use crate::format::{self, Format, Formatter};
+use crate::format::{self, Format, Formatter, Item};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
-use crate::items::styles::{Indent, Space};
+use crate::items::styles::Space;
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, StringToken, VariableToken,
@@ -28,13 +28,13 @@ pub use self::maps::MapExpr;
 pub use self::records::RecordExpr;
 pub use self::tuples::TupleExpr;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum Expr {
     BinaryOpCall(Box<BinaryOpCallExpr>),
     NonLeftRecursive(NonLeftRecursiveExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum NonLeftRecursiveExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
@@ -49,7 +49,7 @@ pub enum NonLeftRecursiveExpr {
     Block(Box<BlockExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum LiteralExpr {
     Atom(AtomToken),
     Char(CharToken),
@@ -59,20 +59,20 @@ pub enum LiteralExpr {
     VariableToken(VariableToken),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum AtomLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum VariableLikeExpr {
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum IntegerLikeExpr {
     Integer(IntegerToken),
     Variable(VariableToken),
@@ -81,12 +81,26 @@ pub enum IntegerLikeExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Body {
-    exprs: Indent<NonEmptyItems<Expr>>,
+    exprs: NonEmptyItems<Expr>,
 }
 
 impl Body {
     pub fn exprs(&self) -> &[Expr] {
-        self.exprs.get().get()
+        self.exprs.get()
+    }
+}
+
+impl Item for Body {
+    fn children(&self) -> Vec<&dyn Item> {
+        self.exprs.children()
+    }
+
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn needs_linefeed(&self) -> bool {
+        self.exprs.get().len() > 1
     }
 }
 
@@ -100,13 +114,13 @@ impl Format for Body {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Guard {
     when: Space<WhenKeyword>,
     condition: GuardCondition,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct GuardCondition {
     conditions: NonEmptyItems<Expr, Space<Either<CommaSymbol, SemicolonSymbol>>>,
 }

@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{Format, Item};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
@@ -17,7 +17,7 @@ use crate::items::types::Type;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
@@ -28,7 +28,7 @@ pub enum Form {
     Attr(Attr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct RecordDecl {
     hyphen: HyphenSymbol,
     record: RecordAtom,
@@ -42,14 +42,14 @@ pub struct RecordDecl {
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct RecordField {
     name: AtomToken,
     default: Maybe<(MatchSymbol, Expr)>,
     r#type: Maybe<(DoubleColonSymbol, Type)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct TypeDecl {
     hyphen: HyphenSymbol,
     kind: Either<TypeAtom, OpaqueAtom>,
@@ -60,7 +60,7 @@ pub struct TypeDecl {
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct FunSpec {
     hyphen: HyphenSymbol,
     kind: Either<SpecAtom, CallbackAtom>,
@@ -69,7 +69,7 @@ pub struct FunSpec {
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct SpecClause {
     params: Parenthesized<Items<Type, CommaSymbol>>,
     arrow: RightArrowSymbol,
@@ -77,25 +77,25 @@ pub struct SpecClause {
     constraint: Maybe<Constraint>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Constraint {
     when: WhenKeyword,
     constraints: NonEmptyItems<(VariableToken, (DoubleColonSymbol, Type)), CommaSymbol>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct FunDecl {
     clauses: Clauses<FunDeclClause>,
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct FunDeclClause {
     name: AtomToken,
     clause: FunctionClause,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Attr {
     hyphen: HyphenSymbol,
     name: Either<AtomToken, IfKeyword>,
@@ -103,7 +103,7 @@ pub struct Attr {
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct DefineDirective {
     hyphen: HyphenSymbol,
     define: DefineAtom,
@@ -130,7 +130,7 @@ impl DefineDirective {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct IncludeDirective {
     hyphen: HyphenSymbol,
     include: Either<IncludeAtom, IncludeLibAtom>,

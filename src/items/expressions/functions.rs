@@ -1,16 +1,14 @@
-use crate::format::Format;
+use crate::format::{Format, Item};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
-use crate::items::generics::{Items, Maybe, NonEmptyItems, Parenthesized};
+use crate::items::generics::{Clauses, Items, Maybe, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
-use crate::items::styles::Space;
-use crate::items::symbols::{
-    ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol, SlashSymbol,
-};
+use crate::items::styles::{Indent, Space};
+use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
@@ -18,51 +16,52 @@ pub enum FunctionExpr {
     NameAndArity(Box<NameAndArity>), // For attributes such as `-export`
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
+// TODO: #[item(prefers_oneline)]
 pub struct DefinedFunctionExpr {
-    fun: FunKeyword,
+    fun: Space<FunKeyword>,
     module: Maybe<ModulePrefix>,
     name_and_arity: NameAndArity,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct AnonymousFunctionExpr {
-    fun: FunKeyword,
-    clauses: NonEmptyItems<FunctionClause, SemicolonSymbol>,
+    fun: Space<FunKeyword>,
+    clauses: Space<Indent<Clauses<FunctionClause>, 4>>, // TODO: newline if len > 1
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct NamedFunctionExpr {
-    fun: FunKeyword,
-    clauses: NonEmptyItems<NamedFunctionClause, SemicolonSymbol>,
+    fun: Space<FunKeyword>,
+    clauses: Space<Indent<Clauses<NamedFunctionClause>, 4>>, // TODO: ditto
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct FunctionClause {
-    params: Space<Parenthesized<Items<Expr, CommaSymbol>>>,
+    params: Space<Parenthesized<Items<Expr>>>,
     guard: Space<Maybe<Guard>>,
     arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct NamedFunctionClause {
     name: VariableToken,
-    params: Parenthesized<Items<Expr, CommaSymbol>>,
-    guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    params: Space<Parenthesized<Items<Expr>>>,
+    guard: Maybe<Space<Guard>>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ModulePrefix {
     name: AtomLikeExpr,
     colon: ColonSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct NameAndArity {
     name: AtomLikeExpr,
     slash: SlashSymbol,

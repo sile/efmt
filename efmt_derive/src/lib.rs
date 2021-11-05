@@ -290,7 +290,12 @@ fn generate_children_method_body(data: &Data) -> TokenStream {
             Fields::Named(ref fields) => {
                 let format = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => children.push(&self.#name) }
+                    quote_spanned! { f.span() => {
+                        children.push({
+                            let x: &dyn crate::format::Item = &self.#name;
+                            x
+                        })
+                    }}
                 });
                 quote! {
                     let mut children = Vec::new();

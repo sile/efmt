@@ -16,10 +16,16 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 // TODO: delete
-pub trait Format: Span {
+pub trait Format: Span + Item {
     // Note that this method isn't intended to be called by users directly.
     // Please use `Formatter::format()` inside the method implementation instead.
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
+}
+
+impl<A: Item, B: Item> Item for (A, B) {
+    fn children(&self) -> Vec<&dyn Item> {
+        vec![&self.0, &self.1]
+    }
 }
 
 impl<A: Format, B: Format> Format for (A, B) {
@@ -40,6 +46,11 @@ pub trait Item: Span {
     }
 
     fn prefers_oneline(&self) -> bool {
+        false
+    }
+
+    // TODO: rename
+    fn needs_linefeed(&self) -> bool {
         false
     }
 
@@ -85,7 +96,7 @@ impl<W: Write> Formatter<W> {
 
     pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
         for form in forms {
-            self.format_item(form)?;
+            self.format(form)?;
             self.needs_newline()?;
         }
 

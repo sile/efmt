@@ -1,4 +1,4 @@
-use crate::format::{self, Format, Formatter};
+use crate::format::{self, Format, Formatter, Item};
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
@@ -10,7 +10,7 @@ use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
 use std::io::Write;
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Item)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -71,7 +71,7 @@ impl Macro {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
@@ -121,6 +121,11 @@ impl Parse for MacroReplacement {
             start_position,
         })
     }
+}
+
+impl Item for MacroReplacement {
+    // TODO: try parse
+    // TODO: consider comment (by formatter)
 }
 
 impl Format for MacroReplacement {
@@ -249,6 +254,11 @@ impl Parse for MacroArg {
         }
         Ok(Self { tokens })
     }
+}
+
+impl Item for MacroArg {
+    // TODO: try parse
+    // TODO: consider comment (by formatter)
 }
 
 impl Format for MacroArg {

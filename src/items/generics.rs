@@ -1,5 +1,5 @@
-use crate::format::{self, Format, Formatter};
-use crate::items::styles::{Newline, Space};
+use crate::format::{self, Format, Formatter, Item};
+use crate::items::styles::{Indent, Newline, Space};
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
@@ -50,6 +50,24 @@ impl<T: Parse> Parse for Maybe<T> {
     }
 }
 
+impl<T: Item> Item for Maybe<T> {
+    fn children(&self) -> Vec<&dyn Item> {
+        if let Some(x) = self.get() {
+            x.children()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn indent_offset(&self) -> usize {
+        self.get().map_or(0, |x| x.indent_offset())
+    }
+
+    fn prefers_oneline(&self) -> bool {
+        self.get().map_or(false, |x| x.prefers_oneline())
+    }
+}
+
 impl<T: Format> Format for Maybe<T> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         if let Some(x) = &self.item {
@@ -59,22 +77,22 @@ impl<T: Format> Format for Maybe<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum Either<A, B> {
     A(A),
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
-    item: T,
+    item: Indent<T, 4>,
     close: CloseParenSymbol,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        &self.item
+        self.item.get()
     }
 }
 
@@ -112,6 +130,13 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
+impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
+    fn children(&self) -> Vec<&dyn Item> {
+        // TODO: change struct layout like `items: Vec<(T, D)>, last_item: T`
+        todo!()
+    }
+}
+
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
         fmt.format_item(&self.items[0])?;
@@ -123,7 +148,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Items<T, D = Space<CommaSymbol>>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -136,7 +161,7 @@ impl<T, D> Items<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
 
 impl<T> Clauses<T> {

@@ -1,16 +1,17 @@
-use crate::format::Format;
+use crate::format::{Format, Item};
 use crate::items::expressions::{Body, Expr, Guard, GuardCondition, IntegerLikeExpr};
-use crate::items::generics::{Either, Items, Maybe, NonEmptyItems};
+use crate::items::generics::{Clauses, Either, Items, Maybe, NonEmptyItems};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
-use crate::items::symbols::{ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol};
+use crate::items::styles::{Indent, Newline, Space};
+use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum BlockExpr {
     Case(Box<CaseExpr>),
     If(Box<IfExpr>),
@@ -20,96 +21,97 @@ pub enum BlockExpr {
     Catch(Box<CatchExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct CaseExpr {
-    case: CaseKeyword,
-    value: Expr,
-    of: OfKeyword,
-    clauses: NonEmptyItems<CaseClause, SemicolonSymbol>,
+    case: Space<CaseKeyword>,
+    value: Space<Expr>,
+    of: Newline<OfKeyword>,
+    clauses: Newline<Indent<Clauses<CaseClause>, 4>>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct CaseClause {
-    pattern: Expr,
-    guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    pattern: Space<Expr>,
+    guard: Space<Maybe<Guard>>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct IfExpr {
-    r#if: IfKeyword,
-    clauses: NonEmptyItems<IfClause, SemicolonSymbol>,
+    r#if: Newline<IfKeyword>,
+    clauses: Newline<Indent<Clauses<IfClause>, 4>>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct IfClause {
-    condigion: GuardCondition,
-    arrow: RightArrowSymbol,
+    condigion: Space<GuardCondition>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct BeginExpr {
-    begin: BeginKeyword,
-    exprs: NonEmptyItems<Expr, CommaSymbol>,
+    begin: Newline<BeginKeyword>,
+    exprs: Newline<Indent<NonEmptyItems<Expr>, 4>>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ReceiveExpr {
-    receive: ReceiveKeyword,
-    clauses: Items<CaseClause, SemicolonSymbol>,
-    timeout: Maybe<ReceiveTimeout>,
+    receive: Newline<ReceiveKeyword>,
+    clauses: Newline<Indent<Items<CaseClause, Newline<SemicolonSymbol>>, 4>>,
+    timeout: Newline<Maybe<ReceiveTimeout>>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ReceiveTimeout {
-    after: AfterKeyword,
-    millis: IntegerLikeExpr,
-    arrow: RightArrowSymbol,
+    after: Newline<AfterKeyword>,
+    millis: Space<IntegerLikeExpr>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct TryExpr {
-    r#try: TryKeyword,
+    r#try: Space<TryKeyword>,
     body: Body,
-    clauses: Maybe<(OfKeyword, NonEmptyItems<CaseClause, SemicolonSymbol>)>,
+    clauses: Maybe<(Newline<OfKeyword>, Newline<Indent<Clauses<CaseClause>, 4>>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct TryCatch {
-    catch: CatchKeyword,
-    clauses: NonEmptyItems<CatchClause, SemicolonSymbol>,
+    catch: Newline<CatchKeyword>,
+    clauses: Newline<Indent<Clauses<CatchClause>, 4>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct CatchClause {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
-    guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    // TODO: Space
+    guard: Maybe<Space<Guard>>,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct TryAfter {
-    after: AfterKeyword,
+    after: Newline<AfterKeyword>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct CatchExpr {
-    catch: CatchKeyword,
-    expr: Expr,
+    catch: Space<CatchKeyword>,
+    expr: Indent<Expr, 4>,
 }
 
 #[cfg(test)]

@@ -1,26 +1,26 @@
-use crate::format::Format;
+use crate::format::{Format, Item};
 use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
 use crate::items::generics::{Items, Maybe, Parenthesized};
 use crate::items::keywords;
-use crate::items::styles::Space;
+use crate::items::styles::{Indent, Space};
 use crate::items::symbols::{self, ColonSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct FunctionCallExpr {
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
     function: AtomLikeExpr,
     args: Parenthesized<Items<Expr>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct UnaryOpCallExpr {
     op: UnaryOp,
     expr: Expr,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
@@ -28,14 +28,14 @@ pub enum UnaryOp {
     Bnot(keywords::BnotKeyword),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct BinaryOpCallExpr {
     left: Space<NonLeftRecursiveExpr>,
     op: Space<BinaryOp>,
-    right: Expr,
+    right: Indent<Expr, 4>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum BinaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),

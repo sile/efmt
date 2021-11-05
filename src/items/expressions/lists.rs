@@ -1,43 +1,43 @@
-use crate::format::Format;
+use crate::format::{Format, Item};
 use crate::items::expressions::Expr;
 use crate::items::generics::{Items, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
-use crate::items::styles::Space;
+use crate::items::styles::{Indent, Space};
 use crate::items::symbols::{
     CloseSquareSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub enum ListExpr {
     Proper(ProperListExpr),
     Improper(ImproperListExpr),
     Comprehension(ListComprehensionExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
-    items: Items<Expr>,
+    items: Indent<Items<Expr>, 4>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ImproperListExpr {
     open: OpenSquareSymbol,
-    items: Space<NonEmptyItems<Expr>>,
-    bar: Space<VerticalBarSymbol>,
-    last_item: Expr,
+    items: Indent<Space<NonEmptyItems<Expr>>, 4>,
+    bar: Indent<Space<VerticalBarSymbol>, 4>,
+    last_item: Indent<Expr, 4>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Item)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
-    item: Expr,
-    bar: DoubleVerticalBarSymbol,
-    qualifiers: NonEmptyItems<Qualifier>,
+    item: Indent<Space<Expr>, 4>,
+    bar: Space<DoubleVerticalBarSymbol>,
+    qualifiers: Indent<NonEmptyItems<Qualifier>, 4>,
     close: CloseSquareSymbol,
 }
 
