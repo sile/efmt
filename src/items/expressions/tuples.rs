@@ -1,4 +1,4 @@
-use crate::format::{Format, Item};
+use crate::format::Item;
 use crate::items::expressions::Expr;
 use crate::items::generics::Items;
 use crate::items::styles::Indent;
@@ -6,7 +6,7 @@ use crate::items::symbols::{CloseBraceSymbol, OpenBraceSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct TupleExpr {
     open: OpenBraceSymbol,
     items: Indent<Items<Expr>, 4>,

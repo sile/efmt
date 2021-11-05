@@ -1,11 +1,10 @@
-use crate::format::{self, Format, Formatter, Item};
+use crate::format::Item;
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
-use std::io::Write;
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, Span, Format, Item)]
+#[derive(Debug, Clone, Span, Item)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -52,13 +51,6 @@ macro_rules! impl_traits {
                     Token::$variant(token) => Ok(token),
                     token => Err(parse::Error::unexpected_token(parser, token)),
                 }
-            }
-        }
-
-        impl Format for $name {
-            fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-                fmt.write_text(self)?;
-                Ok(())
             }
         }
 
@@ -241,13 +233,6 @@ impl Span for CommentToken {
 impl Item for CommentToken {
     fn needs_newline(&self) -> bool {
         true
-    }
-}
-
-impl Format for CommentToken {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.write_text(self)?;
-        Ok(())
     }
 }
 

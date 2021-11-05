@@ -1,4 +1,4 @@
-use crate::format::{Format, Item};
+use crate::format::Item;
 use crate::items::expressions::Expr;
 use crate::items::generics::{Items, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
@@ -9,21 +9,21 @@ use crate::items::symbols::{
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum ListExpr {
     Proper(ProperListExpr),
     Improper(ImproperListExpr),
     Comprehension(ListComprehensionExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
     items: Indent<Items<Expr>, 4>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct ImproperListExpr {
     open: OpenSquareSymbol,
     items: Indent<Space<NonEmptyItems<Expr>>, 4>,
@@ -32,7 +32,7 @@ pub struct ImproperListExpr {
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
     item: Indent<Space<Expr>, 4>,

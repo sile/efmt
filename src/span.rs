@@ -10,6 +10,16 @@ pub trait Span {
     }
 }
 
+impl<T: Span + ?Sized> Span for &T {
+    fn start_position(&self) -> Position {
+        (**self).start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        (**self).end_position()
+    }
+}
+
 impl<A: Span, B: Span> Span for (A, B) {
     fn start_position(&self) -> Position {
         self.0.start_position()

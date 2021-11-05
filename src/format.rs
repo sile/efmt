@@ -5,7 +5,7 @@ use crate::span::{Position, Span};
 use std::collections::BTreeMap;
 use std::io::Write;
 
-pub use efmt_derive::{Format, Item};
+pub use efmt_derive::Item;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,24 +15,9 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// TODO: delete
-pub trait Format: Span + Item {
-    // Note that this method isn't intended to be called by users directly.
-    // Please use `Formatter::format()` inside the method implementation instead.
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()>;
-}
-
 impl<A: Item, B: Item> Item for (A, B) {
     fn children(&self) -> Vec<&dyn Item> {
         vec![&self.0, &self.1]
-    }
-}
-
-impl<A: Format, B: Format> Format for (A, B) {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> Result<()> {
-        fmt.format_item(&self.0)?;
-        fmt.format_item(&self.1)?;
-        Ok(())
     }
 }
 
@@ -60,6 +45,32 @@ pub trait Item: Span {
 
     fn needs_newline(&self) -> bool {
         false
+    }
+}
+
+impl<T: Item + ?Sized> Item for &T {
+    fn children(&self) -> Vec<&dyn Item> {
+        (**self).children()
+    }
+
+    fn indent_offset(&self) -> usize {
+        (**self).indent_offset()
+    }
+
+    fn prefers_oneline(&self) -> bool {
+        (**self).prefers_oneline()
+    }
+
+    fn needs_linefeed(&self) -> bool {
+        (**self).needs_linefeed()
+    }
+
+    fn needs_space(&self) -> bool {
+        (**self).needs_space()
+    }
+
+    fn needs_newline(&self) -> bool {
+        (**self).needs_newline()
     }
 }
 
@@ -91,7 +102,41 @@ impl<W: Write> Formatter<W> {
     }
 
     pub fn format(&mut self, item: &impl Item) -> Result<()> {
-        todo!()
+        if item.needs_linefeed() {
+            self.needs_newline()?;
+            // TODO: enable newline mode
+        }
+
+        self.state.indent_level += item.indent_offset();
+
+        let children = item.children();
+        if children.is_empty() {
+            self.write_text(item)?;
+
+            // TODO: factor out
+            self.state.indent_level -= item.indent_offset();
+            if item.needs_space() {
+                self.needs_space()?;
+            }
+            if item.needs_newline() {
+                self.needs_newline()?;
+            }
+
+            return Ok(());
+        } else {
+            for child in children {
+                self.format(&child)?;
+            }
+        }
+
+        self.state.indent_level -= item.indent_offset();
+        if item.needs_space() {
+            self.needs_space()?;
+        }
+        if item.needs_newline() {
+            self.needs_newline()?;
+        }
+        Ok(())
     }
 
     pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
@@ -110,17 +155,15 @@ impl<W: Write> Formatter<W> {
         Ok(())
     }
 
-    pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
-        item.format(self)?;
-        Ok(())
-    }
-
-    pub fn write_text(&mut self, item: &impl Format) -> Result<()> {
+    pub fn write_text(&mut self, item: &impl Item) -> Result<()> {
         self.write_comments(item)?;
         self.write_newline(item)?;
         self.write_space()?;
 
-        let text = &self.text[item.start_position().offset()..item.end_position().offset()];
+        let start = item.start_position().offset();
+        let end = std::cmp::max(start, item.end_position().offset()); // TODO: remove
+
+        let text = &self.text[start..end];
         write!(self.writer, "{}", text)?;
         self.state.next_text_position = item.end_position();
 
@@ -160,7 +203,7 @@ impl<W: Write> Formatter<W> {
             self.writer,
             "\n{:indent$}",
             "",
-            indent = self.state.indent_level * 4
+            indent = self.state.indent_level // TODO: remove `_level`
         )?;
         self.state.needs_newline = false;
         self.state.needs_space = 0;

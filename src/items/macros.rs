@@ -1,4 +1,4 @@
-use crate::format::{self, Format, Formatter, Item};
+use crate::format::Item;
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
@@ -8,9 +8,8 @@ use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
-use std::io::Write;
 
-#[derive(Debug, Clone, Span, Format, Item)]
+#[derive(Debug, Clone, Span, Item)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -71,7 +70,7 @@ impl Macro {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
@@ -128,15 +127,7 @@ impl Item for MacroReplacement {
     // TODO: consider comment (by formatter)
 }
 
-impl Format for MacroReplacement {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        // TODO: try parse and format
-        fmt.write_text(self)
-    }
-}
-
 #[derive(Debug, Clone)]
-
 pub struct MacroArg {
     tokens: Vec<Token>,
 }
@@ -259,11 +250,4 @@ impl Parse for MacroArg {
 impl Item for MacroArg {
     // TODO: try parse
     // TODO: consider comment (by formatter)
-}
-
-impl Format for MacroArg {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        // TODO: try parse and format
-        fmt.write_text(self)
-    }
 }

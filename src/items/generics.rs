@@ -1,9 +1,8 @@
-use crate::format::{self, Format, Formatter, Item};
+use crate::format::Item;
 use crate::items::styles::{Indent, Newline, Space};
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
-use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub struct Maybe<T> {
@@ -68,22 +67,13 @@ impl<T: Item> Item for Maybe<T> {
     }
 }
 
-impl<T: Format> Format for Maybe<T> {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        if let Some(x) = &self.item {
-            fmt.format_item(x)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum Either<A, B> {
     A(A),
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
     item: Indent<T, 4>,
@@ -133,22 +123,16 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
     fn children(&self) -> Vec<&dyn Item> {
         // TODO: change struct layout like `items: Vec<(T, D)>, last_item: T`
-        todo!()
-    }
-}
-
-impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_item(&self.items[0])?;
+        let mut children = vec![&self.items[0] as &dyn Item];
         for (delimiter, item) in self.delimiters.iter().zip(self.items.iter().skip(1)) {
-            fmt.format_item(delimiter)?;
-            fmt.format_item(item)?;
+            children.push(delimiter);
+            children.push(item);
         }
-        Ok(())
+        children
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct Items<T, D = Space<CommaSymbol>>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -161,7 +145,7 @@ impl<T, D> Items<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
 
 impl<T> Clauses<T> {

@@ -1,4 +1,4 @@
-use crate::format::{self, Format, Formatter, Item};
+use crate::format::Item;
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::Space;
@@ -8,7 +8,6 @@ use crate::items::tokens::{
 };
 use crate::parse::Parse;
 use crate::span::Span;
-use std::io::Write;
 
 pub mod bitstrings;
 pub mod blocks;
@@ -28,13 +27,13 @@ pub use self::maps::MapExpr;
 pub use self::records::RecordExpr;
 pub use self::tuples::TupleExpr;
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum Expr {
     BinaryOpCall(Box<BinaryOpCallExpr>),
     NonLeftRecursive(NonLeftRecursiveExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum NonLeftRecursiveExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
@@ -49,7 +48,7 @@ pub enum NonLeftRecursiveExpr {
     Block(Box<BlockExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum LiteralExpr {
     Atom(AtomToken),
     Char(CharToken),
@@ -59,20 +58,20 @@ pub enum LiteralExpr {
     VariableToken(VariableToken),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum AtomLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum VariableLikeExpr {
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub enum IntegerLikeExpr {
     Integer(IntegerToken),
     Variable(VariableToken),
@@ -104,23 +103,13 @@ impl Item for Body {
     }
 }
 
-impl Format for Body {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        if self.exprs().len() > 1 {
-            fmt.needs_newline()?;
-        }
-        fmt.format_item(&self.exprs)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct Guard {
     when: Space<WhenKeyword>,
     condition: GuardCondition,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Item)]
+#[derive(Debug, Clone, Span, Parse, Item)]
 pub struct GuardCondition {
     conditions: NonEmptyItems<Expr, Space<Either<CommaSymbol, SemicolonSymbol>>>,
 }

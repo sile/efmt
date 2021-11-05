@@ -1,7 +1,6 @@
-use crate::format::{self, Format, Formatter, Item};
+use crate::format::Item;
 use crate::parse::Parse;
 use crate::span::Span;
-use std::io::Write;
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Newline<T>(T);
@@ -30,14 +29,6 @@ impl<T: Item> Item for Newline<T> {
 
     fn needs_newline(&self) -> bool {
         true
-    }
-}
-
-impl<T: Format> Format for Newline<T> {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_item(&self.0)?;
-        fmt.needs_newline()?;
-        Ok(())
     }
 }
 
@@ -70,15 +61,7 @@ impl<T: Item> Item for Space<T> {
     }
 }
 
-impl<T: Format> Format for Space<T> {
-    fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
-        fmt.format_item(&self.0)?;
-        fmt.needs_space()?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Indent<T, const I: usize>(T);
 
 impl<T, const I: usize> Indent<T, I> {
