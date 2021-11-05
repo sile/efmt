@@ -1,4 +1,4 @@
-use crate::format::{self, Format, Formatter};
+use crate::format::{self, Format, Formatter, Item};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -59,6 +59,12 @@ macro_rules! impl_traits {
             fn format<W: Write>(&self, fmt: &mut Formatter<W>) -> format::Result<()> {
                 fmt.write_text(self)?;
                 Ok(())
+            }
+        }
+
+        impl Item for $name {
+            fn prefers_oneline(&self) -> bool {
+                true
             }
         }
 

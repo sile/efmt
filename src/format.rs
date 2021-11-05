@@ -5,7 +5,7 @@ use crate::span::{Position, Span};
 use std::collections::BTreeMap;
 use std::io::Write;
 
-pub use efmt_derive::Format;
+pub use efmt_derive::{Format, Item};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,6 +15,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+// TODO: delete
 pub trait Format: Span {
     // Note that this method isn't intended to be called by users directly.
     // Please use `Formatter::format()` inside the method implementation instead.
@@ -26,6 +27,28 @@ impl<A: Format, B: Format> Format for (A, B) {
         fmt.format_item(&self.0)?;
         fmt.format_item(&self.1)?;
         Ok(())
+    }
+}
+
+pub trait Item: Span {
+    fn children(&self) -> Vec<&dyn Item> {
+        Vec::new()
+    }
+
+    fn indent_offset(&self) -> usize {
+        0
+    }
+
+    fn prefers_oneline(&self) -> bool {
+        false
+    }
+
+    fn needs_space(&self) -> bool {
+        false
+    }
+
+    fn needs_newline(&self) -> bool {
+        false
     }
 }
 
@@ -54,6 +77,10 @@ impl<W: Write> Formatter<W> {
             comments,
             max_columns: 100,
         }
+    }
+
+    pub fn format(&mut self, item: &impl Item) -> Result<()> {
+        todo!()
     }
 
     pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
