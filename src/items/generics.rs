@@ -129,6 +129,7 @@ impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
         Tree::Elements {
             trees: self.items.iter().map(|x| x.tree()).collect(),
             delimiters: self.delimiters.iter().map(|x| x.to_item_span()).collect(),
+            packed: false,
         }
     }
 }
@@ -169,6 +170,6 @@ impl<T> Clauses<T> {
 
 impl<T: Item> Item for Clauses<T> {
     fn tree(&self) -> Tree {
-        Tree::Linefeed(Box::new(self.0.tree()))
+        Tree::linefeed(self.0.tree())
     }
 }

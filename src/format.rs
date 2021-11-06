@@ -7,10 +7,18 @@ use std::io::Write;
 
 pub use efmt_derive::Item;
 
+mod writers;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("max columns exceeded")]
+    MaxColumnsExceeded,
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Int(#[from] std::num::ParseIntError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -68,6 +76,7 @@ pub enum Tree {
         // TODO: rename? (children or something)
         trees: Vec<Tree>,
         delimiters: Vec<ItemSpan>,
+        packed: bool,
     },
     BinaryOp {
         left: Box<Tree>,
@@ -170,12 +179,11 @@ impl<T: Item + ?Sized> Item for &T {
 
 #[derive(Debug)]
 pub struct Formatter<W> {
-    writer: W,
+    writer: self::writers::Writer<W>,
     state: FormatterState,
     text: String,
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
-    max_columns: usize,
 }
 
 impl<W: Write> Formatter<W> {
@@ -186,16 +194,32 @@ impl<W: Write> Formatter<W> {
         macros: BTreeMap<Position, Macro>,
     ) -> Self {
         Self {
-            writer,
+            writer: self::writers::Writer::new(writer),
             state: FormatterState::new(),
             text,
             macros,
             comments,
-            max_columns: 100,
         }
     }
 
     pub fn format_tree(&mut self, tree: &Tree) -> Result<()> {
+        //let state = self.state.clone();
+        self.writer.start_transaction();
+        if let Err(e) = self.format_tree0(tree) {
+            self.writer.rollback();
+            return Err(e);
+        }
+
+        if self.writer.max_columns_exceeded() && !self.state.newline_mode {
+            self.writer.rollback();
+            //self.state = state;
+            return Err(Error::MaxColumnsExceeded);
+        }
+        self.writer.commit()?;
+        Ok(())
+    }
+
+    fn format_tree0(&mut self, tree: &Tree) -> Result<()> {
         match tree {
             Tree::Atomic(x) => {
                 for x in x {
@@ -211,10 +235,23 @@ impl<W: Write> Formatter<W> {
                 tree,
                 maybe_newline,
             } => {
-                let newline_mode = self.state.newline_mode;
+                let mut newline_mode = self.state.newline_mode;
                 self.state.newline_mode = false;
                 self.state.indent_level += 4; // TODO: increment only if in newline mode
-                self.format_tree(tree)?;
+                let state = self.state.clone();
+                match self.format_tree(tree) {
+                    Err(Error::MaxColumnsExceeded) => {
+                        eprintln!("Try re-formatting in newline_mode");
+                        self.state = state;
+                        self.state.newline_mode = true;
+                        newline_mode = true;
+                        dbg!("foo");
+                        self.format_tree(tree)?;
+                        dbg!("bar");
+                    }
+                    Err(e) => return Err(e),
+                    _ => {}
+                }
 
                 if self.state.newline_mode && *maybe_newline {
                     self.needs_newline()?;
@@ -237,27 +274,46 @@ impl<W: Write> Formatter<W> {
                 self.needs_space()?;
                 self.format_tree(right)?;
             }
-            Tree::Elements { trees, delimiters } => {
+            Tree::Elements {
+                trees,
+                delimiters,
+                packed,
+            } => {
                 // TODO:
                 let needs_newline = self.state.newline_mode;
                 if needs_newline {
                     self.needs_newline()?;
                 }
                 if let Some(x) = trees.get(0) {
+                    // TODO: save the current indent and use that for the following items
                     self.format_tree(x)?;
                     for (delimiter, tree) in delimiters.iter().zip(trees.iter().skip(1)) {
+                        if *packed && self.writer.columns() == self.writer.max_columns() {
+                            // TODO
+                            self.needs_newline()?;
+                            self.state.newline_mode = false;
+                        }
+
                         self.write_text(delimiter)?; // TODO
                         if needs_newline {
                             self.needs_newline()?;
                         } else {
                             self.needs_space()?;
                         }
-                        self.format_tree(tree)?;
+
+                        let state = self.state.clone();
+                        match self.format_tree(tree) {
+                            Err(Error::MaxColumnsExceeded) if *packed => {
+                                self.state = state;
+                                self.needs_newline()?;
+                                self.state.newline_mode = false; // TODO
+                                self.format_tree(tree)?; // TODO: consider delimiter length
+                            }
+                            Err(e) => return Err(e),
+                            Ok(()) => {}
+                        }
                     }
                 }
-                // if needs_newline {
-                //     self.needs_newline()?;
-                // }
             }
             Tree::BinaryOp {
                 left,
@@ -381,11 +437,23 @@ impl<W: Write> Formatter<W> {
             if !self.state.needs_newline && self.state.next_text_position.offset() != 0 {
                 self.state.needs_space = 2;
             }
+
+            let comment = self.item_text(&token);
+            if comment.starts_with("%% efmt:max_columns=") {
+                let max_columns = (&comment["%% efmt:max_columns=".len()..]).parse()?;
+                self.writer.set_max_columns(max_columns);
+                eprintln!("[INFO] new max columns: {}", max_columns);
+            }
+
             self.write_text(&token)?;
             self.needs_newline()?;
             start = std::cmp::min(self.state.next_text_position, end);
         }
         Ok(())
+    }
+
+    fn item_text(&self, item: &impl Span) -> &str {
+        &self.text[item.start_position().offset()..item.end_position().offset()]
     }
 }
 

@@ -15,11 +15,34 @@ pub enum ListExpr {
     Comprehension(ListComprehensionExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
     items: Items<Expr>,
     close: CloseSquareSymbol,
+}
+
+impl Item for ProperListExpr {
+    fn tree(&self) -> Tree {
+        let mut items = self.items.tree();
+        match &mut items {
+            Tree::Elements { packed, trees, .. } => {
+                if trees.iter().all(|x| matches!(x, Tree::Atomic(_))) {
+                    *packed = true;
+                }
+            }
+            Tree::None => {}
+            _ => {
+                unreachable!()
+            }
+        }
+
+        Tree::Compound(vec![
+            self.open.tree(),
+            Tree::child(items, true),
+            self.close.tree(),
+        ])
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]

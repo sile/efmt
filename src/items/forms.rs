@@ -10,7 +10,7 @@ use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
-    MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol, SemicolonSymbol,
+    MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::items::types::Type;
@@ -65,7 +65,7 @@ pub struct FunSpec {
     hyphen: HyphenSymbol,
     kind: Either<SpecAtom, CallbackAtom>,
     function_name: AtomToken,
-    clauses: NonEmptyItems<SpecClause, SemicolonSymbol>,
+    clauses: Clauses<SpecClause>,
     dot: DotSymbol,
 }
 
