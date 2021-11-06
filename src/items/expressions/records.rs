@@ -35,6 +35,7 @@ pub struct RecordAccessExpr {
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct RecordUpdateExpr {
+    // TODO: allow `N2#nrec2.nrec1#nrec1.nrec0#nrec0.name`
     value: VariableLikeExpr,
     sharp: SharpSymbol,
     name: AtomToken,

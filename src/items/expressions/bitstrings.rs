@@ -2,7 +2,6 @@ use crate::format::Item;
 use crate::items::expressions::{Expr, IntegerLikeExpr, LiteralExpr};
 use crate::items::generics::{Either, Items, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::qualifiers::Qualifier;
-use crate::items::styles::Indent;
 use crate::items::symbols::{
     ColonSymbol, CommaSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol,
     DoubleVerticalBarSymbol, HyphenSymbol, SlashSymbol,
@@ -20,16 +19,16 @@ pub enum BitstringExpr {
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct BitstringConstructExpr {
     open: DoubleLeftAngleSymbol,
-    segments: Indent<Items<BitstringSegment, CommaSymbol>, 4>,
+    segments: Items<BitstringSegment, CommaSymbol>,
     close: DoubleRightAngleSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct BitstringComprehensionExpr {
     open: DoubleLeftAngleSymbol,
-    item: Indent<Expr, 4>,
+    item: Expr,
     bar: DoubleVerticalBarSymbol,
-    qualifiers: Indent<NonEmptyItems<Qualifier, CommaSymbol>, 4>,
+    qualifiers: NonEmptyItems<Qualifier, CommaSymbol>,
     close: DoubleRightAngleSymbol,
 }
 

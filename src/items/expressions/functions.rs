@@ -1,8 +1,7 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Items, Maybe, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
-use crate::items::styles::{Indent, Space};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
@@ -19,39 +18,54 @@ pub enum FunctionExpr {
 #[derive(Debug, Clone, Span, Parse, Item)]
 // TODO: #[item(prefers_oneline)]
 pub struct DefinedFunctionExpr {
-    fun: Space<FunKeyword>,
+    fun: FunKeyword,
     module: Maybe<ModulePrefix>,
     name_and_arity: NameAndArity,
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct AnonymousFunctionExpr {
-    fun: Space<FunKeyword>,
-    clauses: Space<Indent<Clauses<FunctionClause>, 4>>, // TODO: newline if len > 1
+    fun: FunKeyword,
+    clauses: Clauses<FunctionClause>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct NamedFunctionExpr {
-    fun: Space<FunKeyword>,
-    clauses: Space<Indent<Clauses<NamedFunctionClause>, 4>>, // TODO: ditto
+    fun: FunKeyword,
+    clauses: Clauses<NamedFunctionClause>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct FunctionClause {
-    params: Space<Parenthesized<Items<Expr>>>,
-    guard: Space<Maybe<Guard>>,
-    arrow: Space<RightArrowSymbol>,
+    params: Parenthesized<Items<Expr>>,
+    guard: Maybe<Guard>,
+    arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl Item for FunctionClause {
+    fn tree(&self) -> Tree {
+        let left = if let Some(_guard) = self.guard.get() {
+            todo!()
+        } else {
+            Box::new(self.params.tree())
+        };
+        Tree::Unbalanced {
+            left,
+            delimiter: self.arrow.to_item_span(),
+            right: Box::new(self.body.tree()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct NamedFunctionClause {
     name: VariableToken,
-    params: Space<Parenthesized<Items<Expr>>>,
-    guard: Maybe<Space<Guard>>,
-    arrow: Space<RightArrowSymbol>,
+    params: Parenthesized<Items<Expr>>,
+    guard: Maybe<Guard>,
+    arrow: RightArrowSymbol,
     body: Body,
 }
 

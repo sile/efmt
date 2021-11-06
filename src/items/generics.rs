@@ -1,5 +1,4 @@
 use crate::format::{Item, Tree};
-use crate::items::styles::{Indent, Newline, Space};
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
@@ -65,21 +64,34 @@ pub enum Either<A, B> {
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
-    item: Indent<T, 4>,
+    item: T,
     close: CloseParenSymbol,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        self.item.get()
+        &self.item
+    }
+}
+
+impl<T: Item> Item for Parenthesized<T> {
+    fn tree(&self) -> Tree {
+        Tree::Compound(vec![
+            self.open.tree(),
+            Tree::Child {
+                tree: Box::new(self.item.tree()),
+                maybe_newline: true,
+            },
+            self.close.tree(),
+        ])
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct NonEmptyItems<T, D = Space<CommaSymbol>> {
+pub struct NonEmptyItems<T, D = CommaSymbol> {
     items: Vec<T>,
     delimiters: Vec<D>,
 }
@@ -114,25 +126,15 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 
 impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
     fn tree(&self) -> Tree {
-        let mut tree = self.items.last().unwrap().tree();
-        for (delimiter, item) in self
-            .delimiters
-            .iter()
-            .rev()
-            .zip(self.items.iter().rev().skip(1))
-        {
-            tree = Tree::Balanced {
-                left: Box::new(item.tree()),
-                delimiter: delimiter.to_item_span(),
-                right: Box::new(tree),
-            };
+        Tree::Elements {
+            trees: self.items.iter().map(|x| x.tree()).collect(),
+            delimiters: self.delimiters.iter().map(|x| x.to_item_span()).collect(),
         }
-        tree
     }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
-pub struct Items<T, D = Space<CommaSymbol>>(Maybe<NonEmptyItems<T, D>>);
+pub struct Items<T, D = CommaSymbol>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
     pub fn get(&self) -> &[T] {
@@ -144,11 +146,29 @@ impl<T, D> Items<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
-pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Elements<T>(Items<T>);
+
+impl<T: Item> Item for Elements<T> {
+    fn tree(&self) -> Tree {
+        Tree::Child {
+            tree: Box::new(self.0.tree()),
+            maybe_newline: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
 impl<T> Clauses<T> {
     pub fn get(&self) -> &[T] {
         self.0.get()
+    }
+}
+
+impl<T: Item> Item for Clauses<T> {
+    fn tree(&self) -> Tree {
+        Tree::Linefeed(Box::new(self.0.tree()))
     }
 }

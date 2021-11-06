@@ -1,8 +1,7 @@
-use crate::format::Item;
+use crate::format::{Item, Tree};
 use crate::items::expressions::Expr;
 use crate::items::generics::{Items, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
-use crate::items::styles::{Indent, Space};
 use crate::items::symbols::{
     CloseSquareSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
@@ -19,25 +18,39 @@ pub enum ListExpr {
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
-    items: Indent<Items<Expr>, 4>,
+    items: Items<Expr>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ImproperListExpr {
     open: OpenSquareSymbol,
-    items: Indent<Space<NonEmptyItems<Expr>>, 4>,
-    bar: Indent<Space<VerticalBarSymbol>, 4>,
-    last_item: Indent<Expr, 4>,
+    items: NonEmptyItems<Expr>,
+    bar: VerticalBarSymbol,
+    last_item: Expr,
     close: CloseSquareSymbol,
+}
+
+impl Item for ImproperListExpr {
+    fn tree(&self) -> Tree {
+        Tree::Compound(vec![
+            self.open.tree(),
+            Tree::BinaryOp {
+                left: Box::new(self.items.tree()),
+                delimiter: self.bar.to_item_span(),
+                right: Box::new(self.last_item.tree()),
+            },
+            self.close.tree(),
+        ])
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
-    item: Indent<Space<Expr>, 4>,
-    bar: Space<DoubleVerticalBarSymbol>,
-    qualifiers: Indent<NonEmptyItems<Qualifier>, 4>,
+    item: Expr,
+    bar: DoubleVerticalBarSymbol,
+    qualifiers: NonEmptyItems<Qualifier>,
     close: CloseSquareSymbol,
 }
 

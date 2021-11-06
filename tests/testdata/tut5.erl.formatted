@@ -8,7 +8,8 @@
 format_temps([]) ->  % No output for an empty list
     ok;
 format_temps([City | Rest]) ->
-    print_temp(convert_to_celsius(City)), format_temps(Rest).
+    print_temp(convert_to_celsius(City)),
+    format_temps(Rest).
 
 convert_to_celsius({Name, {c, Temp}}) ->  % No conversion needed
     {Name, {c, Temp}};

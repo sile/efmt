@@ -1,7 +1,6 @@
 use crate::format::{Item, Tree};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
-use crate::items::styles::Space;
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, StringToken, VariableToken,
@@ -91,17 +90,24 @@ impl Body {
 
 impl Item for Body {
     fn tree(&self) -> Tree {
-        Tree::Child(Box::new(self.exprs.tree()))
+        let mut tree = Box::new(self.exprs.tree());
+        if self.exprs.get().len() > 1 {
+            tree = Box::new(Tree::Linefeed(tree));
+        }
+        Tree::Child {
+            tree,
+            maybe_newline: false,
+        }
     }
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct Guard {
-    when: Space<WhenKeyword>,
+    when: WhenKeyword,
     condition: GuardCondition,
 }
 
 #[derive(Debug, Clone, Span, Parse, Item)]
 pub struct GuardCondition {
-    conditions: NonEmptyItems<Expr, Space<Either<CommaSymbol, SemicolonSymbol>>>,
+    conditions: NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>,
 }
