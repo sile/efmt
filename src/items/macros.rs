@@ -125,8 +125,8 @@ impl Parse for MacroReplacement {
 impl Format for MacroReplacement {
     // TODO: try parse
     // TODO: consider comment (by formatter)
-    fn format(&self, _fmt: &mut Formatter) -> format::Result<()> {
-        todo!()
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.write_text(self)
     }
 }
 
@@ -253,7 +253,7 @@ impl Parse for MacroArg {
 impl Format for MacroArg {
     // TODO: try parse
     // TODO: consider comment (by formatter)
-    fn format(&self, _fmt: &mut Formatter) -> format::Result<()> {
-        todo!()
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.write_text(self)
     }
 }
