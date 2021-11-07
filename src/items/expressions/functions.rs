@@ -1,13 +1,14 @@
-use crate::format::{Item, Tree};
+use crate::format::Format;
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Items, Maybe, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
+use crate::items::styles::Space;
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
@@ -15,7 +16,7 @@ pub enum FunctionExpr {
     NameAndArity(Box<NameAndArity>), // For attributes such as `-export`
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 // TODO: #[item(prefers_oneline)]
 pub struct DefinedFunctionExpr {
     fun: FunKeyword,
@@ -23,44 +24,29 @@ pub struct DefinedFunctionExpr {
     name_and_arity: NameAndArity,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct AnonymousFunctionExpr {
     fun: FunKeyword,
     clauses: Clauses<FunctionClause>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
     fun: FunKeyword,
     clauses: Clauses<NamedFunctionClause>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionClause {
     params: Parenthesized<Items<Expr>>,
     guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-impl Item for FunctionClause {
-    fn tree(&self) -> Tree {
-        let left = if let Some(_guard) = self.guard.get() {
-            todo!()
-        } else {
-            Box::new(self.params.tree())
-        };
-        Tree::Unbalanced {
-            left,
-            delimiter: self.arrow.to_item_span(),
-            right: Box::new(self.body.tree()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionClause {
     name: VariableToken,
     params: Parenthesized<Items<Expr>>,
@@ -69,13 +55,13 @@ pub struct NamedFunctionClause {
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ModulePrefix {
     name: AtomLikeExpr,
     colon: ColonSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NameAndArity {
     name: AtomLikeExpr,
     slash: SlashSymbol,

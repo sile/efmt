@@ -9,9 +9,10 @@ pub trait Span {
         self.end_position() <= self.start_position()
     }
 
-    // TODO
-    fn to_item_span(&self) -> crate::format::ItemSpan {
-        crate::format::ItemSpan::new(self.start_position(), self.end_position())
+    fn len(&self) -> usize {
+        self.end_position()
+            .offset()
+            .saturating_sub(self.start_position().offset())
     }
 }
 

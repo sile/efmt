@@ -175,51 +175,52 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Item)]
-pub fn derive_item_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Format)]
+pub fn derive_format_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
-    let generics = add_item_trait_bounds(input.generics);
+    let generics = add_format_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let tree = generate_tree_method_body(&input.data);
-
+    let format = generate_format_method_body(&input.data);
+    let is_primitive = generate_is_primitive_method_body(&input.data);
     let expanded = quote! {
-        impl #impl_generics crate::format::Item for #name #ty_generics #where_clause {
-            fn tree(&self) -> crate::format::Tree{
-                #tree
+        impl #impl_generics crate::format::Format for #name #ty_generics #where_clause {
+            fn format(&self, fmt: &mut crate::format::Formatter) -> crate::format::Result<()> {
+                #format
+            }
+            fn is_primitive(&self) -> bool {
+                #is_primitive
             }
         }
     };
     proc_macro::TokenStream::from(expanded)
 }
 
-fn add_item_trait_bounds(mut generics: Generics) -> Generics {
+fn add_format_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(crate::format::Item));
+            type_param.bounds.push(parse_quote!(crate::format::Format));
         }
     }
     generics
 }
 
-fn generate_tree_method_body(data: &Data) -> TokenStream {
+fn generate_format_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let format = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => children.push(self.#name.tree()) }
+                    quote_spanned! { f.span() => fmt.format_item(&self.#name)? }
                 });
                 quote! {
-                    let mut children = Vec::new();
                     #(#format ;)*
-                    crate::format::Tree::Compound(children)
+                    Ok(())
                 }
             }
             Fields::Unnamed(ref fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.tree() }
+                quote! { self.0.format(fmt) }
             }
             Fields::Unit => unimplemented!(),
         },
@@ -231,7 +232,39 @@ fn generate_tree_method_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() => Self::#name(x) => x.tree(), }
+                quote_spanned! { variant.span() => Self::#name(x) => x.format(fmt), }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                }
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    }
+}
+
+fn generate_is_primitive_method_body(data: &Data) -> TokenStream {
+    match *data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(_) => {
+                quote! { false }
+            }
+            Fields::Unnamed(ref fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                quote! { self.0.is_primitive() }
+            }
+            Fields::Unit => unimplemented!(),
+        },
+        Data::Enum(ref data) => {
+            let arms = data.variants.iter().map(|variant| {
+                let name = &variant.ident;
+                if let Fields::Unnamed(fields) = &variant.fields {
+                    assert_eq!(fields.unnamed.len(), 1);
+                } else {
+                    unimplemented!();
+                }
+                quote_spanned! { variant.span() => Self::#name(x) => x.is_primitive(), }
             });
             quote! {
                 match self {

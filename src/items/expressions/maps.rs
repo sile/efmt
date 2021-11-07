@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::Format;
 use crate::items::expressions::{Expr, VariableLikeExpr};
 use crate::items::generics::{Either, Items};
 use crate::items::symbols::{
@@ -8,31 +8,31 @@ use crate::items::symbols::{
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum MapExpr {
     Construct(Box<MapConstructExpr>),
     Update(Box<MapUpdateExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapItem, CommaSymbol>,
+    items: Items<MapFormat, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapUpdateExpr {
     value: VariableLikeExpr,
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapItem, CommaSymbol>,
+    items: Items<MapFormat, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
-pub struct MapItem {
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct MapFormat {
     key: Expr,
     delimiter: Either<DoubleRightArrowSymbol, MapMatchSymbol>,
     value: Expr,

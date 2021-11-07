@@ -26,14 +26,13 @@ fn main() -> anyhow::Result<()> {
         forms.push(form);
     }
 
-    let stdout = std::io::stdout();
     let formatter = Formatter::new(
-        stdout.lock(),
         parser.text().to_owned(),
         parser.comments().clone(),
         parser.macros().clone(),
     );
-    formatter.format_module(&forms)?;
+    let formatted = formatter.format_module(&forms)?;
+    print!("{}", formatted);
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::format::{Item, Tree};
+use crate::format::{self, Format, Formatter};
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
@@ -9,7 +9,7 @@ use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Span, Item)]
+#[derive(Debug, Clone, Span, Format)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -70,7 +70,7 @@ impl Macro {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
@@ -122,11 +122,11 @@ impl Parse for MacroReplacement {
     }
 }
 
-impl Item for MacroReplacement {
+impl Format for MacroReplacement {
     // TODO: try parse
     // TODO: consider comment (by formatter)
-    fn tree(&self) -> Tree {
-        Tree::Atomic(vec![self.to_item_span()])
+    fn format(&self, _fmt: &mut Formatter) -> format::Result<()> {
+        todo!()
     }
 }
 
@@ -250,10 +250,10 @@ impl Parse for MacroArg {
     }
 }
 
-impl Item for MacroArg {
+impl Format for MacroArg {
     // TODO: try parse
     // TODO: consider comment (by formatter)
-    fn tree(&self) -> Tree {
-        Tree::Atomic(vec![self.to_item_span()])
+    fn format(&self, _fmt: &mut Formatter) -> format::Result<()> {
+        todo!()
     }
 }

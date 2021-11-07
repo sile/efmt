@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::Format;
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -14,13 +14,13 @@ use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum Type {
     BinaryOp(Box<BinaryOpType>),
     NonLeftRecursive(NonLeftRecursiveType),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
@@ -34,14 +34,14 @@ pub enum NonLeftRecursiveType {
     Literal(LiteralType),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BinaryOpType {
     left: NonLeftRecursiveType,
     op: BinaryOp,
     right: Type,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BinaryOp {
     Mul(MultiplySymbol),
     Div(DivKeyword),
@@ -58,32 +58,32 @@ pub enum BinaryOp {
     Annotation(DoubleColonSymbol),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpType {
     op: UnaryOp,
     r#type: NonLeftRecursiveType,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
     Bnot(BnotKeyword),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionType {
     fun: FunKeyword,
     params_and_return: Parenthesized<Maybe<(FunctionParams, (RightArrowSymbol, Type))>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionParams {
     Any(Parenthesized<TripleDotSymbol>),
     Params(Parenthesized<Items<Type, CommaSymbol>>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum LiteralType {
     Atom(AtomToken),
     Char(CharToken),
@@ -91,38 +91,38 @@ pub enum LiteralType {
     Variable(VariableToken),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MfargsType {
     module: Maybe<(AtomToken, ColonSymbol)>,
     name: AtomToken,
     args: Parenthesized<Items<Type, CommaSymbol>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListType {
     open: OpenSquareSymbol,
     item: Maybe<(Type, Maybe<(CommaSymbol, TripleDotSymbol)>)>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleType {
     open: OpenBraceSymbol,
     items: Items<Type, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 
-pub type MapItem = (Type, (Either<DoubleRightArrowSymbol, MapMatchSymbol>, Type));
+pub type MapFormat = (Type, (Either<DoubleRightArrowSymbol, MapMatchSymbol>, Type));
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapItem, CommaSymbol>,
+    items: Items<MapFormat, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -131,28 +131,28 @@ pub struct RecordType {
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringType {
     open: DoubleLeftAngleSymbol,
     size: Maybe<BitstringSize>,
     close: DoubleRightAngleSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BitstringSize {
     BinaryAndUnit(Box<(BitstringBinarySize, (CommaSymbol, BitstringUnitSize))>),
     Unit(Box<BitstringUnitSize>),
     Binary(Box<BitstringBinarySize>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringBinarySize {
     underscore: VariableToken,
     colon: ColonSymbol,
     size: Type,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringUnitSize {
     underscore0: VariableToken,
     colon: ColonSymbol,

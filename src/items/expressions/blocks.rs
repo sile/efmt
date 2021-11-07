@@ -1,16 +1,17 @@
-use crate::format::{Item, Tree};
+use crate::format::Format;
 use crate::items::expressions::{Body, Expr, Guard, GuardCondition, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
+use crate::items::styles::{Block, Child, Newline, RightSpace, Space};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BlockExpr {
     Case(Box<CaseExpr>),
     If(Box<IfExpr>),
@@ -20,125 +21,66 @@ pub enum BlockExpr {
     Catch(Box<CatchExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CaseExpr {
-    case: CaseKeyword,
-    value: Expr,
-    of: OfKeyword,
-    clauses: Clauses<CaseClause>,
+    case: Space<CaseKeyword>,
+    value: Child<Expr>,
+    of: Space<OfKeyword>,
+    clauses: Newline<Block<Clauses<CaseClause>>>,
     end: EndKeyword,
 }
 
-impl Item for CaseExpr {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            Tree::linefeed(Tree::space(self.case.tree())),
-            Tree::child(self.value.tree(), false),
-            Tree::space(self.of.tree()),
-            Tree::child(Tree::linefeed(self.clauses.tree()), true),
-            self.end.tree(),
-        ])
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CaseClause {
     pattern: Expr,
     guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-impl Item for CaseClause {
-    fn tree(&self) -> Tree {
-        let left = if let Some(_guard) = self.guard.get() {
-            todo!()
-        } else {
-            Box::new(self.pattern.tree())
-        };
-        Tree::Unbalanced {
-            left,
-            delimiter: self.arrow.to_item_span(),
-            right: Box::new(self.body.tree()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Clauses<IfClause>,
     end: EndKeyword,
 }
 
-impl Item for IfExpr {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            Tree::newline(self.r#if.tree()),
-            Tree::child(Tree::linefeed(self.clauses.tree()), true),
-            self.end.tree(),
-        ])
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfClause {
     condigion: GuardCondition,
     arrow: RightArrowSymbol,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: NonEmptyItems<Expr>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveExpr {
-    receive: ReceiveKeyword,
-    clauses: Maybe<Clauses<CaseClause>>,
-    timeout: Maybe<ReceiveTimeout>,
+    receive: Newline<ReceiveKeyword>,
+    clauses: Maybe<Newline<Block<Clauses<CaseClause>>>>,
+    timeout: Maybe<Newline<ReceiveTimeout>>,
     end: EndKeyword,
 }
 
-impl Item for ReceiveExpr {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            Tree::newline(self.receive.tree()),
-            Tree::child(Tree::linefeed(self.clauses.tree()), true),
-            self.timeout.tree(),
-            Tree::linefeed(self.end.tree()),
-        ])
-    }
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ReceiveTimeout {
+    after: Newline<AfterKeyword>,
+    clause: Block<ReceiveTimeoutClause>,
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct ReceiveTimeout {
-    after: AfterKeyword,
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ReceiveTimeoutClause {
     millis: IntegerLikeExpr,
-    arrow: RightArrowSymbol,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
-impl Item for ReceiveTimeout {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            Tree::newline(self.after.tree()),
-            Tree::child(
-                Tree::Unbalanced {
-                    left: Box::new(self.millis.tree()),
-                    delimiter: self.arrow.to_item_span(),
-                    right: Box::new(self.body.tree()),
-                },
-                true,
-            ),
-        ])
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryExpr {
     r#try: TryKeyword,
     body: Body,
@@ -148,13 +90,13 @@ pub struct TryExpr {
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryCatch {
     catch: CatchKeyword,
     clauses: Clauses<CatchClause>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CatchClause {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
@@ -164,25 +106,16 @@ pub struct CatchClause {
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryAfter {
     after: AfterKeyword,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CatchExpr {
-    catch: CatchKeyword,
-    expr: Expr,
-}
-
-impl Item for CatchExpr {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            Tree::right_space(self.catch.tree()),
-            Tree::child(self.expr.tree(), false),
-        ])
-    }
+    catch: RightSpace<CatchKeyword>,
+    expr: Child<Expr>,
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
-use crate::format::{Item, Tree};
+use crate::format::{self, Format, Formatter};
+use crate::items::styles::{Child, Newline};
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
@@ -48,45 +49,55 @@ impl<T: Parse> Parse for Maybe<T> {
     }
 }
 
-impl<T: Item> Item for Maybe<T> {
-    fn tree(&self) -> Tree {
+impl<T: Format> Format for Maybe<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         if let Some(x) = self.get() {
-            x.tree()
-        } else {
-            Tree::None
+            x.format(fmt)?;
         }
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum Either<A, B> {
     A(A),
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
-    item: T,
+    item: Child<T>,
     close: CloseParenSymbol,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        &self.item
+        self.item.get()
     }
 }
 
-impl<T: Item> Item for Parenthesized<T> {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            self.open.tree(),
-            Tree::Child {
-                tree: Box::new(self.item.tree()),
-                maybe_newline: true,
-            },
-            self.close.tree(),
-        ])
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Args<T> {
+    open: OpenParenSymbol,
+    items: Items<T>,
+    close: CloseParenSymbol,
+}
+
+impl<T: Format> Format for Args<T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.format_item(&self.open)?;
+
+        fmt.format_child_item(&self.items)?;
+        // // TODO: maybe very inefficient
+        // fmt.format_either_child_item(
+        //     &self.items,
+        //     format::ChildOptions::new(),
+        //     format::ChildOptions::new().newline().multiline_mode(),
+        // )?;
+
+        fmt.format_item(&self.close)?;
+        Ok(())
     }
 }
 
@@ -124,17 +135,23 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Item, D: Item> Item for NonEmptyItems<T, D> {
-    fn tree(&self) -> Tree {
-        Tree::Elements {
-            trees: self.items.iter().map(|x| x.tree()).collect(),
-            delimiters: self.delimiters.iter().map(|x| x.to_item_span()).collect(),
-            packed: false,
+impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
+            fmt.format_item(item)?;
+            fmt.format_item(delimiter)?;
+            if fmt.multiline_mode() {
+                fmt.needs_newline();
+            } else {
+                fmt.needs_space();
+            }
         }
+        fmt.format_item(self.items.last().expect("unreachable"))?;
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Items<T, D = CommaSymbol>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -150,26 +167,36 @@ impl<T, D> Items<T, D> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Elements<T>(Items<T>);
 
-impl<T: Item> Item for Elements<T> {
-    fn tree(&self) -> Tree {
-        Tree::Child {
-            tree: Box::new(self.0.tree()),
-            maybe_newline: true,
+impl<T: Format> Format for Elements<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        let packed = self.0.get().iter().all(|x| x.is_primitive());
+        if !packed {
+            self.0.format(fmt)?;
+        } else if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters))
+        {
+            for (item, delimiter) in items.iter().zip(delimiters.iter()) {
+                if fmt.current_columns() + item.len() + delimiter.len() > fmt.max_columns() {
+                    fmt.needs_newline();
+                }
+                fmt.format_item(item)?;
+                fmt.format_item(delimiter)?;
+                fmt.needs_space();
+            }
+            let item = items.last().expect("unreachable");
+            if fmt.current_columns() + item.len() > fmt.max_columns() {
+                fmt.needs_newline();
+            }
+            fmt.format_item(item)?;
         }
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
 
 impl<T> Clauses<T> {
     pub fn get(&self) -> &[T] {
         self.0.get()
-    }
-}
-
-impl<T: Item> Item for Clauses<T> {
-    fn tree(&self) -> Tree {
-        Tree::linefeed(self.0.tree())
     }
 }

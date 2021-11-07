@@ -1,51 +1,29 @@
-use crate::format::{Item, Tree};
+use crate::format::Format;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Items, NonEmptyItems};
+use crate::items::generics::{Elements, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
+use crate::items::styles::Child;
 use crate::items::symbols::{
     CloseSquareSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum ListExpr {
     Proper(ProperListExpr),
     Improper(ImproperListExpr),
     Comprehension(ListComprehensionExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ProperListExpr {
     open: OpenSquareSymbol,
-    items: Items<Expr>,
+    items: Child<Elements<Expr>>,
     close: CloseSquareSymbol,
 }
 
-impl Item for ProperListExpr {
-    fn tree(&self) -> Tree {
-        let mut items = self.items.tree();
-        match &mut items {
-            Tree::Elements { packed, trees, .. } => {
-                if trees.iter().all(|x| matches!(x, Tree::Atomic(_))) {
-                    *packed = true;
-                }
-            }
-            Tree::None => {}
-            _ => {
-                unreachable!()
-            }
-        }
-
-        Tree::Compound(vec![
-            self.open.tree(),
-            Tree::child(items, true),
-            self.close.tree(),
-        ])
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ImproperListExpr {
     open: OpenSquareSymbol,
     items: NonEmptyItems<Expr>,
@@ -54,21 +32,7 @@ pub struct ImproperListExpr {
     close: CloseSquareSymbol,
 }
 
-impl Item for ImproperListExpr {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![
-            self.open.tree(),
-            Tree::BinaryOp {
-                left: Box::new(self.items.tree()),
-                delimiter: self.bar.to_item_span(),
-                right: Box::new(self.last_item.tree()),
-            },
-            self.close.tree(),
-        ])
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
     item: Expr,

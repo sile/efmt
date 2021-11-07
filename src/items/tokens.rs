@@ -1,10 +1,10 @@
-use crate::format::{Item, Tree};
+use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, Span, Item)]
+#[derive(Debug, Clone, Span, Format)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -34,7 +34,7 @@ impl Token {
 }
 
 macro_rules! impl_traits {
-    ($name:ident, $variant:ident) => {
+    ($name:ident, $variant:ident, $is_primitive:expr) => {
         impl Span for $name {
             fn start_position(&self) -> Position {
                 self.start
@@ -54,9 +54,13 @@ macro_rules! impl_traits {
             }
         }
 
-        impl Item for $name {
-            fn tree(&self) -> Tree {
-                Tree::Atomic(vec![self.to_item_span()])
+        impl Format for $name {
+            fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+                fmt.write_text(self)
+            }
+
+            fn is_primitive(&self) -> bool {
+                $is_primitive
             }
         }
 
@@ -89,7 +93,7 @@ impl AtomToken {
     }
 }
 
-impl_traits!(AtomToken, Atom);
+impl_traits!(AtomToken, Atom, true);
 
 #[derive(Debug, Clone)]
 pub struct CharToken {
@@ -103,7 +107,7 @@ impl CharToken {
     }
 }
 
-impl_traits!(CharToken, Char);
+impl_traits!(CharToken, Char, true);
 
 #[derive(Debug, Clone)]
 pub struct FloatToken {
@@ -117,7 +121,7 @@ impl FloatToken {
     }
 }
 
-impl_traits!(FloatToken, Float);
+impl_traits!(FloatToken, Float, true);
 
 #[derive(Debug, Clone)]
 pub struct IntegerToken {
@@ -131,7 +135,7 @@ impl IntegerToken {
     }
 }
 
-impl_traits!(IntegerToken, Integer);
+impl_traits!(IntegerToken, Integer, true);
 
 #[derive(Debug, Clone)]
 pub struct KeywordToken {
@@ -150,7 +154,7 @@ impl KeywordToken {
     }
 }
 
-impl_traits!(KeywordToken, Keyword);
+impl_traits!(KeywordToken, Keyword, false);
 
 #[derive(Debug, Clone)]
 pub struct StringToken {
@@ -164,7 +168,7 @@ impl StringToken {
     }
 }
 
-impl_traits!(StringToken, String);
+impl_traits!(StringToken, String, true);
 
 #[derive(Debug, Clone)]
 pub struct SymbolToken {
@@ -183,7 +187,7 @@ impl SymbolToken {
     }
 }
 
-impl_traits!(SymbolToken, Symbol);
+impl_traits!(SymbolToken, Symbol, false);
 
 #[derive(Debug, Clone)]
 pub struct VariableToken {
@@ -206,7 +210,7 @@ impl VariableToken {
     }
 }
 
-impl_traits!(VariableToken, Variable);
+impl_traits!(VariableToken, Variable, true);
 
 #[derive(Debug, Clone)]
 pub struct CommentToken {
@@ -227,12 +231,6 @@ impl Span for CommentToken {
 
     fn end_position(&self) -> Position {
         self.end
-    }
-}
-
-impl Item for CommentToken {
-    fn tree(&self) -> Tree {
-        Tree::Atomic(vec![self.to_item_span()])
     }
 }
 

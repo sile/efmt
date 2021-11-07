@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::Format;
 use crate::items::expressions::{Expr, IntegerLikeExpr, LiteralExpr};
 use crate::items::generics::{Either, Items, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::qualifiers::Qualifier;
@@ -10,20 +10,20 @@ use crate::items::tokens::{AtomToken, IntegerToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BitstringExpr {
     Construct(BitstringConstructExpr),
     Comprehension(BitstringComprehensionExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr {
     open: DoubleLeftAngleSymbol,
     segments: Items<BitstringSegment, CommaSymbol>,
     close: DoubleRightAngleSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr {
     open: DoubleLeftAngleSymbol,
     item: Expr,
@@ -32,26 +32,26 @@ pub struct BitstringComprehensionExpr {
     close: DoubleRightAngleSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegment {
     value: Either<LiteralExpr, Parenthesized<Expr>>,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegmentSize {
     colon: ColonSymbol,
     size: IntegerLikeExpr,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegmentType {
     slash: SlashSymbol,
     specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegmentTypeSpecifier {
     name: AtomToken,
     value: Maybe<(ColonSymbol, IntegerToken)>,

@@ -1,35 +1,26 @@
-use crate::format::{Item, Tree};
+use crate::format::{self, Format};
 use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
-use crate::items::generics::{Items, Maybe, Parenthesized};
+use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
+use crate::items::styles::{Child, Space};
 use crate::items::symbols::{self, ColonSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionCallExpr {
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
     function: AtomLikeExpr,
-    args: Parenthesized<Items<Expr>>,
+    args: Args<Expr>,
 }
 
-impl Item for FunctionCallExpr {
-    fn tree(&self) -> Tree {
-        Tree::SideEffect(Box::new(Tree::Compound(vec![
-            self.module.tree(),
-            self.function.tree(),
-            self.args.tree(),
-        ])))
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpCallExpr {
     op: UnaryOp,
     expr: Expr,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
@@ -37,24 +28,36 @@ pub enum UnaryOp {
     Bnot(keywords::BnotKeyword),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BinaryOpCallExpr {
-    left: NonLeftRecursiveExpr,
-    op: BinaryOp,
-    right: Expr,
+    left: Child<NonLeftRecursiveExpr>,
+    op: Space<BinaryOp>,
+    right: Child<BinaryOpRightExpr>,
 }
 
-impl Item for BinaryOpCallExpr {
-    fn tree(&self) -> Tree {
-        Tree::BinaryOp {
-            left: Box::new(self.left.tree()),
-            delimiter: self.op.to_item_span(),
-            right: Box::new(self.right.tree()),
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpRightExpr {
+    expr: Expr,
+}
+
+impl Format for BinaryOpRightExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if !fmt.multiline_mode() {
+            fmt.format_child_item_with_options(
+                &self.expr,
+                format::ChildOptions::new().forbid_multiline(),
+            )?;
+        } else {
+            fmt.format_child_item_with_options(
+                &self.expr,
+                format::ChildOptions::new().newline().base(1),
+            )?;
         }
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BinaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),

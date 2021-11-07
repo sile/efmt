@@ -25,6 +25,10 @@ impl<W: Write> Writer<W> {
         }
     }
 
+    pub fn clear_max_columns_exceeded_flag(&mut self) {
+        self.state.max_columns_exceeded = false;
+    }
+
     // TODO: consider transaction
     pub fn set_max_columns(&mut self, max: usize) {
         self.max_columns = max;
@@ -45,6 +49,7 @@ impl<W: Write> Writer<W> {
         let w = self.transactions.pop().unwrap(); // TODO
         self.state = w.start_state;
         self.write_all(&w.buf)?;
+        self.state.max_columns_exceeded = false; // TODO
         Ok(())
     }
 

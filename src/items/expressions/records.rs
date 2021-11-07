@@ -1,4 +1,4 @@
-use crate::format::Item;
+use crate::format::Format;
 use crate::items::expressions::{Expr, VariableLikeExpr};
 use crate::items::generics::{Items, Maybe};
 use crate::items::symbols::{
@@ -8,14 +8,14 @@ use crate::items::tokens::AtomToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum RecordExpr {
     Construct(RecordConstructExpr),
     Access(RecordAccessExpr),
     Update(RecordUpdateExpr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -24,7 +24,7 @@ pub struct RecordConstructExpr {
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordAccessExpr {
     value: Maybe<VariableLikeExpr>,
     sharp: SharpSymbol,
@@ -33,7 +33,7 @@ pub struct RecordAccessExpr {
     field: AtomToken,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordUpdateExpr {
     // TODO: allow `N2#nrec2.nrec1#nrec1.nrec0#nrec0.name`
     value: VariableLikeExpr,
@@ -44,7 +44,7 @@ pub struct RecordUpdateExpr {
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Item)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordField {
     name: AtomToken,
     delimiter: MatchSymbol,

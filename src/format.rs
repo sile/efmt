@@ -3,19 +3,91 @@ use crate::items::macros::Macro;
 use crate::items::tokens::CommentToken;
 use crate::span::{Position, Span};
 use std::collections::BTreeMap;
-use std::io::Write;
 
-pub use efmt_derive::Item;
+pub use efmt_derive::Format;
 
-mod writers;
+// TODO: delete
+// mod writers;
+
+#[derive(Debug, Clone, Default)]
+pub struct ChildOptions {
+    newline: bool,
+    multiline_mode: bool,
+    forbid_multiline: bool,
+    base: usize,
+}
+
+impl ChildOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn base(mut self, n: usize) -> Self {
+        self.base = n;
+        self
+    }
+
+    pub fn forbid_multiline(mut self) -> Self {
+        self.forbid_multiline = true;
+        self
+    }
+
+    pub fn newline(mut self) -> Self {
+        self.newline = true;
+        self
+    }
+
+    pub fn multiline_mode(mut self) -> Self {
+        self.multiline_mode = true;
+        self
+    }
+
+    fn apply(&self, transaction: &mut Transaction) {
+        assert!(transaction.buf.is_empty());
+        if self.newline {
+            transaction.needs_newline();
+            transaction.indent = transaction
+                .ancestor_indents
+                .iter()
+                .rev()
+                .nth(self.base)
+                .copied()
+                .expect("TODO")
+                + 4;
+        }
+        if self.multiline_mode {
+            transaction.enable_multiline_mode();
+        }
+        if self.forbid_multiline {
+            transaction.forbid_multiline = true;
+        }
+    }
+}
+
+pub trait Format: Span {
+    fn format(&self, fmt: &mut Formatter) -> Result<()>;
+
+    // TODO:
+    fn is_primitive(&self) -> bool {
+        false
+    }
+}
+
+impl<A: Format, B: Format> Format for (A, B) {
+    fn format(&self, fmt: &mut Formatter) -> Result<()> {
+        fmt.format_item(&self.0)?;
+        fmt.format_item(&self.1)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("max columns exceeded")]
     MaxColumnsExceeded,
 
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+    #[error("unexpected multiline")]
+    Multiline,
 
     #[error(transparent)]
     Int(#[from] std::num::ParseIntError),
@@ -23,476 +95,429 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl<A: Item, B: Item> Item for (A, B) {
-    fn tree(&self) -> Tree {
-        Tree::Compound(vec![self.0.tree(), self.1.tree()])
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ItemSpan {
-    start_position: Position,
-    end_position: Position,
-}
-
-impl ItemSpan {
-    pub fn new(start_position: Position, end_position: Position) -> Self {
-        Self {
-            start_position,
-            end_position,
-        }
-    }
-}
-
-impl Span for ItemSpan {
-    fn start_position(&self) -> Position {
-        self.start_position
-    }
-
-    fn end_position(&self) -> Position {
-        self.end_position
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Tree {
-    Atomic(Vec<ItemSpan>), // or Pattern
-    Compound(Vec<Tree>),
-    Child {
-        tree: Box<Tree>,
-        maybe_newline: bool,
-    }, // increment indent
-    IndentOffset {
-        offset: usize,
-        tree: Box<Tree>,
-    },
-    // TODO: remove(? maybe only `Coumpound` is sufficient)
-    Unbalanced {
-        left: Box<Tree>,
-        delimiter: ItemSpan,
-        right: Box<Tree>,
-    },
-    Elements {
-        // TODO: rename? (children or something)
-        trees: Vec<Tree>,
-        delimiters: Vec<ItemSpan>,
-        packed: bool,
-    },
-    BinaryOp {
-        left: Box<Tree>,
-        delimiter: ItemSpan,
-        right: Box<Tree>,
-    },
-    Space {
-        tree: Box<Tree>,
-        left: bool,
-        right: bool,
-    },
-    Linefeed(Box<Tree>),
-    Newline(Box<Tree>),
-    SideEffect(Box<Tree>), // TODO: remove
-    Block(Box<Tree>),
-    None,
-}
-
-impl Tree {
-    pub fn child(tree: Self, maybe_newline: bool) -> Self {
-        Self::Child {
-            tree: Box::new(tree),
-            maybe_newline,
-        }
-    }
-
-    pub fn space(tree: Self) -> Self {
-        Self::Space {
-            tree: Box::new(tree),
-            left: true,
-            right: true,
-        }
-    }
-
-    pub fn right_space(tree: Self) -> Self {
-        Self::Space {
-            tree: Box::new(tree),
-            left: false,
-            right: true,
-        }
-    }
-
-    pub fn linefeed(tree: Self) -> Self {
-        Self::Linefeed(Box::new(tree))
-    }
-
-    pub fn newline(tree: Self) -> Self {
-        Self::Newline(Box::new(tree))
-    }
-
-    // TODO: rename
-    pub fn is_pattern(&self) -> bool {
-        match self {
-            Self::Atomic(_) => true,
-            Self::Compound(x) => x.iter().all(|x| x.is_pattern()),
-            Self::Child { tree, .. } => tree.is_pattern(),
-            Self::SideEffect(_) => false,
-            Self::Unbalanced { .. } => false, // TODO
-            Self::Elements { trees, .. } => trees.iter().all(|x| x.is_pattern()),
-            Self::BinaryOp { left, right, .. } => left.is_pattern() && right.is_pattern(),
-            Self::IndentOffset { tree, .. } => tree.is_pattern(),
-            Self::Space { tree, .. } => tree.is_pattern(),
-            Self::Newline(_) => false,
-            Self::Linefeed(_) => false,
-            Self::Block(_) => false,
-            Self::None => true,
-        }
-    }
-
-    pub fn next_position(&self) -> Option<Position> {
-        match self {
-            Self::Atomic(x) => x.first().map(|x| x.start_position()),
-            Self::Compound(x) => x.first().and_then(|x| x.next_position()),
-            Self::Child { tree, .. } => tree.next_position(),
-            Self::SideEffect(x) => x.next_position(),
-            Self::IndentOffset { tree, .. } => tree.next_position(),
-            Self::Unbalanced { left, .. } => left.next_position(),
-            Self::Elements { trees, .. } => trees.first().and_then(|x| x.next_position()),
-            Self::BinaryOp { left, .. } => left.next_position(),
-            Self::Space { tree, .. } => tree.next_position(),
-            Self::Newline(x) => x.next_position(),
-            Self::Linefeed(x) => x.next_position(),
-            Self::Block(x) => x.next_position(),
-            Self::None => None,
-        }
-    }
-}
-
-// TODO: rename and remove `Span` requirement
-pub trait Item: Span {
-    fn tree(&self) -> Tree;
-}
-
-// TODO: remove?
-impl<T: Item + ?Sized> Item for &T {
-    fn tree(&self) -> Tree {
-        (**self).tree()
-    }
-}
-
 #[derive(Debug)]
-pub struct Formatter<W> {
-    writer: self::writers::Writer<W>,
-    state: FormatterState,
+pub struct Formatter {
+    transactions: Vec<Transaction>,
     text: String,
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
 }
 
-impl<W: Write> Formatter<W> {
+impl Formatter {
     pub fn new(
-        writer: W,
         text: String,
         comments: BTreeMap<Position, CommentToken>,
         macros: BTreeMap<Position, Macro>,
     ) -> Self {
         Self {
-            writer: self::writers::Writer::new(writer),
-            state: FormatterState::new(),
+            transactions: vec![Transaction::new()],
             text,
             macros,
             comments,
         }
     }
 
-    pub fn format_tree(&mut self, tree: &Tree) -> Result<()> {
-        //let state = self.state.clone();
-        self.writer.start_transaction();
-        if let Err(e) = self.format_tree0(tree) {
-            self.writer.rollback();
-            return Err(e);
-        }
-
-        if self.writer.max_columns_exceeded() && !self.state.newline_mode {
-            self.writer.rollback();
-            //self.state = state;
-            return Err(Error::MaxColumnsExceeded);
-        }
-        self.writer.commit()?;
-        Ok(())
+    pub fn max_columns(&self) -> usize {
+        self.transaction().max_columns
     }
 
-    fn format_tree0(&mut self, tree: &Tree) -> Result<()> {
-        match tree {
-            Tree::Atomic(x) => {
-                for x in x {
-                    self.write_text(x)?;
-                }
-            }
-            Tree::Compound(x) => {
-                for x in x {
-                    self.format_tree(x)?;
-                }
-            }
-            Tree::Child {
-                tree,
-                maybe_newline,
-            } => {
-                let mut newline_mode = self.state.newline_mode;
-                self.state.newline_mode = false;
-                self.state.indent_level += 4; // TODO: increment only if in newline mode
-                let state = self.state.clone();
-                match self.format_tree(tree) {
-                    Err(Error::MaxColumnsExceeded) => {
-                        eprintln!("Try re-formatting in newline_mode");
-                        self.state = state;
-                        self.state.newline_mode = true;
-                        newline_mode = true;
-                        dbg!("foo");
-                        self.format_tree(tree)?;
-                        dbg!("bar");
-                    }
-                    Err(e) => return Err(e),
-                    _ => {}
-                }
-
-                if self.state.newline_mode && *maybe_newline {
-                    self.needs_newline()?;
-                }
-                self.state.indent_level -= 4;
-                self.state.newline_mode = newline_mode;
-            }
-            Tree::SideEffect(x) => {
-                self.format_tree(x)?;
-            }
-            Tree::Unbalanced {
-                left,
-                delimiter,
-                right,
-            } => {
-                // TODO:
-                self.format_tree(left)?;
-                self.needs_space()?;
-                self.write_text(delimiter)?; // TODO
-                self.needs_space()?;
-                self.format_tree(right)?;
-            }
-            Tree::Elements {
-                trees,
-                delimiters,
-                packed,
-            } => {
-                // TODO:
-                let needs_newline = self.state.newline_mode;
-                if needs_newline {
-                    self.needs_newline()?;
-                }
-                if let Some(x) = trees.get(0) {
-                    // TODO: save the current indent and use that for the following items
-                    self.format_tree(x)?;
-                    for (delimiter, tree) in delimiters.iter().zip(trees.iter().skip(1)) {
-                        if *packed && self.writer.columns() == self.writer.max_columns() {
-                            // TODO
-                            self.needs_newline()?;
-                            self.state.newline_mode = false;
-                        }
-
-                        self.write_text(delimiter)?; // TODO
-                        if needs_newline {
-                            self.needs_newline()?;
-                        } else {
-                            self.needs_space()?;
-                        }
-
-                        let state = self.state.clone();
-                        match self.format_tree(tree) {
-                            Err(Error::MaxColumnsExceeded) if *packed => {
-                                self.state = state;
-                                self.needs_newline()?;
-                                self.state.newline_mode = false; // TODO
-                                self.format_tree(tree)?; // TODO: consider delimiter length
-                            }
-                            Err(e) => return Err(e),
-                            Ok(()) => {}
-                        }
-                    }
-                }
-            }
-            Tree::BinaryOp {
-                left,
-                delimiter,
-                right,
-            } => {
-                // TODO:
-                self.format_tree(left)?;
-                self.needs_space()?;
-                self.write_text(delimiter)?;
-                self.needs_space()?;
-                self.format_tree(right)?;
-            }
-            Tree::IndentOffset { offset, tree } => {
-                self.state.indent_level += *offset;
-                self.format_tree(tree)?;
-                self.state.indent_level -= *offset;
-            }
-            Tree::Newline(x) => {
-                self.format_tree(x)?;
-                self.needs_newline()?
-            }
-            Tree::Linefeed(x) => {
-                self.needs_newline()?;
-                self.format_tree(x)?;
-            }
-            Tree::Space { tree, left, right } => {
-                if *left {
-                    self.needs_space()?;
-                }
-                self.format_tree(tree)?;
-                if *right {
-                    self.needs_space()?;
-                }
-            }
-            Tree::Block(x) => {
-                self.format_tree(x)?;
-            }
-            Tree::None => {}
-        }
-
-        Ok(())
+    pub fn current_columns(&self) -> usize {
+        self.transaction().current_columns
     }
 
-    pub fn format_module(mut self, forms: &[Form]) -> Result<()> {
+    fn transaction_mut(&mut self) -> &mut Transaction {
+        self.transactions.last_mut().expect("bug")
+    }
+
+    fn transaction(&self) -> &Transaction {
+        self.transactions.last().expect("bug")
+    }
+
+    // TODO: remove
+    pub fn format_either_child_item(
+        &mut self,
+        item: &impl Format,
+        options0: ChildOptions,
+        options1: ChildOptions,
+    ) -> Result<()> {
+        let original = self.transaction().clone();
+        let mut t0 = None;
+        let mut t1 = None;
+        let result0 = self.format_child_item_with_options(item, options0);
+        if result0.is_ok() {
+            t0 = Some(std::mem::replace(self.transaction_mut(), original.clone()));
+        }
+        let result1 = self.format_child_item_with_options(item, options1);
+        if result1.is_ok() {
+            t1 = Some(std::mem::replace(self.transaction_mut(), original.clone()));
+        }
+        match (result0.map(|_| t0.unwrap()), result1.map(|_| t1.unwrap())) {
+            (Err(e), Err(_)) => Err(e),
+            (Ok(transaction), Err(_)) => {
+                *self.transaction_mut() = transaction;
+                Ok(())
+            }
+            (Err(_), Ok(transaction)) => {
+                *self.transaction_mut() = transaction;
+                Ok(())
+            }
+            (Ok(t0), Ok(t1)) => {
+                let max_columns = self.transaction().max_columns;
+                let t0_columns = t0.current_max_columns;
+                let t1_columns = t1.current_max_columns;
+
+                if t0_columns <= max_columns && t1_columns <= max_columns {
+                    let t0_lines = t0.current_lines + t0.needs_newline as usize;
+                    let t1_lines = t1.current_lines + t1.needs_newline as usize;
+                    if t0_lines < t1_lines {
+                        *self.transaction_mut() = t0;
+                    } else {
+                        *self.transaction_mut() = t1;
+                    }
+                } else if t0_columns > max_columns && t1_columns <= max_columns {
+                    *self.transaction_mut() = t1;
+                } else if t0_columns <= max_columns && t1_columns > max_columns {
+                    *self.transaction_mut() = t0;
+                } else {
+                    if t0_columns < t1_columns {
+                        *self.transaction_mut() = t0;
+                    } else {
+                        *self.transaction_mut() = t1;
+                    }
+                }
+
+                Ok(())
+            }
+        }
+    }
+
+    pub fn multiline_mode(&self) -> bool {
+        self.transaction().multiline_mode
+    }
+
+    pub fn needs_newline(&mut self) {
+        self.transaction_mut().needs_newline();
+    }
+
+    pub fn needs_space(&mut self) {
+        self.transaction_mut().needs_space();
+    }
+
+    pub fn enable_multiline_mode(&mut self) {
+        self.transaction_mut().enable_multiline_mode();
+    }
+
+    pub fn format_module(mut self, forms: &[Form]) -> Result<String> {
         for form in forms {
-            self.format_tree(&form.tree())?;
-            self.needs_newline()?;
+            self.format_child_item(form)?;
+            self.needs_newline();
         }
 
-        let eof = Eof::new();
-        // TODO: handle empty macro
-        self.write_comments(&eof)?;
-        if self.state.needs_newline {
-            writeln!(self.writer)?;
-        }
-
-        Ok(())
+        // TODO: handle remaining comments and empty macros
+        assert_eq!(self.transactions.len(), 1);
+        Ok(self.transactions.pop().unwrap().buf)
     }
 
-    fn write_text(&mut self, item: &impl Span) -> Result<()> {
+    pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
         self.write_comments(item)?;
-        self.write_newline(item)?;
-        self.write_space()?;
-
-        let start = item.start_position().offset();
-        let end = std::cmp::max(start, item.end_position().offset()); // TODO: remove
-
-        let text = &self.text[start..end];
-        write!(self.writer, "{}", text)?;
-        self.state.next_text_position = item.end_position();
-
-        Ok(())
+        item.format(self)
     }
 
-    // TODO: rename
-    fn needs_newline(&mut self) -> Result<()> {
-        self.state.needs_newline = true;
-        self.state.newline_mode = true;
-        Ok(())
-    }
+    pub fn format_child_item_with_options(
+        &mut self,
+        item: &impl Format,
+        options: ChildOptions,
+    ) -> Result<()> {
+        let mut result = self.with_transaction(|this| {
+            // TODO: handle comments and macros
+            options.apply(this.transaction_mut());
+            item.format(this)?;
+            Ok(())
+        });
 
-    fn needs_space(&mut self) -> Result<()> {
-        self.state.needs_space = 1;
-        Ok(())
-    }
-
-    fn write_newline(&mut self, next_item: &impl Span) -> Result<()> {
-        if !self.state.needs_newline {
-            return Ok(());
+        // TODO: improve this huristic
+        for i in 1..=4 {
+            match result {
+                Err(Error::MaxColumnsExceeded | Error::Multiline) => {
+                    result = self.with_transaction(|this| {
+                        options.apply(this.transaction_mut());
+                        this.transaction_mut().shorten_max_columns(i);
+                        item.format(this)
+                    })
+                }
+                _ => {
+                    break;
+                }
+            }
         }
 
-        if self.state.next_text_position.line() + 1 < next_item.start_position().line() {
-            writeln!(self.writer)?;
+        match result {
+            Err(Error::MaxColumnsExceeded | Error::Multiline) => {
+                result = self.with_transaction(|this| {
+                    options.apply(this.transaction_mut());
+                    this.enable_multiline_mode();
+                    item.format(this)
+                })
+            }
+            _ => {}
         }
-        write!(
-            self.writer,
-            "\n{:indent$}",
-            "",
-            indent = self.state.indent_level // TODO: remove `_level`
-        )?;
-        self.state.needs_newline = false;
-        self.state.needs_space = 0;
+
+        result
+    }
+
+    pub fn format_child_item(&mut self, item: &impl Format) -> Result<()> {
+        self.format_child_item_with_options(item, Default::default())
+    }
+
+    pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
+        // TODO: handle empty macros
+
+        let transaction = self.transactions.last_mut().expect("bug");
+        transaction.write_text(&self.text, item)?;
         Ok(())
     }
 
-    fn write_space(&mut self) -> Result<()> {
-        if self.state.needs_space == 0 {
-            return Ok(());
-        }
-
-        write!(self.writer, "{:width$}", "", width = self.state.needs_space)?;
-        self.state.needs_space = 0;
+    pub fn write_comment(&mut self, item: &impl Span) -> Result<()> {
+        let transaction = self.transactions.last_mut().expect("bug");
+        transaction.write_comment(&self.text, item)?;
         Ok(())
     }
 
     fn write_comments(&mut self, next_item: &impl Span) -> Result<()> {
-        let end = next_item.start_position();
-        let mut start = std::cmp::min(self.state.next_text_position, end);
-        while let Some(token) = self.comments.range(start..end).map(|x| x.1.clone()).next() {
-            if !self.state.needs_newline && self.state.next_text_position.offset() != 0 {
-                self.state.needs_space = 2;
+        while let Some(comment_start) = self.next_comment_position() {
+            if next_item.start_position() < comment_start {
+                break;
             }
 
-            let comment = self.item_text(&token);
-            if comment.starts_with("%% efmt:max_columns=") {
-                let max_columns = (&comment["%% efmt:max_columns=".len()..]).parse()?;
-                self.writer.set_max_columns(max_columns);
-                eprintln!("[INFO] new max columns: {}", max_columns);
-            }
-
-            self.write_text(&token)?;
-            self.needs_newline()?;
-            start = std::cmp::min(self.state.next_text_position, end);
+            let comment = self.comments[&comment_start].clone();
+            self.write_comment(&comment)?;
         }
         Ok(())
     }
 
-    fn item_text(&self, item: &impl Span) -> &str {
-        &self.text[item.start_position().offset()..item.end_position().offset()]
+    fn next_comment_position(&self) -> Option<Position> {
+        self.comments
+            .range(self.next_position()..)
+            .map(|x| x.0.clone())
+            .next()
+    }
+
+    fn next_position(&self) -> Position {
+        self.transactions.last().unwrap().next_text_position
+    }
+
+    fn with_transaction<F>(&mut self, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Self) -> Result<()>,
+    {
+        let child = self.transaction_mut().create_child();
+        self.transactions.push(child);
+        let result = f(self);
+        let child = self.transactions.pop().expect("bug");
+        if result.is_ok() {
+            child.commit(self.transaction_mut());
+        }
+        result
     }
 }
 
 #[derive(Debug, Clone)]
-struct FormatterState {
+pub struct Transaction {
+    indent: usize,
+    ancestor_indents: Vec<usize>,
+    max_columns: usize,
     next_text_position: Position,
-    indent_level: usize,
-    needs_space: usize,
+    current_columns: usize,
+    current_max_columns: usize, // TODO: rename
+    current_lines: usize,
+    needs_space: bool,
     needs_newline: bool,
-    newline_mode: bool,
+    multiline_mode: bool,
+    forbid_multiline: bool,
+    buf: String,
+    parent_last_char: Option<char>,
 }
 
-impl FormatterState {
-    fn new() -> Self {
+impl Transaction {
+    pub fn new() -> Self {
         Self {
             next_text_position: Position::new(0, 0, 0),
-            indent_level: 0,
-            needs_space: 0,
+            indent: 0,
+            ancestor_indents: Vec::new(),
+            max_columns: 50, // TODO: Make configurable
+            needs_space: false,
             needs_newline: false,
-            newline_mode: false,
+            multiline_mode: false,
+            forbid_multiline: false,
+            current_columns: 0,
+            current_max_columns: 0,
+            current_lines: 0,
+            buf: String::new(),
+            parent_last_char: None,
         }
     }
-}
 
-#[derive(Debug)]
-struct Eof(Position);
-
-impl Eof {
-    fn new() -> Self {
-        Self(Position::new(usize::MAX, usize::MAX, usize::MAX))
+    pub fn create_child(&self) -> Self {
+        Self {
+            next_text_position: self.next_text_position,
+            indent: if self.needs_newline {
+                self.indent
+            } else {
+                self.current_columns
+            },
+            ancestor_indents: self
+                .ancestor_indents
+                .iter()
+                .copied()
+                .chain(std::iter::once(self.indent))
+                .collect(),
+            current_columns: self.current_columns,
+            current_max_columns: 0,
+            current_lines: self.current_lines,
+            max_columns: self.max_columns,
+            needs_space: self.needs_space,
+            needs_newline: self.needs_newline,
+            multiline_mode: false,
+            forbid_multiline: self.forbid_multiline,
+            buf: String::new(),
+            parent_last_char: self.last_char(),
+        }
     }
-}
 
-impl Span for Eof {
-    fn start_position(&self) -> Position {
-        self.0
+    fn last_char(&self) -> Option<char> {
+        self.buf.chars().last().or(self.parent_last_char)
     }
 
-    fn end_position(&self) -> Position {
-        self.0
+    fn write_newline(&mut self) -> Result<()> {
+        if self.needs_newline {
+            if self.last_char().map_or(false, |c| c != '\n') {
+                self.write_text0("\n")?;
+            }
+            self.needs_newline = false;
+            self.needs_space = false;
+        }
+        Ok(())
+    }
+
+    fn write_space(&mut self) -> Result<()> {
+        if self.needs_space {
+            if self.last_char().map_or(false, |c| c != ' ') {
+                self.write_text0(" ")?;
+            }
+            self.needs_space = false;
+        }
+        Ok(())
+    }
+
+    pub fn write_comment(&mut self, text: &str, item: &impl Span) -> Result<()> {
+        let start = item.start_position().offset();
+        let end = std::cmp::max(start, item.end_position().offset()); // TODO: remove
+        let text = &text[start..end];
+
+        self.write_newline()?;
+        if self.current_columns > 0 {
+            self.write_text0("  ")?;
+        }
+        if self.next_text_position.line() + 1 < item.start_position().line() {
+            self.write_text0("\n")?;
+            self.needs_space = false;
+            self.needs_newline = false;
+        }
+
+        self.buf.push_str(text);
+        self.current_columns += text.len();
+        self.next_text_position = item.end_position();
+
+        self.needs_newline();
+        Ok(())
+    }
+
+    pub fn write_text(&mut self, text: &str, item: &impl Span) -> Result<()> {
+        let start = item.start_position().offset();
+        let end = std::cmp::max(start, item.end_position().offset()); // TODO: remove
+        let text = &text[start..end];
+
+        self.write_newline()?;
+        self.write_space()?;
+        if self.next_text_position.line() + 1 < item.start_position().line() {
+            self.write_text0("\n")?;
+            self.needs_space = false;
+            self.needs_newline = false;
+        }
+
+        self.write_text0(text)?;
+
+        self.next_text_position = item.end_position();
+        Ok(())
+    }
+
+    // TODO: rename
+    fn write_text0(&mut self, text: &str) -> Result<()> {
+        for c in text.chars() {
+            if c == '\n' {
+                if self.forbid_multiline && !self.buf.chars().all(|c| c == '\n') {
+                    return Err(Error::Multiline);
+                }
+
+                self.current_columns = 0;
+                self.current_lines += 1;
+            } else if !c.is_control() {
+                if self.current_columns >= self.max_columns {
+                    if !self.multiline_mode {
+                        return Err(Error::MaxColumnsExceeded);
+                    } else {
+                        // TODO: Emit warning log
+                    }
+                }
+
+                if self.current_columns < self.indent {
+                    for _ in self.current_columns..self.indent {
+                        self.buf.push(' ');
+                    }
+                    self.current_columns = self.indent;
+                }
+                self.current_columns += 1;
+                self.current_max_columns =
+                    std::cmp::max(self.current_max_columns, self.current_columns);
+            }
+
+            self.buf.push(c);
+        }
+
+        Ok(())
+    }
+
+    pub fn next_text_position(&self) -> Position {
+        self.next_text_position
+    }
+
+    pub fn shorten_max_columns(&mut self, n: usize) {
+        self.max_columns -= n;
+    }
+
+    pub fn enable_multiline_mode(&mut self) {
+        self.multiline_mode = true;
+        if self.needs_space {
+            self.needs_newline();
+        }
+    }
+
+    pub fn needs_newline(&mut self) {
+        self.needs_newline = true;
+    }
+
+    pub fn needs_space(&mut self) {
+        self.needs_space = true;
+    }
+
+    pub fn commit(self, parent: &mut Self) {
+        parent.next_text_position = self.next_text_position;
+        parent.current_columns = self.current_columns;
+        parent.current_max_columns =
+            std::cmp::max(parent.current_max_columns, self.current_max_columns);
+        parent.current_lines = self.current_lines;
+        parent.needs_space = self.needs_space;
+        parent.needs_newline = self.needs_newline;
+        parent.buf.push_str(&self.buf);
     }
 }

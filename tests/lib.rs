@@ -57,17 +57,12 @@ fn format_works() -> anyhow::Result<()> {
         }
 
         let expected = std::fs::read_to_string(&formatted_path)?;
-        let mut formatted_text = Vec::new();
-        {
-            let formatter = Formatter::new(
-                &mut formatted_text,
-                parser.text().to_owned(),
-                parser.comments().clone(),
-                parser.macros().clone(),
-            );
-            formatter.format_module(&forms)?;
-        }
-        let formatted_text = String::from_utf8(formatted_text)?;
+        let formatter = Formatter::new(
+            parser.text().to_owned(),
+            parser.comments().clone(),
+            parser.macros().clone(),
+        );
+        let formatted_text = formatter.format_module(&forms)?;
         if formatted_text != expected {
             // use std::io::Write;
             // std::fs::File::create("/tmp/test.erl.actual")?.write_all(formatted_text.as_bytes())?;
