@@ -3,22 +3,18 @@ use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
 pub struct TransactionConfig {
-    indent: usize,
-    max_columns: usize,
-    multiline_mode: MultilineMode,
+    pub indent: usize,
+    pub max_columns: usize,
+    pub multiline_mode: MultilineMode,
 }
 
 impl TransactionConfig {
-    pub fn indent(&self) -> usize {
-        self.indent
-    }
-
-    pub fn max_columns(&self) -> usize {
-        self.max_columns
-    }
-
-    pub fn multiline_mode(&self) -> MultilineMode {
-        self.multiline_mode
+    fn root(max_columns: usize) -> Self {
+        Self {
+            indent: 0,
+            max_columns,
+            multiline_mode: MultilineMode::Allow,
+        }
     }
 }
 
@@ -28,7 +24,6 @@ pub struct TransactionState {
     current_column: usize,
     needs_whitespace: Option<Whitespace>,
     formatted_text: String,
-    parent_last_char: Option<char>,
 }
 
 impl TransactionState {
@@ -38,7 +33,6 @@ impl TransactionState {
             current_column: self.current_column,
             needs_whitespace: self.needs_whitespace,
             formatted_text: String::new(),
-            parent_last_char: self.formatted_text.chars().last(),
         }
     }
 
@@ -54,31 +48,45 @@ impl TransactionState {
 pub struct Transaction {
     config: TransactionConfig,
     state: TransactionState,
+    parent: Option<Box<Self>>,
 }
 
 impl Transaction {
-    pub fn root(config: TransactionConfig) -> Self {
+    pub fn root(max_columns: usize) -> Self {
         Self {
-            config,
+            config: TransactionConfig::root(max_columns),
             state: TransactionState {
                 next_position: Position::new(0, 0, 0),
                 current_column: 0,
                 needs_whitespace: None,
                 formatted_text: String::new(),
-                parent_last_char: None,
             },
+            parent: None,
         }
     }
 
-    pub fn start(&self, config: TransactionConfig) -> Self {
-        Self {
-            config,
-            state: self.state.clone_for_new_transaction(),
-        }
+    pub fn start_new_transaction(&mut self, config: TransactionConfig) {
+        let state = self.state.clone_for_new_transaction();
+        let parent = std::mem::replace(
+            self,
+            Self {
+                config,
+                state,
+                parent: None,
+            },
+        );
+        self.parent = Some(Box::new(parent));
     }
 
-    pub fn commit(self, parent: &mut Self) {
-        parent.state.copy_from_committed_transaction(self.state);
+    pub fn commit(&mut self) {
+        let parent = *self.parent.take().expect("bug");
+        let commited = std::mem::replace(self, parent);
+        self.state.copy_from_committed_transaction(commited.state);
+    }
+
+    pub fn abort(&mut self) {
+        let parent = *self.parent.take().expect("bug");
+        let _ = std::mem::replace(self, parent);
     }
 
     pub fn config(&self) -> &TransactionConfig {
@@ -151,7 +159,7 @@ impl Transaction {
             .formatted_text
             .chars()
             .last()
-            .or(self.state.parent_last_char)
+            .or_else(|| self.parent.as_ref().and_then(|x| x.last_char()))
     }
 
     fn write_whitespace(&mut self) -> Result<()> {
