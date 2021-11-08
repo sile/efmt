@@ -5,9 +5,12 @@ use crate::items::atoms::{
 };
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Clauses, Either, Items, Maybe, NonEmptyItems, Parenthesized};
+use crate::items::generics::{
+    Clauses, Either, Elements, Items, Maybe, NonEmptyItems, Parenthesized,
+};
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
+use crate::items::styles::{RightSpace, Space};
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
     MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol,
@@ -34,9 +37,9 @@ pub struct RecordDecl {
     record: RecordAtom,
     open: OpenParenSymbol,
     name: AtomToken,
-    comma: CommaSymbol,
+    comma: RightSpace<CommaSymbol>,
     field_start: OpenBraceSymbol,
-    fields: Items<RecordField, CommaSymbol>,
+    fields: Elements<RecordField>,
     field_end: CloseBraceSymbol,
     close: CloseParenSymbol,
     dot: DotSymbol,
@@ -45,17 +48,17 @@ pub struct RecordDecl {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordField {
     name: AtomToken,
-    default: Maybe<(MatchSymbol, Expr)>,
-    r#type: Maybe<(DoubleColonSymbol, Type)>,
+    default: Maybe<(Space<MatchSymbol>, Expr)>,
+    r#type: Maybe<(Space<DoubleColonSymbol>, Type)>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TypeDecl {
     hyphen: HyphenSymbol,
-    kind: Either<TypeAtom, OpaqueAtom>,
+    kind: RightSpace<Either<TypeAtom, OpaqueAtom>>,
     name: AtomToken,
     params: Parenthesized<Items<VariableToken, CommaSymbol>>,
-    delimiter: DoubleColonSymbol,
+    delimiter: Space<DoubleColonSymbol>,
     r#type: Type,
     dot: DotSymbol,
 }
@@ -63,7 +66,7 @@ pub struct TypeDecl {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunSpec {
     hyphen: HyphenSymbol,
-    kind: Either<SpecAtom, CallbackAtom>,
+    kind: RightSpace<Either<SpecAtom, CallbackAtom>>,
     function_name: AtomToken,
     clauses: Clauses<SpecClause>,
     dot: DotSymbol,
@@ -71,16 +74,16 @@ pub struct FunSpec {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct SpecClause {
-    params: Parenthesized<Items<Type, CommaSymbol>>,
-    arrow: RightArrowSymbol,
+    params: Parenthesized<Items<Type>>,
+    arrow: Space<RightArrowSymbol>,
     r#return: Type,
     constraint: Maybe<Constraint>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Constraint {
-    when: WhenKeyword,
-    constraints: NonEmptyItems<(VariableToken, (DoubleColonSymbol, Type)), CommaSymbol>,
+    when: Space<WhenKeyword>,
+    constraints: NonEmptyItems<(VariableToken, (Space<DoubleColonSymbol>, Type)), CommaSymbol>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -110,7 +113,7 @@ pub struct DefineDirective {
     open: OpenParenSymbol,
     macro_name: MacroName,
     variables: Maybe<Parenthesized<Items<VariableToken, CommaSymbol>>>,
-    comma: CommaSymbol,
+    comma: RightSpace<CommaSymbol>,
     replacement: MacroReplacement,
     close: CloseParenSymbol,
     dot: DotSymbol,
@@ -143,17 +146,27 @@ pub struct IncludeDirective {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::items::styles::Child;
     use crate::parse::parse_text;
+    use crate::FormatOptions;
+
+    fn format(text: &str) -> String {
+        FormatOptions::<Child<Form>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
 
     #[test]
     fn define_directive_works() {
         let texts = [
-            "-define(FOO,).",
+            "-define(FOO, ).",
             "-define(bar, 1 + 2).",
             "-define(Baz(A, B), A), {B).",
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::Define(_)));
+            assert_eq!(format(text), text);
         }
     }
 
@@ -165,6 +178,7 @@ mod tests {
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::Include(_)));
+            assert_eq!(format(text), text);
         }
     }
 
@@ -181,14 +195,28 @@ mod tests {
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::Attr(_)));
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn attr_works() {
-        let texts = ["-export([foo/0, bar/1])."];
+        let texts = [
+            "-export([foo/0]).",
+            concat!(
+                "-export([foo/0,\n", //
+                "         bar/1])."
+            ),
+            concat!(
+                "-dialyzer({[no_return,\n",
+                "            no_match],\n",
+                "           [g/0,\n",
+                "            h/0]})."
+            ),
+        ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::Attr(_)));
+            assert_eq!(format(text), text);
         }
     }
 
@@ -196,34 +224,61 @@ mod tests {
     fn record_decl_works() {
         let texts = [
             "-record(foo, {}).",
-            "-record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).",
+            concat!(
+                "-record(rec, {field1 = [] :: Type1,\n",
+                "              field2,\n",
+                "              field3 = 42 :: Type3})."
+            ),
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::RecordDecl(_)));
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn fun_decl_works() {
         let texts = [
-            "foo() -> bar.",
-            "foo(A, {B, [C]}) -> bar; foo(_, _) -> baz.",
-            "foo(A) when is_atom(A)-> bar, baz; foo(_) -> qux.",
+            concat!(
+                "foo() ->\n", //
+                "    bar."
+            ),
+            concat!(
+                "foo(A, {B, [C]}) ->\n",
+                "    bar;\n",
+                "foo(_, _) ->\n",
+                "    baz."
+            ),
+            concat!(
+                "foo(A) when is_atom(A) ->\n",
+                "    bar,\n",
+                "    baz;\n",
+                "foo(_) ->\n",
+                "    qux."
+            ),
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::FunDecl(_)));
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn fun_spec_works() {
         let texts = [
-            "-spec foo(T1, T2) -> T3; (T4, T5) -> T6.",
+            concat!(
+                "-spec foo(T1, T2) -> T3;\n", //
+                "         (T4, T5) -> T6."
+            ),
             "-spec id(X) -> X when X :: tuple().",
-            "-callback foo(atom()) -> {atom(), atom()}.",
+            concat!(
+                "-callback foo(atom()) -> {atom(),\n",
+                "                          atom()}."
+            ),
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::FunSpec(_)));
+            assert_eq!(format(text), text);
         }
     }
 
@@ -231,10 +286,15 @@ mod tests {
     fn type_decl_works() {
         let texts = [
             "-type height() :: pos_integer().",
-            "-opaque orddict(Key, Val) :: [{Key, Val}].",
+            concat!(
+                "-opaque orddict(Key,\n",
+                "                Val) :: [{Key,\n",
+                "                          Val}]."
+            ),
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::TypeDecl(_)));
+            assert_eq!(format(text), text);
         }
     }
 }

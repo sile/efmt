@@ -1,7 +1,7 @@
 use crate::format::{self, Format};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
-use crate::items::styles::{Child, Newline};
+use crate::items::styles::{Child, Newline, Space};
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, StringToken, VariableToken,
@@ -98,7 +98,7 @@ impl Format for Body {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Guard {
-    when: WhenKeyword,
+    when: Space<WhenKeyword>,
     condition: GuardCondition,
 }
 

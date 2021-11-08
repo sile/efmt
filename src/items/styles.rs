@@ -2,7 +2,7 @@ use crate::format::{self, Format, Formatter};
 use crate::parse::Parse;
 use crate::span::Span;
 
-// TODO: delete?
+// TODO: delete or rename
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Child<T>(T);
 

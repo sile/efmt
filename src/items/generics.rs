@@ -170,9 +170,11 @@ impl<T: Format> Elements<T> {
                 return Ok(());
             };
 
-        for (item, delimiter) in items.iter().zip(delimiters.iter()) {
-            if fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
-                fmt.needs_newline();
+        for (i, (item, delimiter)) in items.iter().zip(delimiters.iter()).enumerate() {
+            if i > 0 {
+                if fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
+                    fmt.needs_newline();
+                }
             }
             fmt.format_item(item)?;
             fmt.format_item(delimiter)?;
@@ -206,11 +208,20 @@ impl<T: Format> Format for Elements<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
 
 impl<T> Clauses<T> {
     pub fn get(&self) -> &[T] {
         self.0.get()
+    }
+}
+
+impl<T: Format> Format for Clauses<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.with_subregion(
+            format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
+            |fmt| fmt.format_item(&self.0),
+        )
     }
 }
