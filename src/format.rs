@@ -147,14 +147,14 @@ pub struct Formatter {
 }
 
 impl Formatter {
-    pub fn new(
+    pub fn new<T>(
         text: String,
         comments: BTreeMap<Position, CommentToken>,
         macros: BTreeMap<Position, Macro>,
+        options: &crate::FormatOptions<T>,
     ) -> Self {
-        let max_columns = 50; // TODO
         Self {
-            transaction: Transaction::root(max_columns),
+            transaction: Transaction::root(options.max_columns),
             text,
             macros,
             comments,

@@ -41,8 +41,6 @@ fn format_works() -> anyhow::Result<()> {
         let formatted_text = efmt::format_file(&path)?;
         let expected = std::fs::read_to_string(&formatted_path)?;
         if formatted_text != expected {
-            // use std::io::Write;
-            // std::fs::File::create("/tmp/test.erl.actual")?.write_all(formatted_text.as_bytes())?;
             println!();
             println!("[Actual]\n{}\n", formatted_text);
             println!("[Expected]\n{}\n", expected);

@@ -61,6 +61,18 @@ impl<T: Format> Format for RightSpace<T> {
     }
 }
 
+// TODO: remove
+#[derive(Debug, Clone, Span, Parse)]
+pub struct LeftSpace<T>(T);
+
+impl<T: Format> Format for LeftSpace<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.needs_space();
+        fmt.format_item(&self.0)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Newline<T>(T);
 

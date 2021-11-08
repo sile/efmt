@@ -1,9 +1,10 @@
-use crate::format::Format;
-use crate::items::generics::{Either, Items, Maybe, Parenthesized};
+use crate::format::{self, Format};
+use crate::items::generics::{Either, Elements, Items, Maybe, Parenthesized};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     FunKeyword, RemKeyword,
 };
+use crate::items::styles::{RightSpace, Space};
 use crate::items::symbols::{
     CloseBraceSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DoubleColonSymbol,
     DoubleDotSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleRightArrowSymbol,
@@ -34,28 +35,40 @@ pub enum NonLeftRecursiveType {
     Literal(LiteralType),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpType {
     left: NonLeftRecursiveType,
     op: BinaryOp,
     right: Type,
 }
 
+impl Format for BinaryOpType {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.format_item(&self.left)?;
+        fmt.format_item(&self.op)?;
+        if fmt.multiline_mode().is_recommended() && matches!(self.op, BinaryOp::Union(_)) {
+            fmt.needs_newline();
+        }
+        fmt.format_item(&self.right)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BinaryOp {
-    Mul(MultiplySymbol),
-    Div(DivKeyword),
-    Rem(RemKeyword),
-    Band(BandKeyword),
-    Plus(PlusSymbol),
-    Minus(HyphenSymbol),
-    Bor(BorKeyword),
-    Bxor(BxorKeyword),
-    Bsl(BslKeyword),
-    Bsr(BsrKeyword),
-    Union(VerticalBarSymbol),
+    Mul(Space<MultiplySymbol>),
+    Div(Space<DivKeyword>),
+    Rem(Space<RemKeyword>),
+    Band(Space<BandKeyword>),
+    Plus(Space<PlusSymbol>),
+    Minus(Space<HyphenSymbol>),
+    Bor(Space<BorKeyword>),
+    Bxor(Space<BxorKeyword>),
+    Bsl(Space<BslKeyword>),
+    Bsr(Space<BsrKeyword>),
+    Union(Space<VerticalBarSymbol>),
+    Annotation(Space<DoubleColonSymbol>),
     Range(DoubleDotSymbol),
-    Annotation(DoubleColonSymbol),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -68,19 +81,19 @@ pub struct UnaryOpType {
 pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
-    Bnot(BnotKeyword),
+    Bnot(Space<BnotKeyword>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionType {
-    fun: FunKeyword,
-    params_and_return: Parenthesized<Maybe<(FunctionParams, (RightArrowSymbol, Type))>>,
+    fun: Space<FunKeyword>,
+    params_and_return: Parenthesized<Maybe<(FunctionParams, (Space<RightArrowSymbol>, Type))>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionParams {
     Any(Parenthesized<TripleDotSymbol>),
-    Params(Parenthesized<Items<Type, CommaSymbol>>),
+    Params(Parenthesized<Elements<Type>>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -101,24 +114,27 @@ pub struct MfargsType {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListType {
     open: OpenSquareSymbol,
-    item: Maybe<(Type, Maybe<(CommaSymbol, TripleDotSymbol)>)>,
+    item: Maybe<(Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>)>,
     close: CloseSquareSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleType {
     open: OpenBraceSymbol,
-    items: Items<Type, CommaSymbol>,
+    items: Elements<Type>,
     close: CloseBraceSymbol,
 }
 
-pub type MapFormat = (Type, (Either<DoubleRightArrowSymbol, MapMatchSymbol>, Type));
+pub type MapItem = (
+    Type,
+    (Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Type),
+);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapFormat, CommaSymbol>,
+    items: Elements<MapItem>,
     close: CloseBraceSymbol,
 }
 
@@ -127,7 +143,7 @@ pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
     open: OpenBraceSymbol,
-    fields: Items<(AtomToken, (MatchSymbol, Type)), CommaSymbol>,
+    fields: Elements<(AtomToken, (Space<MatchSymbol>, Type))>,
     close: CloseBraceSymbol,
 }
 
@@ -140,7 +156,12 @@ pub struct BitstringType {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BitstringSize {
-    BinaryAndUnit(Box<(BitstringBinarySize, (CommaSymbol, BitstringUnitSize))>),
+    BinaryAndUnit(
+        Box<(
+            BitstringBinarySize,
+            (RightSpace<CommaSymbol>, BitstringUnitSize),
+        )>,
+    ),
     Unit(Box<BitstringUnitSize>),
     Binary(Box<BitstringBinarySize>),
 }
@@ -164,10 +185,19 @@ pub struct BitstringUnitSize {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::items::styles::Child;
     use crate::parse::parse_text;
+    use crate::FormatOptions;
+
+    fn format(text: &str) -> String {
+        FormatOptions::<Child<Type>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
 
     #[test]
-    fn mfargs_works() {
+    fn parse_mfargs_works() {
         let texts = ["foo()", "foo:bar(A, 1)"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -179,7 +209,22 @@ mod test {
     }
 
     #[test]
-    fn list_works() {
+    fn format_mfargs_works() {
+        assert_eq!(format("foo()"), "foo()");
+        assert_eq!(format("foo:bar(A,1)"), "foo:bar(A, 1)");
+        assert_eq!(
+            format("foo:bar(A,1,baz(),qux())"),
+            concat!(
+                "foo:bar(A,\n",
+                "        1,\n",
+                "        baz(),\n",
+                "        qux())"
+            )
+        );
+    }
+
+    #[test]
+    fn parse_list_works() {
         let texts = ["[]", "[foo()]", "[10,...]"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -191,7 +236,14 @@ mod test {
     }
 
     #[test]
-    fn tuple_works() {
+    fn format_list_works() {
+        assert_eq!(format("[]"), "[]");
+        assert_eq!(format("[foo()]"), "[foo()]");
+        assert_eq!(format("[10,...]"), "[10, ...]");
+    }
+
+    #[test]
+    fn parse_tuple_works() {
         let texts = ["{}", "{foo()}", "{atom, 1}"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -203,7 +255,21 @@ mod test {
     }
 
     #[test]
-    fn map_works() {
+    fn format_tuple_works() {
+        assert_eq!(format("{}"), "{}");
+        assert_eq!(format("{foo()}"), "{foo()}");
+        assert_eq!(
+            format("{foo(),bar(),[baz()]}"),
+            concat!(
+                "{foo(),\n", //
+                " bar(),\n",
+                " [baz()]}"
+            )
+        );
+    }
+
+    #[test]
+    fn parse_map_works() {
         let texts = ["#{}", "#{atom() := integer()}", "#{a => b, 1 := 2}"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -215,7 +281,28 @@ mod test {
     }
 
     #[test]
-    fn record_works() {
+    fn format_map_works() {
+        let expected = [
+            "#{}",
+            "#{atom() := integer()}",
+            concat!(
+                "#{atom() := {aaa,\n", //
+                "             bbb,\n",
+                "             ccc}}"
+            ),
+            concat!(
+                "#{a => b,\n", //
+                "  1 := 2,\n",
+                "  atom() := atom()}"
+            ),
+        ];
+        for text in expected {
+            assert_eq!(format(text), text);
+        }
+    }
+
+    #[test]
+    fn parse_record_works() {
         let texts = ["#foo{}", "#foo{bar = integer()}", "#foo{bar = b, baz = 2}"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -227,7 +314,22 @@ mod test {
     }
 
     #[test]
-    fn function_works() {
+    fn format_record_works() {
+        let texts = [
+            "#foo{}",
+            "#foo{bar = integer()}",
+            concat!(
+                "#foo{bar = b,\n", //
+                "     baz = 2}"
+            ),
+        ];
+        for text in texts {
+            assert_eq!(format(text), text);
+        }
+    }
+
+    #[test]
+    fn parse_function_works() {
         let texts = [
             "fun ()",
             "fun ((...) -> atom())",
@@ -244,7 +346,25 @@ mod test {
     }
 
     #[test]
-    fn unary_op_works() {
+    fn format_function_works() {
+        let texts = [
+            "fun ()",
+            "fun ((...) -> atom())",
+            "fun (() -> integer())",
+            concat!(
+                "fun ((A,\n",
+                "      b,\n",
+                "      $c,\n",
+                "      {foo()}) -> tuple())"
+            ),
+        ];
+        for text in texts {
+            assert_eq!(format(text), text);
+        }
+    }
+
+    #[test]
+    fn parse_unary_op_works() {
         let texts = ["-10", "+10", "bnot 100"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -256,7 +376,15 @@ mod test {
     }
 
     #[test]
-    fn binary_op_works() {
+    fn format_unary_op_works() {
+        let texts = ["-10", "+10", "bnot 100"];
+        for text in texts {
+            assert_eq!(format(text), text);
+        }
+    }
+
+    #[test]
+    fn parse_binary_op_works() {
         let texts = ["-10 + 20 rem 3", "foo | (3 + 10) | -1..+20", "A :: atom()"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -265,7 +393,23 @@ mod test {
     }
 
     #[test]
-    fn bitstring_works() {
+    fn format_binary_op_works() {
+        let texts = [
+            "-10 + 20 rem 3",
+            concat!(
+                "foo |\n", //
+                "(3 + 10) |\n",
+                "-1..+20"
+            ),
+            "A :: atom()",
+        ];
+        for text in texts {
+            assert_eq!(format(text), text);
+        }
+    }
+
+    #[test]
+    fn parse_bitstring_works() {
         let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -273,6 +417,14 @@ mod test {
                 x,
                 Type::NonLeftRecursive(NonLeftRecursiveType::Bitstring(_))
             ));
+        }
+    }
+
+    #[test]
+    fn format_bitstring_works() {
+        let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
+        for text in texts {
+            assert_eq!(format(text), text);
         }
     }
 }
