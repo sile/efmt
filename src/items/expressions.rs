@@ -96,6 +96,22 @@ impl Format for Body {
     }
 }
 
+#[derive(Debug, Clone, Span, Parse)]
+pub struct MaybeInlineBody {
+    exprs: NonEmptyItems<Child<Expr>, Newline<CommaSymbol>>,
+}
+
+impl Format for MaybeInlineBody {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        let mut options = format::RegionOptions::new().trailing_item_size(4); // ' end'
+        if self.exprs.get().len() > 1 {
+            options = options.newline().indent(format::IndentMode::Offset(4));
+        }
+        fmt.with_subregion(options, |fmt| fmt.format_item(&self.exprs))?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Guard {
     when: Space<WhenKeyword>,

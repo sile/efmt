@@ -10,7 +10,7 @@ use crate::items::generics::{
 };
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
-use crate::items::styles::{RightSpace, Space};
+use crate::items::styles::{ColumnIndent, RightSpace, Space};
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
     MatchSymbol, OpenBraceSymbol, OpenParenSymbol, RightArrowSymbol,
@@ -57,9 +57,9 @@ pub struct TypeDecl {
     hyphen: HyphenSymbol,
     kind: RightSpace<Either<TypeAtom, OpaqueAtom>>,
     name: AtomToken,
-    params: Parenthesized<Items<VariableToken, CommaSymbol>>,
+    params: Parenthesized<Items<VariableToken>>,
     delimiter: Space<DoubleColonSymbol>,
-    r#type: Type,
+    r#type: ColumnIndent<Type>,
     dot: DotSymbol,
 }
 

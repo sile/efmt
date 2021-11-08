@@ -1,9 +1,9 @@
 use crate::format::Format;
 use crate::items::expressions::{Expr, VariableLikeExpr};
 use crate::items::generics::{Either, Items};
+use crate::items::styles::{ColumnIndent, Space};
 use crate::items::symbols::{
-    CloseBraceSymbol, CommaSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
-    SharpSymbol,
+    CloseBraceSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol, SharpSymbol,
 };
 use crate::parse::Parse;
 use crate::span::Span;
@@ -18,7 +18,7 @@ pub enum MapExpr {
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapFormat, CommaSymbol>,
+    items: ColumnIndent<Items<MapItem>>,
     close: CloseBraceSymbol,
 }
 
@@ -27,14 +27,14 @@ pub struct MapUpdateExpr {
     value: VariableLikeExpr,
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
-    items: Items<MapFormat, CommaSymbol>,
+    items: ColumnIndent<Items<MapItem>>,
     close: CloseBraceSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapFormat {
+pub struct MapItem {
     key: Expr,
-    delimiter: Either<DoubleRightArrowSymbol, MapMatchSymbol>,
+    delimiter: Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>,
     value: Expr,
 }
 
@@ -44,9 +44,21 @@ mod tests {
     use crate::items::expressions::NonLeftRecursiveExpr;
     use crate::parse::parse_text;
 
+    fn format(text: &str) -> String {
+        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
+
     #[test]
     fn map_construct_works() {
-        let texts = ["#{}", "#{1=>2, foo=>{bar,baz}}"];
+        let texts = [
+            "#{}",
+            indoc::indoc! {"
+                #{1 => 2,
+                  foo => {bar, baz}}"},
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Map(x)) = &x {
@@ -54,12 +66,19 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn map_update_works() {
-        let texts = ["M#{}", "(foo())#{1=>2, foo:={bar,baz}}"];
+        let texts = [
+            "M#{}",
+            indoc::indoc! {"
+                (foo())#{1 => 2,
+                         foo := {bar,
+                                 baz}}"},
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Map(x)) = &x {
@@ -67,6 +86,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 }

@@ -1,10 +1,11 @@
-use crate::format::Format;
+use crate::format::{self, Format};
 use crate::items::expressions::{Expr, IntegerLikeExpr, LiteralExpr};
-use crate::items::generics::{Either, Items, Maybe, NonEmptyItems, Parenthesized};
+use crate::items::generics::{Either, Elements, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::qualifiers::Qualifier;
+use crate::items::styles::{ColumnIndent, RightSpace, Space};
 use crate::items::symbols::{
-    ColonSymbol, CommaSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol,
-    DoubleVerticalBarSymbol, HyphenSymbol, SlashSymbol,
+    ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
+    HyphenSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken};
 use crate::parse::Parse;
@@ -19,16 +20,16 @@ pub enum BitstringExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr {
     open: DoubleLeftAngleSymbol,
-    segments: Items<BitstringSegment, CommaSymbol>,
+    segments: Elements<BitstringSegment>,
     close: DoubleRightAngleSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr {
-    open: DoubleLeftAngleSymbol,
+    open: RightSpace<DoubleLeftAngleSymbol>,
     item: Expr,
-    bar: DoubleVerticalBarSymbol,
-    qualifiers: NonEmptyItems<Qualifier, CommaSymbol>,
+    bar: Space<DoubleVerticalBarSymbol>,
+    qualifiers: ColumnIndent<NonEmptyItems<Qualifier>>,
     close: DoubleRightAngleSymbol,
 }
 
@@ -45,10 +46,27 @@ pub struct BitstringSegmentSize {
     size: IntegerLikeExpr,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringSegmentType {
     slash: SlashSymbol,
     specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
+}
+
+impl Format for BitstringSegmentType {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.format_item(&self.slash)?;
+        for (item, delimiter) in self
+            .specifiers
+            .items
+            .iter()
+            .zip(self.specifiers.delimiters.iter())
+        {
+            fmt.format_item(item)?;
+            fmt.format_item(delimiter)?;
+        }
+        fmt.format_item(self.specifiers.items.last().expect("unreachable"))?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -63,12 +81,22 @@ mod tests {
     use crate::items::expressions::NonLeftRecursiveExpr;
     use crate::parse::parse_text;
 
+    fn format(text: &str) -> String {
+        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
+
     #[test]
     fn bitstring_construct_works() {
         let texts = [
             "<<>>",
-            "<<1,2:16,3>>",
-            "<<1,(foo()):4/little-signed-integer-unit:8,C/binary>>",
+            "<<1, 2:16, 3>>",
+            indoc::indoc! {"
+                <<1,
+                  (foo()):4/little-signed-integer-unit:8,
+                  C/binary>>"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -77,14 +105,27 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn bitstring_comprehension_works() {
         let texts = [
-            "<< <<X>> || X <- [1,2,3]>>",
-            "<< foo(X,Y) || X <- [1,2,3], Y <= Z, false>>",
+            indoc::indoc! {"
+                << <<X>> || X <- [1,
+                                  2,
+                                  3]>>"},
+            indoc::indoc! {"
+                << foo(X,
+                       Y,
+                       Z,
+                       bar(),
+                       baz()) || X <- [1,
+                                       2,
+                                       3],
+                                 Y <= Z,
+                                 false>>"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -93,6 +134,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 }

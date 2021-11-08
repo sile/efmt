@@ -18,15 +18,23 @@ mod tests {
     use crate::items::expressions::NonLeftRecursiveExpr;
     use crate::parse::parse_text;
 
+    fn format(text: &str) -> String {
+        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
+
     #[test]
     fn tuple_works() {
-        let texts = ["{}", "{1}", "{foo,bar,baz}"];
+        let texts = ["{}", "{1}", "{foo, bar, baz}"];
         for text in texts {
             let x = parse_text(text).unwrap();
             assert!(matches!(
                 x,
                 Expr::NonLeftRecursive(NonLeftRecursiveExpr::Tuple(_))
             ));
+            assert_eq!(format(text), text);
         }
     }
 }

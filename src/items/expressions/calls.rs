@@ -2,7 +2,7 @@ use crate::format::{self, Format};
 use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
 use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
-use crate::items::styles::{Child, Space};
+use crate::items::styles::{Child, RightSpace, Space};
 use crate::items::symbols::{self, ColonSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
@@ -24,8 +24,8 @@ pub struct UnaryOpCallExpr {
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
-    Not(keywords::NotKeyword),
-    Bnot(keywords::BnotKeyword),
+    Not(RightSpace<keywords::NotKeyword>),
+    Bnot(RightSpace<keywords::BnotKeyword>),
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -102,37 +102,63 @@ mod tests {
     use super::*;
     use crate::items::expressions::NonLeftRecursiveExpr;
     use crate::parse::parse_text;
+    fn format(text: &str) -> String {
+        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
 
     #[test]
     fn function_call_works() {
-        let texts = ["foo()", "Foo(1,2,3)", "(foo(Bar))(a,b,c())", "foo:bar(baz)"];
+        let texts = [
+            "foo()",
+            "Foo(1, 2, 3)",
+            indoc::indoc! {"
+                (foo(Bar))(a,
+                           b,
+                           c())"},
+            "foo:bar(baz)",
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             assert!(matches!(
                 x,
                 Expr::NonLeftRecursive(NonLeftRecursiveExpr::FunctionCall(_))
             ));
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn unary_op_call_works() {
-        let texts = ["-1", "bnot Foo(1,+2,3)"];
+        let texts = ["-1", "bnot Foo(1, +2, 3)"];
         for text in texts {
             let x = parse_text(text).unwrap();
             assert!(matches!(
                 x,
                 Expr::NonLeftRecursive(NonLeftRecursiveExpr::UnaryOpCall(_))
             ));
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn binary_op_call_works() {
-        let texts = ["1+2", "1-2*3", "{A, B, C} = {foo, bar, baz} = qux()"];
+        let texts = [
+            "1 + 2",
+            "1 - 2 * 3",
+            indoc::indoc! {"
+                {A, B, C} = {foo,
+                             bar,
+                             baz} =
+                    qux() /
+                    quux() div 2"},
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             assert!(matches!(x, Expr::BinaryOpCall(_)));
+            assert_eq!(format(text), text);
         }
     }
 }

@@ -1,8 +1,10 @@
 use crate::format::Format;
-use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
+use crate::items::expressions::{
+    AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr, MaybeInlineBody,
+};
 use crate::items::generics::{Clauses, Items, Maybe, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
-use crate::items::styles::Space;
+use crate::items::styles::{RightSpace, Space};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SlashSymbol};
 use crate::items::tokens::{AtomToken, IntegerToken, VariableToken};
 use crate::parse::Parse;
@@ -17,33 +19,32 @@ pub enum FunctionExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-// TODO: #[item(prefers_oneline)]
 pub struct DefinedFunctionExpr {
-    fun: FunKeyword,
+    fun: RightSpace<FunKeyword>,
     module: Maybe<ModulePrefix>,
     name_and_arity: NameAndArity,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct AnonymousFunctionExpr {
-    fun: FunKeyword,
-    clauses: Clauses<FunctionClause>,
+    fun: RightSpace<FunKeyword>,
+    clauses: RightSpace<Clauses<FunctionClause<MaybeInlineBody>>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
-    fun: FunKeyword,
-    clauses: Clauses<NamedFunctionClause>,
+    fun: RightSpace<FunKeyword>,
+    clauses: RightSpace<Clauses<NamedFunctionClause>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct FunctionClause {
+pub struct FunctionClause<B = Body> {
     params: Parenthesized<Items<Expr>>,
     guard: Maybe<Guard>,
     arrow: Space<RightArrowSymbol>,
-    body: Body,
+    body: B,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -51,8 +52,8 @@ pub struct NamedFunctionClause {
     name: VariableToken,
     params: Parenthesized<Items<Expr>>,
     guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
-    body: Body,
+    arrow: Space<RightArrowSymbol>,
+    body: MaybeInlineBody,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -74,6 +75,13 @@ mod tests {
     use crate::items::expressions::{Expr, NonLeftRecursiveExpr};
     use crate::parse::parse_text;
 
+    fn format(text: &str) -> String {
+        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
+
     #[test]
     fn defined_function_works() {
         let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
@@ -84,6 +92,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
@@ -91,8 +100,24 @@ mod tests {
     fn anonymous_function_works() {
         let texts = [
             "fun () -> hi end",
-            "fun (a) -> a; (A) -> A end",
-            "fun ({a,b},C) -> C; (A, _B) when is_integer(A) -> A end",
+            indoc::indoc! {"
+                fun (a) -> a;
+                    (A) -> A end"},
+            indoc::indoc! {"
+                fun ({a, b}, C) -> C;
+                    (A, B) when is_integer(A);
+                                is_atom(B) -> A end"},
+            indoc::indoc! {"
+                fun (A) ->
+                        foo(),
+                        bar,
+                        baz(A) end"},
+            indoc::indoc! {"
+                fun (a) ->
+                        foo(),
+                        bar,
+                        baz();
+                    (A) -> A end"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -101,6 +126,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
@@ -108,8 +134,12 @@ mod tests {
     fn named_function_works() {
         let texts = [
             "fun Foo() -> hi end",
-            "fun Foo(a) -> a; Foo(A) -> A end",
-            "fun Foo({a,b},C) -> C; Foo(A, _B) when is_integer(A) -> A end",
+            indoc::indoc! {"
+                fun Foo(a) -> a;
+                    Foo(A) -> A end"},
+            indoc::indoc! {"
+                fun Foo({a, b}, C) -> C;
+                    Foo(A, _B) when is_integer(A) -> A end"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -118,6 +148,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 }

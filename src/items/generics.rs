@@ -97,8 +97,9 @@ pub struct Args<T>(Parenthesized<Items<T>>);
 
 #[derive(Debug, Clone)]
 pub struct NonEmptyItems<T, D = CommaSymbol> {
-    items: Vec<T>,
-    delimiters: Vec<D>,
+    // TODO: private
+    pub items: Vec<T>,
+    pub delimiters: Vec<D>,
 }
 
 impl<T, D> NonEmptyItems<T, D> {
@@ -223,5 +224,37 @@ impl<T: Format> Format for Clauses<T> {
             format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
             |fmt| fmt.format_item(&self.0),
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MaybeRepeat<T>(Vec<T>);
+
+impl<T: Span> Span for MaybeRepeat<T> {
+    fn start_position(&self) -> Position {
+        self.0[0].start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.0[self.0.len() - 1].end_position()
+    }
+}
+
+impl<T: Parse> Parse for MaybeRepeat<T> {
+    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+        let mut items = vec![parser.parse()?];
+        while let Some(item) = parser.try_parse() {
+            items.push(item);
+        }
+        Ok(Self(items))
+    }
+}
+
+impl<T: Format> Format for MaybeRepeat<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        for item in &self.0 {
+            fmt.format_item(item)?;
+        }
+        Ok(())
     }
 }
