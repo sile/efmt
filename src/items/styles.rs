@@ -2,6 +2,7 @@ use crate::format::{self, Format, Formatter};
 use crate::parse::Parse;
 use crate::span::Span;
 
+// TODO: delete?
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Child<T>(T);
 
@@ -13,7 +14,7 @@ impl<T> Child<T> {
 
 impl<T: Format> Format for Child<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.format_child_item(&self.0)
+        fmt.with_subregion(format::RegionOptions::new(), |fmt| fmt.format_item(&self.0))
     }
 }
 
@@ -28,7 +29,12 @@ impl<T> Block<T> {
 
 impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.format_child_item_with_options(&self.0, format::ChildOptions::new().newline())
+        fmt.with_subregion(
+            format::RegionOptions::new()
+                .newline()
+                .indent(format::IndentMode::Offset(4)),
+            |fmt| fmt.format_item(&self.0),
+        )
     }
 }
 

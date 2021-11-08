@@ -86,7 +86,13 @@ pub struct Body {
 
 impl Format for Body {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.format_child_item_with_options(&self.exprs, format::ChildOptions::new().newline())
+        fmt.with_subregion(
+            format::RegionOptions::new()
+                .newline()
+                .indent(format::IndentMode::Offset(4))
+                .trailing_item_size(1),
+            |fmt| fmt.format_item(&self.exprs),
+        )
     }
 }
 

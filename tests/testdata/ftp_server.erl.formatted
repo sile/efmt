@@ -1,10 +1,9 @@
 % From: http://www1.erlang.org/examples/examples-2.0.html
 
 start() ->
-    case (catch register(ftp_server,
-                         spawn(?MODULE,
-                               internal,
-                               []))) of
+    case (catch register(ftp_server, spawn(?MODULE,
+                                           internal,
+                                           []))) of
         {'EXIT', _} ->
             already_started;
         Pid ->
@@ -25,33 +24,30 @@ loop(Users, N) ->
         {connect, Pid, User, Password} ->
             io:format("connection request from:~p ~p ~p~n",
                       [Pid, User, Password]),
-            case member({User, Password},
-                        Users) of
+            case member({User, Password}, Users) of
                 true ->
                     Max = max_connections(),
                     ifN > Max->
-                        Pid !
-                            {ftp_server,
-                             {error,
-                              too_many_connections}},
+                        Pid ! {ftp_server,
+                               {error,
+                                too_many_connections}},
                         loop(Users, N);
                     true->
-                        New =
-                            spawn_link(?MODULE,
-                                       handler,
-                                       [Pid]),
-                        Pid !
-                            {ftp_server,
-                             {ok, New}},
+                        New = spawn_link(?MODULE,
+                                         handler,
+                                         [
+                                          Pid]),
+                        Pid ! {ftp_server,
+                               {ok, New}},
                         loop(Users, N + 1)end;
                 false ->
-                    Pid !
-                        {ftp_server,
-                         {error, rejected}},
+                    Pid ! {ftp_server,
+                           {error, rejected}},
                     loop(Users, N)
             end;
         {'EXIT', Pid} ->
-            io:format("Handler ~p died~n", [Pid]),
+            io:format("Handler ~p died~n",
+                      [Pid]),
             loop(Users, lists:max(N - 1, 0));
         Any ->
             io:format("received:~p~n", [Any]),

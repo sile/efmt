@@ -65,6 +65,10 @@ impl Transaction {
         }
     }
 
+    pub fn formatted_text(&self) -> &str {
+        &self.state.formatted_text
+    }
+
     pub fn start_new_transaction(&mut self, config: TransactionConfig) {
         let state = self.state.clone_for_new_transaction();
         let parent = std::mem::replace(
@@ -91,6 +95,10 @@ impl Transaction {
 
     pub fn config(&self) -> &TransactionConfig {
         &self.config
+    }
+
+    pub fn parent(&self) -> Option<&Self> {
+        self.parent.as_ref().map(|x| x.as_ref())
     }
 
     pub fn next_position(&self) -> Position {
@@ -139,9 +147,13 @@ impl Transaction {
     pub fn write_comment(&mut self, text: &str, comment: &impl Span) -> Result<()> {
         assert!(!comment.is_empty());
 
+        if self.state.needs_whitespace == Some(Whitespace::Newline) {
+            self.write_whitespace()?;
+        }
+
         if self.state.next_position.line() + 1 < comment.start_position().line() {
             self.write("\n")?;
-        } else if !matches!(self.last_char(), Some('\n' | ' ')) {
+        } else if !matches!(self.last_char().unwrap_or('\n'), '\n' | ' ') {
             self.write("  ")?;
         }
 
@@ -178,25 +190,26 @@ impl Transaction {
                 }
 
                 self.state.current_column = 0;
-            }
-            assert!(!c.is_control());
+            } else {
+                assert!(!c.is_control());
 
-            if self.state.current_column >= self.config.max_columns {
-                if self.config.multiline_mode != MultilineMode::Force {
-                    // Should retry with setting `multiline_mode` to `MultilineMode::Force`.
-                    return Err(Error::MaxColumnsExceeded);
-                } else {
-                    // TODO: Emit warning log
+                if self.state.current_column >= self.config.max_columns {
+                    if self.config.multiline_mode != MultilineMode::Recommend {
+                        // Should retry with setting `multiline_mode` to `MultilineMode::Recommend.
+                        return Err(Error::MaxColumnsExceeded);
+                    } else {
+                        // TODO: Emit warning log
+                    }
                 }
-            }
 
-            if self.state.current_column < self.config.indent {
-                for _ in self.state.current_column..self.config.indent {
-                    self.state.formatted_text.push(' ');
+                if self.state.current_column < self.config.indent {
+                    for _ in self.state.current_column..self.config.indent {
+                        self.state.formatted_text.push(' ');
+                    }
+                    self.state.current_column = self.config.indent;
                 }
-                self.state.current_column = self.config.indent;
+                self.state.current_column += 1;
             }
-            self.state.current_column += 1;
             self.state.formatted_text.push(c);
         }
         Ok(())

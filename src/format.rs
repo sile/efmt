@@ -13,12 +13,18 @@ mod transaction;
 pub enum MultilineMode {
     Forbid,
     Allow,
-    Force,
+    Recommend,
 }
 
 impl Default for MultilineMode {
     fn default() -> Self {
         Self::Allow
+    }
+}
+
+impl MultilineMode {
+    pub fn is_recommended(self) -> bool {
+        matches!(self, MultilineMode::Recommend)
     }
 }
 
@@ -28,34 +34,31 @@ pub enum Whitespace {
     Newline,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IndentMode {
+    CurrentIndent,
+    CurrentColumn,
+    Offset(usize),
+}
+
+impl Default for IndentMode {
+    fn default() -> Self {
+        Self::CurrentIndent
+    }
+}
+
 #[derive(Debug, Clone, Default)]
-pub struct GroupOptions {
+pub struct RegionOptions {
     newline: bool,
     multiline_mode: MultilineMode,
-    indent: Option<usize>,
+    indent: IndentMode,
+    trailing_item_size: usize,
+    // TODO: retry: bool
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ChildOptions {
-    newline: bool,
-    multiline_mode: bool,
-    forbid_multiline: bool,
-    base: usize,
-}
-
-impl ChildOptions {
+impl RegionOptions {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn base(mut self, n: usize) -> Self {
-        self.base = n;
-        self
-    }
-
-    pub fn forbid_multiline(mut self) -> Self {
-        self.forbid_multiline = true;
-        self
     }
 
     pub fn newline(mut self) -> Self {
@@ -63,31 +66,45 @@ impl ChildOptions {
         self
     }
 
-    pub fn multiline_mode(mut self) -> Self {
-        self.multiline_mode = true;
+    pub fn allow_multiline(mut self) -> Self {
+        self.multiline_mode = MultilineMode::Allow;
         self
     }
 
-    fn apply(&self, transaction: &mut Transaction) {
-        todo!()
-        // assert!(transaction.buf.is_empty());
-        // if self.newline {
-        //     transaction.needs_newline();
-        //     transaction.indent = transaction
-        //         .ancestor_indents
-        //         .iter()
-        //         .rev()
-        //         .nth(self.base)
-        //         .copied()
-        //         .expect("TODO")
-        //         + 4;
-        // }
-        // if self.multiline_mode {
-        //     transaction.enable_multiline_mode();
-        // }
-        // if self.forbid_multiline {
-        //     transaction.forbid_multiline = true;
-        // }
+    pub fn recommend_multiline(mut self) -> Self {
+        self.multiline_mode = MultilineMode::Recommend;
+        self
+    }
+
+    pub fn forbid_multiline(mut self) -> Self {
+        self.multiline_mode = MultilineMode::Forbid;
+        self
+    }
+
+    pub fn indent(mut self, x: IndentMode) -> Self {
+        self.indent = x;
+        self
+    }
+
+    pub fn trailing_item_size(mut self, n: usize) -> Self {
+        self.trailing_item_size = n;
+        self
+    }
+
+    fn to_transaction_config(&self, fmt: &Formatter) -> TransactionConfig {
+        let indent = match self.indent {
+            IndentMode::CurrentIndent => fmt.transaction.config().indent,
+            IndentMode::CurrentColumn => fmt.current_column(),
+            IndentMode::Offset(n) => fmt.transaction.config().indent + n,
+        };
+        TransactionConfig {
+            indent,
+            max_columns: fmt
+                .max_columns()
+                .checked_sub(self.trailing_item_size)
+                .expect("TODO"),
+            multiline_mode: self.multiline_mode,
+        }
     }
 }
 
@@ -145,46 +162,34 @@ impl Formatter {
         }
     }
 
+    pub fn indent(&self) -> usize {
+        self.transaction.config().indent
+    }
+
     pub fn max_columns(&self) -> usize {
-        todo!()
-        //self.transaction().max_columns
+        self.transaction.config().max_columns
     }
 
-    pub fn current_columns(&self) -> usize {
-        todo!()
-        // self.transaction().current_columns
-    }
-
-    pub fn multiline_mode(&self) -> bool {
-        todo!()
-        //self.transaction().multiline_mode
+    pub fn current_column(&self) -> usize {
+        self.transaction.current_column()
     }
 
     pub fn needs_newline(&mut self) {
-        todo!()
-        //self.transaction_mut().needs_newline();
+        self.transaction.needs_whitespace(Whitespace::Newline);
     }
 
     pub fn needs_space(&mut self) {
-        todo!()
-        //self.transaction_mut().needs_space();
-    }
-
-    pub fn enable_multiline_mode(&mut self) {
-        todo!()
-        //self.transaction_mut().enable_multiline_mode();
+        self.transaction.needs_whitespace(Whitespace::Blank);
     }
 
     pub fn format_module(mut self, forms: &[Form]) -> Result<String> {
-        todo!()
-        // for form in forms {
-        //     self.format_child_item(form)?;
-        //     self.needs_newline();
-        // }
+        for form in forms {
+            self.with_subregion(RegionOptions::new().newline(), |fmt| fmt.format_item(form))?;
+            self.needs_newline();
+        }
 
-        // // TODO: handle remaining comments and empty macros
-        // assert_eq!(self.transactions.len(), 1);
-        // Ok(self.transactions.pop().unwrap().buf)
+        assert!(self.transaction.parent().is_none());
+        Ok(self.transaction.formatted_text().to_owned())
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
@@ -192,67 +197,44 @@ impl Formatter {
         item.format(self)
     }
 
-    pub fn format_child_item_with_options(
-        &mut self,
-        item: &impl Format,
-        options: ChildOptions,
-    ) -> Result<()> {
-        todo!()
-        // let mut result = self.with_transaction(|this| {
-        //     // TODO: handle comments and macros
-        //     options.apply(this.transaction_mut());
-        //     item.format(this)?;
-        //     Ok(())
-        // });
-
-        // // TODO: improve this huristic
-        // for i in 1..=4 {
-        //     match result {
-        //         Err(Error::MaxColumnsExceeded | Error::Multiline) => {
-        //             result = self.with_transaction(|this| {
-        //                 options.apply(this.transaction_mut());
-        //                 this.transaction_mut().shorten_max_columns(i);
-        //                 item.format(this)
-        //             })
-        //         }
-        //         _ => {
-        //             break;
-        //         }
-        //     }
-        // }
-
-        // match result {
-        //     Err(Error::MaxColumnsExceeded | Error::Multiline) => {
-        //         result = self.with_transaction(|this| {
-        //             options.apply(this.transaction_mut());
-        //             this.enable_multiline_mode();
-        //             item.format(this)
-        //         })
-        //     }
-        //     _ => {}
-        // }
-
-        // result
-    }
-
-    pub fn format_child_item(&mut self, item: &impl Format) -> Result<()> {
-        self.format_child_item_with_options(item, Default::default())
-    }
-
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
-        todo!()
         // TODO: handle empty macros
-
-        // let transaction = self.transactions.last_mut().expect("bug");
-        // transaction.write_text(&self.text, item)?;
-        // Ok(())
+        self.write_comments(item)?;
+        self.transaction.write_item(&self.text, item)?;
+        Ok(())
     }
 
-    pub fn write_comment(&mut self, item: &impl Span) -> Result<()> {
-        // let transaction = self.transactions.last_mut().expect("bug");
-        // transaction.write_comment(&self.text, item)?;
-        // Ok(())
-        todo!()
+    pub fn multiline_mode(&self) -> MultilineMode {
+        self.transaction.config().multiline_mode
+    }
+
+    pub fn parent_indent(&self) -> usize {
+        self.transaction.parent().map_or(0, |x| x.config().indent)
+    }
+
+    pub fn with_subregion<F>(&mut self, options: RegionOptions, f: F) -> Result<()>
+    where
+        F: Fn(&mut Self) -> Result<()>,
+    {
+        let config = options.to_transaction_config(self);
+        let result = self.with_transaction(config, |this| {
+            if options.newline {
+                this.needs_newline();
+            }
+            f(this)
+        });
+
+        if matches!(result, Err(Error::MaxColumnsExceeded)) {
+            assert!(!options.multiline_mode.is_recommended());
+            self.with_subregion(options.recommend_multiline(), f)
+        } else {
+            result
+        }
+    }
+
+    fn write_comment(&mut self, item: &impl Span) -> Result<()> {
+        self.transaction.write_comment(&self.text, item)?;
+        Ok(())
     }
 
     fn write_comments(&mut self, next_item: &impl Span) -> Result<()> {
@@ -275,18 +257,10 @@ impl Formatter {
     }
 
     fn next_position(&self) -> Position {
-        todo!()
-        //self.transactions.last().unwrap().next_text_position
+        self.transaction.next_position()
     }
 
-    pub fn with_subgroup<F>(&mut self, options: GroupOptions, f: F) -> Result<()>
-    where
-        F: FnOnce(&mut Self) -> Result<()>,
-    {
-        todo!()
-    }
-
-    pub fn with_transaction<F>(&mut self, config: TransactionConfig, f: F) -> Result<()>
+    fn with_transaction<F>(&mut self, config: TransactionConfig, f: F) -> Result<()>
     where
         F: FnOnce(&mut Self) -> Result<()>,
     {

@@ -1,5 +1,5 @@
 use crate::format::{self, Format, Formatter};
-use crate::items::styles::{Child, Newline};
+use crate::items::styles::Newline;
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
 use crate::parse::{self, Parse, Parser};
 use crate::span::{Position, Span};
@@ -64,42 +64,36 @@ pub enum Either<A, B> {
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
-    item: Child<T>,
+    item: T,
     close: CloseParenSymbol,
 }
 
 impl<T> Parenthesized<T> {
     pub fn get(&self) -> &T {
-        self.item.get()
+        &self.item
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Args<T> {
-    open: OpenParenSymbol,
-    items: Items<T>,
-    close: CloseParenSymbol,
-}
-
-impl<T: Format> Format for Args<T> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+impl<T: Format> Format for Parenthesized<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.format_item(&self.open)?;
-
-        fmt.format_child_item(&self.items)?;
-        // // TODO: maybe very inefficient
-        // fmt.format_either_child_item(
-        //     &self.items,
-        //     format::ChildOptions::new(),
-        //     format::ChildOptions::new().newline().multiline_mode(),
-        // )?;
-
+        fmt.with_subregion(
+            format::RegionOptions::new()
+                .indent(format::IndentMode::CurrentColumn)
+                .trailing_item_size(1),
+            |fmt| fmt.format_item(&self.item),
+        )?;
         fmt.format_item(&self.close)?;
         Ok(())
     }
 }
+
+// TODO: remove?
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Args<T>(Parenthesized<Items<T>>);
 
 #[derive(Debug, Clone)]
 pub struct NonEmptyItems<T, D = CommaSymbol> {
@@ -140,7 +134,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
         for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
             fmt.format_item(item)?;
             fmt.format_item(delimiter)?;
-            if fmt.multiline_mode() {
+            if fmt.multiline_mode().is_recommended() {
                 fmt.needs_newline();
             } else {
                 fmt.needs_space();
@@ -167,28 +161,48 @@ impl<T, D> Items<T, D> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Elements<T>(Items<T>);
 
-impl<T: Format> Format for Elements<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        let packed = self.0.get().iter().all(|x| x.is_primitive());
-        if !packed {
-            self.0.format(fmt)?;
-        } else if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters))
-        {
-            for (item, delimiter) in items.iter().zip(delimiters.iter()) {
-                if fmt.current_columns() + item.len() + delimiter.len() > fmt.max_columns() {
-                    fmt.needs_newline();
-                }
-                fmt.format_item(item)?;
-                fmt.format_item(delimiter)?;
-                fmt.needs_space();
-            }
-            let item = items.last().expect("unreachable");
-            if fmt.current_columns() + item.len() > fmt.max_columns() {
+impl<T: Format> Elements<T> {
+    fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
+        let (items, delimiters) =
+            if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters)) {
+                (items, delimiters)
+            } else {
+                return Ok(());
+            };
+
+        for (item, delimiter) in items.iter().zip(delimiters.iter()) {
+            if fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
                 fmt.needs_newline();
             }
             fmt.format_item(item)?;
+            fmt.format_item(delimiter)?;
+            fmt.needs_space();
         }
+        let item = items.last().expect("unreachable");
+        if fmt.current_column() + item.len() > fmt.max_columns() {
+            fmt.needs_newline();
+        }
+        fmt.format_item(item)?;
+
         Ok(())
+    }
+}
+
+impl<T: Format> Format for Elements<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.with_subregion(
+            format::RegionOptions::new()
+                .indent(format::IndentMode::CurrentColumn)
+                .trailing_item_size(1), // TODO: maybe ">>"
+            |fmt| {
+                let packed = self.0.get().iter().all(|x| x.is_primitive());
+                if packed {
+                    self.format_packed_items(fmt)
+                } else {
+                    self.0.format(fmt)
+                }
+            },
+        )
     }
 }
 

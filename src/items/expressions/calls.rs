@@ -42,17 +42,14 @@ pub struct BinaryOpRightExpr {
 
 impl Format for BinaryOpRightExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if !fmt.multiline_mode() {
-            fmt.format_child_item_with_options(
-                &self.expr,
-                format::ChildOptions::new().forbid_multiline(),
-            )?;
+        let options = if fmt.multiline_mode().is_recommended() {
+            format::RegionOptions::new()
+                .newline()
+                .indent(format::IndentMode::Offset(4))
         } else {
-            fmt.format_child_item_with_options(
-                &self.expr,
-                format::ChildOptions::new().newline().base(1),
-            )?;
-        }
+            format::RegionOptions::new().forbid_multiline()
+        };
+        fmt.with_subregion(options, |fmt| fmt.format_item(&self.expr))?;
         Ok(())
     }
 }
