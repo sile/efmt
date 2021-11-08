@@ -1,38 +1,25 @@
-use efmt::format::Formatter;
-use efmt::items::forms::Form;
-use efmt::lex::Lexer;
-use efmt::parse::Parser;
-use erl_tokenize::Tokenizer;
+use std::io::Read as _;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
-    file: PathBuf,
+    file: Option<PathBuf>,
+    // TODO: config
 }
 
 fn main() -> anyhow::Result<()> {
     let opt = Opt::from_args();
 
-    let text = std::fs::read_to_string(&opt.file)?;
-    let mut tokenizer = Tokenizer::new(text);
-    tokenizer.set_filepath(opt.file);
-
-    let mut lexer = Lexer::new(tokenizer);
-    let mut parser = Parser::new(&mut lexer);
-    let mut forms = Vec::new();
-    while !parser.is_eof()? {
-        let form: Form = parser.parse()?;
-        forms.push(form);
-    }
-
-    let formatter = Formatter::new(
-        parser.text().to_owned(),
-        parser.comments().clone(),
-        parser.macros().clone(),
-    );
-    let formatted = formatter.format_module(&forms)?;
-    print!("{}", formatted);
+    let formatted_text = match opt.file {
+        Some(path) => efmt::format_file(path)?,
+        None => {
+            let mut text = String::new();
+            std::io::stdin().lock().read_to_string(&mut text)?;
+            efmt::format_text(&text)?
+        }
+    };
+    print!("{}", formatted_text);
 
     Ok(())
 }
