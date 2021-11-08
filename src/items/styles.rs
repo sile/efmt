@@ -53,6 +53,12 @@ impl<T: Format> Format for Block<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Space<T>(T);
 
+impl<T> Space<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
 impl<T: Format> Format for Space<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.needs_space();

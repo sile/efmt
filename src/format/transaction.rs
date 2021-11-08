@@ -203,7 +203,13 @@ impl Transaction {
         let indent = match self.config.indent {
             IndentMode::CurrentIndent => parent_indent,
             IndentMode::Offset(n) => parent_indent + n,
-            IndentMode::CurrentColumn => std::cmp::max(parent_indent, self.state.current_column),
+            IndentMode::CurrentColumn => {
+                let mut current_column = self.state.current_column;
+                if self.state.needs_whitespace == Some(Whitespace::Blank) {
+                    current_column += 1;
+                }
+                std::cmp::max(parent_indent, current_column)
+            }
         };
         self.state.indent = Some(indent);
         indent

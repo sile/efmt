@@ -52,12 +52,17 @@ pub struct RegionOptions {
     multiline_mode: MultilineMode,
     indent: IndentMode,
     trailing_item_size: usize,
-    // TODO: retry: bool
+    noretry: bool,
 }
 
 impl RegionOptions {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn noretry(mut self) -> Self {
+        self.noretry = true;
+        self
     }
 
     pub fn newline(mut self) -> Self {
@@ -209,7 +214,8 @@ impl Formatter {
             f(this)
         });
 
-        if matches!(result, Err(Error::MaxColumnsExceeded)) {
+        if !options.noretry && matches!(result, Err(Error::MaxColumnsExceeded)) {
+            // TODO: This assertion can be violated if `optoins.noentry = true`.
             assert!(!options.multiline_mode.is_recommended());
             self.with_subregion(options.recommend_multiline(), f)
         } else {

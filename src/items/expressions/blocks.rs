@@ -5,7 +5,7 @@ use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
-use crate::items::styles::{Block, Child, Newline, RightSpace, Space};
+use crate::items::styles::{Block, Child, ColumnIndent, Newline, RightSpace, Space};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
@@ -115,7 +115,7 @@ pub struct TryAfter {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CatchExpr {
     catch: RightSpace<CatchKeyword>,
-    expr: Child<Expr>,
+    expr: ColumnIndent<Expr>,
 }
 
 #[cfg(test)]
@@ -312,7 +312,8 @@ mod tests {
             indoc::indoc! {"
                 catch foo(bar,
                           Baz,
-                          qux) + 3 + 4"},
+                          qux) + 3 +
+                      4"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();

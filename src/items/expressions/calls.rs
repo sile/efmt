@@ -32,33 +32,36 @@ pub enum UnaryOp {
 pub struct BinaryOpCallExpr {
     left: Child<NonLeftRecursiveExpr>,
     op: Space<BinaryOp>,
-    right: Child<BinaryOpRightExpr>,
+    right: Expr,
 }
 
 impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         fmt.format_item(&self.left)?;
         fmt.format_item(&self.op)?;
-        fmt.format_item(&self.right)?;
+        fmt.with_subregion(Default::default(), |fmt| self.format_right(fmt))?;
         Ok(())
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpRightExpr {
-    expr: Expr,
-}
-
-impl Format for BinaryOpRightExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+impl BinaryOpCallExpr {
+    fn format_right(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        let options = format::RegionOptions::new().noretry();
         let options = if fmt.multiline_mode().is_recommended() {
-            format::RegionOptions::new()
-                .newline()
-                .indent(format::IndentMode::Offset(4))
+            match self.op.get() {
+                BinaryOp::Send(_) | BinaryOp::Match(_) => options
+                    .newline()
+                    .recommend_multiline()
+                    .indent(format::IndentMode::Offset(4)),
+                _ => options
+                    .newline()
+                    .recommend_multiline()
+                    .indent(format::IndentMode::Offset(0)),
+            }
         } else {
-            format::RegionOptions::new().forbid_multiline()
+            options.forbid_multiline()
         };
-        fmt.with_subregion(options, |fmt| fmt.format_item(&self.expr))?;
+        fmt.with_subregion(options, |fmt| fmt.format_item(&self.right))?;
         Ok(())
     }
 }
