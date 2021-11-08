@@ -1,4 +1,3 @@
-use crate::items::forms::Form;
 use crate::items::macros::Macro;
 use crate::items::tokens::CommentToken;
 use crate::span::{Position, Span};
@@ -162,6 +161,11 @@ impl Formatter {
         }
     }
 
+    pub fn finish(self) -> String {
+        assert!(self.transaction.parent().is_none());
+        self.transaction.formatted_text().to_owned()
+    }
+
     pub fn indent(&self) -> usize {
         self.transaction.config().indent
     }
@@ -180,16 +184,6 @@ impl Formatter {
 
     pub fn needs_space(&mut self) {
         self.transaction.needs_whitespace(Whitespace::Blank);
-    }
-
-    pub fn format_module(mut self, forms: &[Form]) -> Result<String> {
-        for form in forms {
-            self.with_subregion(RegionOptions::new().newline(), |fmt| fmt.format_item(form))?;
-            self.needs_newline();
-        }
-
-        assert!(self.transaction.parent().is_none());
-        Ok(self.transaction.formatted_text().to_owned())
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {

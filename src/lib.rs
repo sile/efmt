@@ -18,17 +18,12 @@ pub fn format_text(text: &str) -> anyhow::Result<String> {
 fn format(tokenizer: erl_tokenize::Tokenizer<String>) -> anyhow::Result<String> {
     let mut lexer = crate::lex::Lexer::new(tokenizer);
     let mut parser = crate::parse::Parser::new(&mut lexer);
-    let mut forms = Vec::new();
-    while !parser.is_eof()? {
-        let form: crate::items::forms::Form = parser.parse()?;
-        forms.push(form);
-    }
-
-    let formatter = crate::format::Formatter::new(
+    let module: crate::items::module::Module = parser.parse()?;
+    let mut formatter = crate::format::Formatter::new(
         parser.text().to_owned(),
         parser.comments().clone(),
         parser.macros().clone(),
     );
-    let formatted_text = formatter.format_module(&forms)?;
-    Ok(formatted_text)
+    formatter.format_item(&module)?;
+    Ok(formatter.finish())
 }

@@ -4,6 +4,7 @@ pub mod forms;
 pub mod generics;
 pub mod keywords;
 pub mod macros;
+pub mod module;
 pub mod qualifiers;
 pub mod styles;
 pub mod symbols;

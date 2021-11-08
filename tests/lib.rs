@@ -1,9 +1,3 @@
-use efmt::format::Formatter;
-use efmt::items::forms::Form;
-use efmt::lex::Lexer;
-use efmt::parse::Parser;
-use erl_tokenize::Tokenizer;
-
 // TODO
 // #[test]
 // fn parse_works() -> anyhow::Result<()> {
@@ -44,25 +38,8 @@ fn format_works() -> anyhow::Result<()> {
         }
 
         dbg!(&path);
-        let text = std::fs::read_to_string(&path)?;
-        let mut tokenizer = Tokenizer::new(text);
-        tokenizer.set_filepath(path);
-
-        let mut lexer = Lexer::new(tokenizer);
-        let mut parser = Parser::new(&mut lexer);
-        let mut forms = Vec::new();
-        while !parser.is_eof()? {
-            let form: Form = parser.parse()?;
-            forms.push(form);
-        }
-
+        let formatted_text = efmt::format_file(&path)?;
         let expected = std::fs::read_to_string(&formatted_path)?;
-        let formatter = Formatter::new(
-            parser.text().to_owned(),
-            parser.comments().clone(),
-            parser.macros().clone(),
-        );
-        let formatted_text = formatter.format_module(&forms)?;
         if formatted_text != expected {
             // use std::io::Write;
             // std::fs::File::create("/tmp/test.erl.actual")?.write_all(formatted_text.as_bytes())?;
