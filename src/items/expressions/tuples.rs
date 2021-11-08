@@ -13,7 +13,7 @@ pub struct TupleExpr {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::items::expressions::NonLeftRecursiveExpr;
     use crate::parse::parse_text;

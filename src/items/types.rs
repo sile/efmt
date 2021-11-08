@@ -183,7 +183,7 @@ pub struct BitstringUnitSize {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::items::styles::Child;
     use crate::parse::parse_text;

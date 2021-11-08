@@ -69,7 +69,7 @@ pub struct NameAndArity {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::items::expressions::{Expr, NonLeftRecursiveExpr};
     use crate::parse::parse_text;
