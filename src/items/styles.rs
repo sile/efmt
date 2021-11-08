@@ -19,6 +19,18 @@ impl<T: Format> Format for Child<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
+pub struct ColumnIndent<T>(T);
+
+impl<T: Format> Format for ColumnIndent<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.with_subregion(
+            format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
+            |fmt| fmt.format_item(&self.0),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Block<T>(T);
 
 impl<T> Block<T> {

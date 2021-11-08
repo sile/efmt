@@ -170,18 +170,18 @@ impl<T: Format> Elements<T> {
                 return Ok(());
             };
 
-        for (i, (item, delimiter)) in items.iter().zip(delimiters.iter()).enumerate() {
-            if i > 0 {
-                if fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
-                    fmt.needs_newline();
-                }
+        let mut first = true;
+        for (item, delimiter) in items.iter().zip(delimiters.iter()) {
+            if !first && fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
+                fmt.needs_newline();
             }
+            first = false;
             fmt.format_item(item)?;
             fmt.format_item(delimiter)?;
             fmt.needs_space();
         }
         let item = items.last().expect("unreachable");
-        if fmt.current_column() + item.len() > fmt.max_columns() {
+        if !first && fmt.current_column() + item.len() > fmt.max_columns() {
             fmt.needs_newline();
         }
         fmt.format_item(item)?;

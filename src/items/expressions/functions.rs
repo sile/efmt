@@ -4,7 +4,7 @@ use crate::items::generics::{Clauses, Items, Maybe, Parenthesized};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::styles::Space;
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SlashSymbol};
-use crate::items::tokens::VariableToken;
+use crate::items::tokens::{AtomToken, IntegerToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -13,7 +13,7 @@ pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
     Named(Box<NamedFunctionExpr>),
-    NameAndArity(Box<NameAndArity>), // For attributes such as `-export`
+    NameAndArity(Box<NameAndArity<AtomToken, IntegerToken>>), // For attributes such as `-export`
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -62,10 +62,10 @@ pub struct ModulePrefix {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct NameAndArity {
-    name: AtomLikeExpr,
+pub struct NameAndArity<N = AtomLikeExpr, A = IntegerLikeExpr> {
+    name: N,
     slash: SlashSymbol,
-    arity: IntegerLikeExpr,
+    arity: A,
 }
 
 #[cfg(test)]

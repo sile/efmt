@@ -1,9 +1,9 @@
-use crate::format::{Error, MultilineMode, Result, Whitespace};
+use crate::format::{Error, IndentMode, MultilineMode, Result, Whitespace};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
 pub struct TransactionConfig {
-    pub indent: usize,
+    pub indent: IndentMode,
     pub max_columns: usize,
     pub multiline_mode: MultilineMode,
 }
@@ -11,7 +11,7 @@ pub struct TransactionConfig {
 impl TransactionConfig {
     fn root(max_columns: usize) -> Self {
         Self {
-            indent: 0,
+            indent: IndentMode::default(),
             max_columns,
             multiline_mode: MultilineMode::Allow,
         }
@@ -24,6 +24,7 @@ pub struct TransactionState {
     current_column: usize,
     needs_whitespace: Option<Whitespace>,
     formatted_text: String,
+    indent: Option<usize>,
 }
 
 impl TransactionState {
@@ -33,6 +34,7 @@ impl TransactionState {
             current_column: self.current_column,
             needs_whitespace: self.needs_whitespace,
             formatted_text: String::new(),
+            indent: None,
         }
     }
 
@@ -60,6 +62,7 @@ impl Transaction {
                 current_column: 0,
                 needs_whitespace: None,
                 formatted_text: String::new(),
+                indent: None,
             },
             parent: None,
         }
@@ -128,6 +131,11 @@ impl Transaction {
         self.state.needs_whitespace = Some(whitespace);
     }
 
+    // TODO: rename
+    pub fn whitespace(&self) -> Option<Whitespace> {
+        self.state.needs_whitespace
+    }
+
     pub fn write_item(&mut self, text: &str, item: &impl Span) -> Result<()> {
         if item.is_empty() {
             return Ok(());
@@ -182,6 +190,25 @@ impl Transaction {
         }
     }
 
+    fn calc_indent(&mut self) -> usize {
+        if let Some(i) = self.state.indent {
+            return i;
+        }
+
+        let parent_indent = self
+            .parent
+            .as_mut()
+            .map(|parent| parent.calc_indent())
+            .unwrap_or(0);
+        let indent = match self.config.indent {
+            IndentMode::CurrentIndent => parent_indent,
+            IndentMode::Offset(n) => parent_indent + n,
+            IndentMode::CurrentColumn => std::cmp::max(parent_indent, self.state.current_column),
+        };
+        self.state.indent = Some(indent);
+        indent
+    }
+
     fn write(&mut self, s: &str) -> Result<()> {
         for c in s.chars() {
             if c == '\n' {
@@ -202,11 +229,14 @@ impl Transaction {
                     }
                 }
 
-                if self.state.current_column < self.config.indent {
-                    for _ in self.state.current_column..self.config.indent {
-                        self.state.formatted_text.push(' ');
+                if c != ' ' {
+                    let indent = self.calc_indent();
+                    if self.state.current_column < indent {
+                        for _ in self.state.current_column..indent {
+                            self.state.formatted_text.push(' ');
+                        }
+                        self.state.current_column = indent;
                     }
-                    self.state.current_column = self.config.indent;
                 }
                 self.state.current_column += 1;
             }

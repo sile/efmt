@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
             format_options.format_text(&text)?
         }
     };
-    print!("{}", formatted_text);
+    println!("{}", formatted_text);
 
     Ok(())
 }

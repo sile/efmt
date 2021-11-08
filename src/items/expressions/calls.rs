@@ -28,11 +28,20 @@ pub enum UnaryOp {
     Bnot(keywords::BnotKeyword),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpCallExpr {
     left: Child<NonLeftRecursiveExpr>,
     op: Space<BinaryOp>,
     right: Child<BinaryOpRightExpr>,
+}
+
+impl Format for BinaryOpCallExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.format_item(&self.left)?;
+        fmt.format_item(&self.op)?;
+        fmt.format_item(&self.right)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]

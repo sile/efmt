@@ -91,13 +91,8 @@ impl RegionOptions {
     }
 
     fn to_transaction_config(&self, fmt: &Formatter) -> TransactionConfig {
-        let indent = match self.indent {
-            IndentMode::CurrentIndent => fmt.transaction.config().indent,
-            IndentMode::CurrentColumn => fmt.current_column(),
-            IndentMode::Offset(n) => fmt.transaction.config().indent + n,
-        };
         TransactionConfig {
-            indent,
+            indent: self.indent,
             max_columns: fmt
                 .max_columns()
                 .checked_sub(self.trailing_item_size)
@@ -166,9 +161,9 @@ impl Formatter {
         self.transaction.formatted_text().to_owned()
     }
 
-    pub fn indent(&self) -> usize {
-        self.transaction.config().indent
-    }
+    // pub fn indent(&self) -> usize {
+    //     self.transaction.config().indent
+    // }
 
     pub fn max_columns(&self) -> usize {
         self.transaction.config().max_columns
@@ -200,10 +195,6 @@ impl Formatter {
 
     pub fn multiline_mode(&self) -> MultilineMode {
         self.transaction.config().multiline_mode
-    }
-
-    pub fn parent_indent(&self) -> usize {
-        self.transaction.parent().map_or(0, |x| x.config().indent)
     }
 
     pub fn with_subregion<F>(&mut self, options: RegionOptions, f: F) -> Result<()>

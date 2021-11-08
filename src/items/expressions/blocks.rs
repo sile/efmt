@@ -41,21 +41,21 @@ pub struct CaseClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
-    clauses: Clauses<IfClause>,
+    clauses: Newline<Block<Clauses<IfClause>>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfClause {
     condigion: GuardCondition,
-    arrow: RightArrowSymbol,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
-    exprs: NonEmptyItems<Expr>,
+    exprs: Newline<Block<NonEmptyItems<Expr>>>,
     end: EndKeyword,
 }
 
@@ -83,17 +83,17 @@ pub struct ReceiveTimeoutClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryExpr {
     r#try: TryKeyword,
-    body: Body,
-    clauses: Maybe<(OfKeyword, Clauses<CaseClause>)>,
-    catch: Maybe<TryCatch>,
-    after: Maybe<TryAfter>,
+    body: Newline<Body>,
+    clauses: Maybe<(OfKeyword, Newline<Block<Clauses<CaseClause>>>)>,
+    catch: Maybe<Newline<TryCatch>>,
+    after: Maybe<Newline<TryAfter>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryCatch {
     catch: CatchKeyword,
-    clauses: Clauses<CatchClause>,
+    clauses: Newline<Block<Clauses<CatchClause>>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -102,7 +102,7 @@ pub struct CatchClause {
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
     guard: Maybe<Guard>,
-    arrow: RightArrowSymbol,
+    arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
@@ -122,13 +122,35 @@ pub struct CatchExpr {
 mod tests {
     use super::*;
     use crate::items::expressions::NonLeftRecursiveExpr;
+    use crate::items::styles::Child;
     use crate::parse::parse_text;
+    use crate::FormatOptions;
+
+    fn format(text: &str) -> String {
+        FormatOptions::<Child<Expr>>::new()
+            .max_columns(20)
+            .format_text(text)
+            .expect("parse or format failed")
+    }
 
     #[test]
     fn case_works() {
         let texts = [
-            "case Foo of 1 -> 2 end",
-            "case foo() of {1, 2} -> 3; A when is_integer(A), A > 100 -> A / 10 end",
+            concat!(
+                "case Foo of\n", //
+                "    1 ->\n",
+                "        2\n",
+                "end"
+            ),
+            concat!(
+                "case foo() of\n",
+                "    {1, 2} ->\n",
+                "        3;\n",
+                "    A when is_integer(A),\n",
+                "           A > 100 ->\n",
+                "        A / 10\n",
+                "end"
+            ),
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -137,14 +159,26 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn if_works() {
         let texts = [
-            "if true -> 2 end",
-            "if A =:= {1, 2} -> 3; is_integer(A), A > 100 -> A / 10 end",
+            indoc::indoc! {"
+                if
+                    true ->
+                        2
+                end"},
+            indoc::indoc! {"
+                if
+                    A =:= {1, 2} ->
+                        3;
+                    is_integer(A),
+                    A > 100 ->
+                        A / 10
+                end"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -153,15 +187,35 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn receive_works() {
         let texts = [
-            "receive {A, B} -> [A, B]; A when is_integer(A); is_atom(A) -> A end",
-            "receive A -> A after 1000 -> timeout end",
-            "receive after N -> timeout end",
+            indoc::indoc! {"
+                receive
+                    {A, B} ->
+                        [A, B];
+                    A when is_integer(A);
+                           is_atom(A) ->
+                        A
+                end"},
+            indoc::indoc! {"
+                receive
+                    A ->
+                        A
+                after
+                    1000 ->
+                        timeout
+                end"},
+            indoc::indoc! {"
+                receive
+                after
+                    N ->
+                        timeout
+                end"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -170,12 +224,23 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn begin_works() {
-        let texts = ["begin 1 end", "begin foo(bar,Baz), {[#{}]} end"];
+        let texts = [
+            indoc::indoc! {"
+                begin
+                    1
+                end"},
+            indoc::indoc! {"
+                begin
+                    foo(bar, Baz),
+                    {[#{}]}
+                end"},
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
@@ -183,16 +248,51 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn try_works() {
         let texts = [
-            "try 1 after 2 end",
-            "try 1, 2, 3 catch E -> E end",
-            "try X of {_, _} -> 1; [_, _] -> 2 catch _:E:Stacktrace when is_atom(E) -> foo after bar end",
-            "try foo() catch throw:_ -> throw; error:_ -> error end"
+            indoc::indoc! {"
+                try
+                    1
+                after
+                    2
+                end"},
+            indoc::indoc! {"
+                try
+                    1,
+                    2,
+                    3
+                catch
+                    E ->
+                        E
+                end"},
+            indoc::indoc! {"
+                try
+                    X
+                of
+                    {_, _} ->
+                        1;
+                    [_, _] ->
+                        2
+                catch
+                    _:E:Stacktrace when is_atom(E) ->
+                        foo
+                after
+                    bar
+                end"},
+            indoc::indoc! {"
+                try
+                    foo()
+                catch
+                    throw:_ ->
+                        throw;
+                    error:_ ->
+                        error
+                end"},
         ];
         for text in texts {
             let x = parse_text(text).unwrap();
@@ -201,12 +301,19 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 
     #[test]
     fn catch_works() {
-        let texts = ["catch 1", "catch foo(bar,Baz) + 3"];
+        let texts = [
+            "catch 1",
+            indoc::indoc! {"
+                catch foo(bar,
+                          Baz,
+                          qux) + 3 + 4"},
+        ];
         for text in texts {
             let x = parse_text(text).unwrap();
             if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
@@ -214,6 +321,7 @@ mod tests {
             } else {
                 panic!("{:?}", x);
             }
+            assert_eq!(format(text), text);
         }
     }
 }
