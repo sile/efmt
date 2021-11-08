@@ -12,5 +12,8 @@ log = "0.4"
 structopt = "0.3"
 thiserror = "1"
 
+[dev-dependencies]
+indoc = "1"
+
 [workspace]
 members = ["efmt_derive"]
