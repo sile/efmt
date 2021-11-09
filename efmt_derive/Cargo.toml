@@ -1,9 +1,13 @@
 [package]
 name = "efmt_derive"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Internal proc macros for efmt crate"
+homepage = "https://github.com/sile/efmt"
+repository = "https://github.com/sile/efmt"
+readme = "README.md"
 
 [lib]
 proc-macro = true
