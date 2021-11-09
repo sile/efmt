@@ -1,5 +1,5 @@
 use crate::items::macros::Macro;
-use crate::items::tokens::CommentToken;
+use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 use std::collections::BTreeMap;
 
@@ -161,14 +161,17 @@ impl Formatter {
         }
     }
 
-    pub fn finish(self) -> String {
+    pub fn finish(mut self) -> String {
         assert!(self.transaction.parent().is_none());
+
+        let eof = crate::items::module::Eof {
+            position: Position::new(usize::MAX, usize::MAX, usize::MAX),
+        };
+        self.write_comments_and_macros(&eof, None)
+            .expect("TODO: error handling");
+
         self.transaction.formatted_text().to_owned()
     }
-
-    // pub fn indent(&self) -> usize {
-    //     self.transaction.config().indent
-    // }
 
     pub fn max_columns(&self) -> usize {
         self.transaction.config().max_columns
@@ -187,12 +190,12 @@ impl Formatter {
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
-        self.write_comments_and_macros(item)?;
+        self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
         item.format(self)
     }
 
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
-        self.write_comments_and_macros(item)?;
+        self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.transaction.write_item(&self.text, item)?;
         Ok(())
     }
@@ -227,7 +230,7 @@ impl Formatter {
         }
     }
 
-    fn write_comment(&mut self, item: &impl Span) -> Result<()> {
+    fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
         self.transaction.write_comment(&self.text, item)?;
         Ok(())
     }
@@ -243,7 +246,11 @@ impl Formatter {
         Ok(())
     }
 
-    fn write_comments_and_macros(&mut self, next_item: &impl Span) -> Result<()> {
+    fn write_comments_and_macros(
+        &mut self,
+        next_item: &impl Span,
+        allowed_comment_kind: Option<CommentKind>,
+    ) -> Result<()> {
         let item_start = next_item.start_position();
         loop {
             let comment_start = self.next_comment_position();
@@ -256,7 +263,11 @@ impl Formatter {
 
             if comment_start.map_or(false, |c| macro_start.map_or(true, |m| c < m)) {
                 let comment = self.comments[&comment_start.unwrap()].clone();
-                self.write_comment(&comment)?;
+                if allowed_comment_kind.map_or(true, |k| k == comment.kind()) {
+                    self.write_comment(&comment)?;
+                } else {
+                    break;
+                }
             } else {
                 let macro_call = self.macros[&macro_start.unwrap()].clone();
                 self.write_macro(&macro_call)?;

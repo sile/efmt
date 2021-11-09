@@ -221,15 +221,26 @@ impl VariableToken {
 
 impl_traits!(VariableToken, Variable, true);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CommentKind {
+    Post,
+    Trailing,
+}
+
 #[derive(Debug, Clone)]
 pub struct CommentToken {
     start: Position,
     end: Position,
+    kind: CommentKind,
 }
 
 impl CommentToken {
-    pub fn new(start: Position, end: Position) -> Self {
-        Self { start, end }
+    pub fn new(kind: CommentKind, start: Position, end: Position) -> Self {
+        Self { start, end, kind }
+    }
+
+    pub fn kind(&self) -> CommentKind {
+        self.kind
     }
 }
 

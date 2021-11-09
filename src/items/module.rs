@@ -44,9 +44,10 @@ impl Format for Module {
     }
 }
 
+// TODO: delete?
 #[derive(Debug, Clone)]
-struct Eof {
-    position: Position,
+pub struct Eof {
+    pub position: Position,
 }
 
 impl Span for Eof {

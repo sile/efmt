@@ -1,4 +1,5 @@
 use crate::format::{Error, IndentMode, MultilineMode, Result, Whitespace};
+use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
@@ -161,17 +162,24 @@ impl Transaction {
         Ok(())
     }
 
-    pub fn write_comment(&mut self, text: &str, comment: &impl Span) -> Result<()> {
+    pub fn write_comment(&mut self, text: &str, comment: &CommentToken) -> Result<()> {
         assert!(!comment.is_empty());
 
-        if self.state.needs_whitespace == Some(Whitespace::Newline) {
-            self.write_whitespace()?;
-        }
-
-        if self.state.next_position.line() + 1 < comment.start_position().line() {
-            self.write("\n")?;
-        } else if !matches!(self.last_char().unwrap_or('\n'), '\n' | ' ') {
+        if comment.kind() == CommentKind::Post {
+            if self.state.needs_whitespace == Some(Whitespace::Newline) {
+                self.write_whitespace()?;
+            }
+            if self.state.next_position.line() + 1 < comment.start_position().line() {
+                self.write("\n")?;
+            }
+            let indent = self.calc_indent();
+            for _ in 0..indent {
+                self.state.formatted_text.push(' ');
+            }
+            self.state.current_column += indent;
+        } else {
             self.write("  ")?;
+            self.state.current_column += 2;
         }
 
         let text = &text[comment.start_position().offset()..comment.end_position().offset()];

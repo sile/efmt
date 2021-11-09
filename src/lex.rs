@@ -3,8 +3,8 @@ use crate::items::generics::Either;
 use crate::items::macros::Macro;
 use crate::items::symbols::QuestionSymbol;
 use crate::items::tokens::{
-    AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, StringToken,
-    SymbolToken, Token, VariableToken,
+    AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
+    StringToken, SymbolToken, Token, VariableToken,
 };
 use crate::parse::{self, Parser};
 use crate::span::{Position, Span};
@@ -140,10 +140,18 @@ impl Lexer {
                 erl_tokenize::Token::Whitespace(_) => {
                     continue;
                 }
-                erl_tokenize::Token::Comment(_) => {
+                erl_tokenize::Token::Comment(x) => {
+                    let is_trailing = self.tokens.last().map_or(false, |y| {
+                        y.start_position().line() == x.start_position().line()
+                    });
+                    let kind = if is_trailing {
+                        CommentKind::Trailing
+                    } else {
+                        CommentKind::Post
+                    };
                     self.comments.insert(
                         start_position,
-                        CommentToken::new(start_position, end_position),
+                        CommentToken::new(kind, start_position, end_position),
                     );
                     continue;
                 }
