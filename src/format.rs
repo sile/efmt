@@ -187,13 +187,12 @@ impl Formatter {
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
-        self.write_comments(item)?;
+        self.write_comments_and_macros(item)?;
         item.format(self)
     }
 
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
-        // TODO: handle empty macros
-        self.write_comments(item)?;
+        self.write_comments_and_macros(item)?;
         self.transaction.write_item(&self.text, item)?;
         Ok(())
     }
@@ -228,20 +227,50 @@ impl Formatter {
         Ok(())
     }
 
-    fn write_comments(&mut self, next_item: &impl Span) -> Result<()> {
-        while let Some(comment_start) = self.next_comment_position() {
-            if next_item.start_position() < comment_start {
+    fn write_macro(&mut self, item: &Macro) -> Result<()> {
+        // TODO: Use `item.format()` to format the args.
+        //       (But be careful to prevent infinite recursive call of the format method)
+        self.transaction.write_item(&self.text, item)?;
+
+        if !item.has_args() {
+            if self.text.as_bytes()[item.end_position().offset()] == b' ' {
+                self.needs_space();
+            }
+        }
+        Ok(())
+    }
+
+    fn write_comments_and_macros(&mut self, next_item: &impl Span) -> Result<()> {
+        let item_start = next_item.start_position();
+        loop {
+            let comment_start = self.next_comment_position();
+            let macro_start = self.next_macro_position();
+            if comment_start.map_or(true, |p| item_start < p)
+                && macro_start.map_or(true, |p| item_start < p)
+            {
                 break;
             }
 
-            let comment = self.comments[&comment_start].clone();
-            self.write_comment(&comment)?;
+            if comment_start.map_or(false, |c| macro_start.map_or(true, |m| c < m)) {
+                let comment = self.comments[&comment_start.unwrap()].clone();
+                self.write_comment(&comment)?;
+            } else {
+                let macro_call = self.macros[&macro_start.unwrap()].clone();
+                self.write_macro(&macro_call)?;
+            }
         }
         Ok(())
     }
 
     fn next_comment_position(&self) -> Option<Position> {
         self.comments
+            .range(self.next_position()..)
+            .map(|x| x.0.clone())
+            .next()
+    }
+
+    fn next_macro_position(&self) -> Option<Position> {
+        self.macros
             .range(self.next_position()..)
             .map(|x| x.0.clone())
             .next()

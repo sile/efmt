@@ -13,10 +13,14 @@ use std::collections::HashMap;
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
-    args: Maybe<Parenthesized<Items<MacroArg, CommaSymbol>>>,
+    args: Maybe<Parenthesized<Items<MacroArg>>>,
 }
 
 impl Macro {
+    pub fn has_args(&self) -> bool {
+        self.args.get().is_some()
+    }
+
     pub fn parse(
         parser: &mut Parser,
         question: QuestionSymbol,

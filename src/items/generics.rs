@@ -27,13 +27,17 @@ impl<T> Maybe<T> {
     }
 }
 
-impl<T> Span for Maybe<T> {
+impl<T: Span> Span for Maybe<T> {
     fn start_position(&self) -> Position {
-        self.next_token_start_position
+        self.item
+            .as_ref()
+            .map_or(self.next_token_start_position, |x| x.start_position())
     }
 
     fn end_position(&self) -> Position {
-        self.prev_token_end_position
+        self.item
+            .as_ref()
+            .map_or(self.prev_token_end_position, |x| x.end_position())
     }
 }
 

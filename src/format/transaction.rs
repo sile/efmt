@@ -141,12 +141,21 @@ impl Transaction {
             return Ok(());
         }
 
+        let start = std::cmp::max(
+            item.start_position().offset(),
+            self.state.next_position.offset(), // Maybe macros were already written here
+        );
+        let end = std::cmp::max(item.end_position().offset(), start);
+        if start == end {
+            // A macro call
+            return Ok(());
+        }
+        let text = &text[start..end];
+
         self.write_whitespace()?;
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;
         }
-
-        let text = &text[item.start_position().offset()..item.end_position().offset()];
         self.write(text)?;
         self.state.next_position = item.end_position();
         Ok(())
