@@ -129,8 +129,8 @@ pub enum Error {
     #[error("max columns exceeded")]
     MaxColumnsExceeded,
 
-    #[error("unexpected multiline")]
-    Multiline,
+    #[error("unexpected multiline: {position:?}")]
+    Multiline { position: Position },
 
     #[error(transparent)]
     Int(#[from] std::num::ParseIntError),
@@ -213,7 +213,12 @@ impl Formatter {
             f(this)
         });
 
-        if !options.noretry && matches!(result, Err(Error::MaxColumnsExceeded)) {
+        if !options.noretry
+            && matches!(
+                result,
+                Err(Error::MaxColumnsExceeded | Error::Multiline { .. })
+            )
+        {
             // TODO: This assertion can be violated if `optoins.noentry = true`.
             assert!(!options.multiline_mode.is_recommended());
             self.with_subregion(options.recommend_multiline(), f)
