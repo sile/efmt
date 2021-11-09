@@ -197,23 +197,25 @@ impl Lexer {
         let start_index = self.current_token_index - 1;
         let start_position = self.tokens[start_index].start_position();
         let macro_name: MacroName = Parser::new(self).parse().map_err(Box::new)?;
-        let (variables, replacement) =
-            if let Some(define) = self.macro_defines.get(macro_name.value()) {
-                (
-                    define.variables().map(|x| x.to_owned()),
-                    define.replacement().to_owned(),
-                )
-            } else {
-                // TODO: check predefined macro
-                // TODO: use logger
-                eprintln!(
-                    "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
-                    macro_name.value()
-                );
-                let dummy_token = AtomToken::new("EFMT_DUMMY", start_position, start_position);
-                let replacement = vec![Token::from(dummy_token)];
-                (None, replacement)
-            };
+        let (variables, replacement) = if let Some(define) =
+            self.macro_defines.get(macro_name.value())
+        {
+            (
+                define.variables().map(|x| x.to_owned()),
+                define.replacement().to_owned(),
+            )
+        } else if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
+            (None, replacement)
+        } else {
+            // TODO: use logger
+            eprintln!(
+                "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
+                macro_name.value()
+            );
+            let dummy_token = AtomToken::new("EFMT_DUMMY", start_position, start_position);
+            let replacement = vec![Token::from(dummy_token)];
+            (None, replacement)
+        };
         let arity = variables.as_ref().map(|x| x.len());
         let question = QuestionSymbol::new(start_position);
         let r#macro =
@@ -253,4 +255,16 @@ impl Lexer {
 pub struct Transaction {
     seqno: u64,
     index: usize,
+}
+
+fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
+    let token: Token = match name {
+        "MODULE" => AtomToken::new("EFMT_DUMMY", position, position).into(),
+        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => IntegerToken::new(position, position).into(),
+        "MODULE_STRING" | "FILE" | "MACHINE" | "FUNCTION_NAME" => {
+            StringToken::new(position, position).into()
+        }
+        _ => return None,
+    };
+    Some(vec![token])
 }
