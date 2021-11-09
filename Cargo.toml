@@ -11,8 +11,8 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1"
-efmt_derive = { path = "efmt_derive" }
 erl_tokenize = "0.4"
+efmt_derive = { path = "efmt_derive", version = "0.0.1" }
 log = "0.4"
 structopt = "0.3"
 thiserror = "1"
