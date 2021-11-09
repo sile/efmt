@@ -8,6 +8,7 @@ struct Opt {
     file: Option<PathBuf>,
     #[structopt(long, default_value = "100")]
     max_columns: usize,
+    // TODO: code_path option
 }
 
 fn main() -> anyhow::Result<()> {

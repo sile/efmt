@@ -158,13 +158,22 @@ impl_traits!(KeywordToken, Keyword, false);
 
 #[derive(Debug, Clone)]
 pub struct StringToken {
+    value: String,
     start: Position,
     end: Position,
 }
 
 impl StringToken {
-    pub fn new(start: Position, end: Position) -> Self {
-        Self { start, end }
+    pub fn new(value: &str, start: Position, end: Position) -> Self {
+        Self {
+            value: value.to_owned(),
+            start,
+            end,
+        }
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
     }
 }
 

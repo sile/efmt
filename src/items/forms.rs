@@ -19,6 +19,7 @@ use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::items::types::Type;
 use crate::parse::Parse;
 use crate::span::Span;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum Form {
@@ -141,6 +142,62 @@ pub struct IncludeDirective {
     file: StringToken,
     close: CloseParenSymbol,
     dot: DotSymbol,
+}
+
+impl IncludeDirective {
+    pub fn get_include_path<P: AsRef<Path>>(&self, code_paths: &[P]) -> Option<PathBuf> {
+        let path = self.get_var_substituted_path();
+        if matches!(self.include, Either::B(_)) {
+            let app_name = if let std::path::Component::Normal(name) = path.components().next()? {
+                name.to_str()?
+            } else {
+                return None;
+            };
+            let prefix = format!("{}-", app_name);
+            for code_path in code_paths {
+                let entry = std::fs::read_dir(code_path)
+                    .ok()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|x| x.ok())
+                    .filter(|x| x.path().is_dir())
+                    .filter(|x| x.path().starts_with(&prefix))
+                    .next();
+                if let Some(root) = entry {
+                    let mut target_path = root.path().to_path_buf();
+                    target_path.extend(path.components().skip(1));
+                    return Some(target_path);
+                }
+            }
+            None
+        } else {
+            Some(path)
+        }
+    }
+
+    fn get_var_substituted_path(&self) -> PathBuf {
+        let path_str = self.file.value();
+        let path: &Path = path_str.as_ref();
+        if !path_str.starts_with('$') {
+            return path.to_path_buf();
+        }
+
+        let mut expanded_path = PathBuf::new();
+        for (i, c) in path.components().enumerate() {
+            if i == 0 {
+                if let Some(expanded) = c
+                    .as_os_str()
+                    .to_str()
+                    .and_then(|name| std::env::var(name.split_at(1).1).ok())
+                {
+                    expanded_path.push(expanded);
+                    continue;
+                }
+            }
+            expanded_path.push(c);
+        }
+        expanded_path
+    }
 }
 
 #[cfg(test)]

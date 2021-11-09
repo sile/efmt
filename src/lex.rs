@@ -161,8 +161,8 @@ impl Lexer {
                 erl_tokenize::Token::Keyword(x) => {
                     KeywordToken::new(x.value(), start_position, end_position).into()
                 }
-                erl_tokenize::Token::String(_) => {
-                    StringToken::new(start_position, end_position).into()
+                erl_tokenize::Token::String(x) => {
+                    StringToken::new(x.value(), start_position, end_position).into()
                 }
                 erl_tokenize::Token::Variable(x) => {
                     VariableToken::new(x.value(), start_position, end_position).into()
@@ -247,7 +247,30 @@ impl Lexer {
     }
 
     fn handle_include(&mut self, include: IncludeDirective) {
-        eprintln!("TODO: {:?}", include);
+        let code_paths: Vec<String> = Vec::new(); // TODO
+        if let Some(path) = include.get_include_path(&code_paths) {
+            if let Some(text) = std::fs::read_to_string(&path).ok() {
+                let mut tokenizer = Tokenizer::new(text);
+                tokenizer.set_filepath(&path);
+                let mut lexer = Lexer::new(tokenizer);
+                let ok = {
+                    // TODO: Optimize by skipping to parse unnecessary items.
+                    let mut parser = Parser::new(&mut lexer);
+                    parser.parse::<crate::items::module::Module>().is_ok()
+                };
+                if ok {
+                    // TODO: delete this message
+                    eprintln!(
+                        "[INFO] Found {} macro definitions in {:?}",
+                        lexer.macro_defines.len(),
+                        path
+                    );
+                    self.macro_defines.extend(lexer.macro_defines);
+                    return;
+                }
+            }
+        }
+        eprintln!("[WARN] Cannot handle a include directive: {:?}", include);
     }
 }
 
@@ -262,7 +285,7 @@ fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
         "MODULE" => AtomToken::new("EFMT_DUMMY", position, position).into(),
         "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => IntegerToken::new(position, position).into(),
         "MODULE_STRING" | "FILE" | "MACHINE" | "FUNCTION_NAME" => {
-            StringToken::new(position, position).into()
+            StringToken::new("EFMT_DUMMY", position, position).into()
         }
         _ => return None,
     };
