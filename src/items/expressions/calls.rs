@@ -92,6 +92,7 @@ pub enum BinaryOp {
     LessEq(symbols::LessEqSymbol),
     Greater(symbols::GreaterSymbol),
     GreaterEq(symbols::GreaterEqSymbol),
+    And(keywords::AndKeyword),
     Andalso(keywords::AndalsoKeyword),
     Orelse(keywords::OrelseKeyword),
     Send(symbols::NotSymbol),
