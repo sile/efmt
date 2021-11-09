@@ -145,6 +145,10 @@ pub struct IncludeDirective {
 }
 
 impl IncludeDirective {
+    pub fn path(&self) -> &str {
+        self.file.value()
+    }
+
     pub fn get_include_path<P: AsRef<Path>>(&self, code_paths: &[P]) -> Option<PathBuf> {
         let path = self.get_var_substituted_path();
         if matches!(self.include, Either::B(_)) {

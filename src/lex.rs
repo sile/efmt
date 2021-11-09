@@ -37,6 +37,7 @@ pub struct Lexer {
     macro_defines: HashMap<String, DefineDirective>,
     transaction_seqno: u64,
     transactions: HashSet<Transaction>,
+    missing_macros: HashSet<String>,
 }
 
 impl Lexer {
@@ -50,6 +51,7 @@ impl Lexer {
             macro_defines: HashMap::new(),
             transaction_seqno: 0,
             transactions: HashSet::new(),
+            missing_macros: HashSet::new(),
         }
     }
 
@@ -207,11 +209,14 @@ impl Lexer {
         } else if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
             (None, replacement)
         } else {
-            // TODO: use logger
-            eprintln!(
-                "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
-                macro_name.value()
-            );
+            if !self.missing_macros.contains(macro_name.value()) {
+                // TODO: use logger
+                eprintln!(
+                    "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
+                    macro_name.value()
+                );
+                self.missing_macros.insert(macro_name.value().to_owned());
+            }
             let dummy_token = AtomToken::new("EFMT_DUMMY", start_position, start_position);
             let replacement = vec![Token::from(dummy_token)];
             (None, replacement)
@@ -270,7 +275,10 @@ impl Lexer {
                 }
             }
         }
-        eprintln!("[WARN] Cannot handle a include directive: {:?}", include);
+        eprintln!(
+            "[WARN] Cannot handle an include directive: path={:?}",
+            include.path()
+        );
     }
 }
 
