@@ -249,7 +249,7 @@ impl Lexer {
     fn handle_include(&mut self, include: IncludeDirective) {
         let code_paths: Vec<String> = Vec::new(); // TODO
         if let Some(path) = include.get_include_path(&code_paths) {
-            if let Some(text) = std::fs::read_to_string(&path).ok() {
+            if let Ok(text) = std::fs::read_to_string(&path) {
                 let mut tokenizer = Tokenizer::new(text);
                 tokenizer.set_filepath(&path);
                 let mut lexer = Lexer::new(tokenizer);

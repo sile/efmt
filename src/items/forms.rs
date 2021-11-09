@@ -161,10 +161,9 @@ impl IncludeDirective {
                     .flatten()
                     .filter_map(|x| x.ok())
                     .filter(|x| x.path().is_dir())
-                    .filter(|x| x.path().starts_with(&prefix))
-                    .next();
+                    .find(|x| x.path().starts_with(&prefix));
                 if let Some(root) = entry {
-                    let mut target_path = root.path().to_path_buf();
+                    let mut target_path = root.path();
                     target_path.extend(path.components().skip(1));
                     return Some(target_path);
                 }

@@ -84,10 +84,12 @@ pub enum UnaryOp {
     Bnot(Space<BnotKeyword>),
 }
 
+pub type FunctionParamsAndReturn = (FunctionParams, (Space<RightArrowSymbol>, Type));
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionType {
     fun: Space<FunKeyword>,
-    params_and_return: Parenthesized<Maybe<(FunctionParams, (Space<RightArrowSymbol>, Type))>>,
+    params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -111,10 +113,12 @@ pub struct MfargsType {
     args: Parenthesized<Items<Type, CommaSymbol>>,
 }
 
+pub type ListItem = (Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>);
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListType {
     open: OpenSquareSymbol,
-    item: Maybe<(Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>)>,
+    item: Maybe<ListItem>,
     close: CloseSquareSymbol,
 }
 

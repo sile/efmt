@@ -11,10 +11,10 @@ use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum RecordExpr {
-    Construct(RecordConstructExpr),
-    Index(RecordIndexExpr),
-    Access(RecordAccessExpr),
-    Update(RecordUpdateExpr),
+    Construct(Box<RecordConstructExpr>),
+    Index(Box<RecordIndexExpr>),
+    Access(Box<RecordAccessExpr>),
+    Update(Box<RecordUpdateExpr>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

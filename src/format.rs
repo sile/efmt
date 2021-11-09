@@ -232,10 +232,8 @@ impl Formatter {
         //       (But be careful to prevent infinite recursive call of the format method)
         self.transaction.write_item(&self.text, item)?;
 
-        if !item.has_args() {
-            if self.text.as_bytes()[item.end_position().offset()] == b' ' {
-                self.needs_space();
-            }
+        if !item.has_args() && self.text.as_bytes()[item.end_position().offset()] == b' ' {
+            self.needs_space();
         }
         Ok(())
     }
@@ -265,14 +263,16 @@ impl Formatter {
     fn next_comment_position(&self) -> Option<Position> {
         self.comments
             .range(self.next_position()..)
-            .map(|x| x.0.clone())
+            .map(|x| x.0)
+            .copied()
             .next()
     }
 
     fn next_macro_position(&self) -> Option<Position> {
         self.macros
             .range(self.next_position()..)
-            .map(|x| x.0.clone())
+            .map(|x| x.0)
+            .copied()
             .next()
     }
 
