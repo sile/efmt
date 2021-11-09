@@ -230,6 +230,12 @@ impl<T: Format> Format for Clauses<T> {
 #[derive(Debug, Clone)]
 pub struct MaybeRepeat<T>(Vec<T>);
 
+impl<T> MaybeRepeat<T> {
+    pub fn get(&self) -> &[T] {
+        &self.0
+    }
+}
+
 impl<T: Span> Span for MaybeRepeat<T> {
     fn start_position(&self) -> Position {
         self.0[0].start_position()

@@ -3,9 +3,7 @@ use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::{Child, ColumnIndent, Newline, Space};
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
-use crate::items::tokens::{
-    AtomToken, CharToken, FloatToken, IntegerToken, StringToken, VariableToken,
-};
+use crate::items::tokens::{AtomToken, CharToken, FloatToken, IntegerToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -16,6 +14,7 @@ pub mod functions;
 pub mod lists;
 pub mod maps;
 pub mod records;
+pub mod strings;
 pub mod tuples;
 
 pub use self::bitstrings::BitstringExpr;
@@ -25,6 +24,7 @@ pub use self::functions::FunctionExpr;
 pub use self::lists::ListExpr;
 pub use self::maps::MapExpr;
 pub use self::records::RecordExpr;
+pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -33,7 +33,6 @@ pub enum Expr {
     NonLeftRecursive(NonLeftRecursiveExpr),
 }
 
-// TODO: string concatenation such as `"aaa" "bbb"`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum NonLeftRecursiveExpr {
     List(Box<ListExpr>),
@@ -55,7 +54,7 @@ pub enum LiteralExpr {
     Char(CharToken),
     Float(FloatToken),
     Integer(IntegerToken),
-    String(StringToken),
+    String(StringExpr),
     VariableToken(VariableToken),
 }
 
