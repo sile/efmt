@@ -216,17 +216,17 @@ impl Formatter {
             f(this)
         });
 
-        if !options.noretry
-            && matches!(
-                result,
-                Err(Error::MaxColumnsExceeded | Error::Multiline { .. })
-            )
-        {
-            // TODO: This assertion can be violated if `optoins.noentry = true`.
-            assert!(!options.multiline_mode.is_recommended());
-            self.with_subregion(options.recommend_multiline(), f)
-        } else {
-            result
+        match result {
+            Err(Error::MaxColumnsExceeded) if !options.noretry => {
+                // TODO: This assertion can be violated if `optoins.noentry = true`.
+                assert!(!options.multiline_mode.is_recommended());
+                self.with_subregion(options.recommend_multiline(), f)
+            }
+            Err(Error::Multiline { .. }) if options.multiline_mode == MultilineMode::Forbid => {
+                assert!(!options.multiline_mode.is_recommended());
+                self.with_subregion(options.recommend_multiline(), f)
+            }
+            _ => result,
         }
     }
 

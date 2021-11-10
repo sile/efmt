@@ -232,10 +232,21 @@ impl Transaction {
         indent
     }
 
+    fn is_multiline_forbiden(&self) -> bool {
+        if self.config.multiline_mode == MultilineMode::Forbid {
+            true
+        } else if let Some(parent) = &self.parent {
+            parent.is_multiline_forbiden()
+        } else {
+            false
+        }
+    }
+
     fn write(&mut self, s: &str) -> Result<()> {
         for c in s.chars() {
             if c == '\n' {
-                if self.config.multiline_mode == MultilineMode::Forbid {
+                if self.is_multiline_forbiden() {
+                    //self.config.multiline_mode == MultilineMode::Forbid {
                     let position = self.next_position();
                     return Err(Error::Multiline { position });
                 }

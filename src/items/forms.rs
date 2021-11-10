@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{self, Format};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
@@ -73,12 +73,31 @@ pub struct FunSpec {
     dot: DotSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct SpecClause {
     params: Parenthesized<Items<Type>>,
     arrow: Space<RightArrowSymbol>,
     r#return: Type,
     constraint: Maybe<Constraint>,
+}
+
+impl Format for SpecClause {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.format_item(&self.params)?;
+        fmt.format_item(&self.arrow)?;
+        fmt.with_subregion(format::RegionOptions::new().forbid_multiline(), |fmt| {
+            let options = if fmt.multiline_mode().is_recommended() {
+                format::RegionOptions::new()
+                    .newline()
+                    .indent(format::IndentMode::Offset(1))
+            } else {
+                format::RegionOptions::new().indent(format::IndentMode::CurrentColumn)
+            };
+            fmt.with_subregion(options, |fmt| fmt.format_item(&self.r#return))
+        })?;
+        fmt.format_item(&self.constraint)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -326,15 +345,14 @@ mod tests {
     #[test]
     fn fun_spec_works() {
         let texts = [
-            concat!(
-                "-spec foo(T1, T2) -> T3;\n", //
-                "         (T4, T5) -> T6."
-            ),
+            indoc::indoc! {"
+                -spec foo(T1, T2) -> T3;
+                         (T4, T5) -> T6."},
             "-spec id(X) -> X when X :: tuple().",
-            concat!(
-                "-callback foo(atom()) -> {atom(),\n",
-                "                          atom()}."
-            ),
+            indoc::indoc! {"
+                -callback foo(atom()) ->
+                              {atom(),
+                               atom()}."},
         ];
         for text in texts {
             assert!(matches!(parse_text(text).unwrap(), Form::FunSpec(_)));

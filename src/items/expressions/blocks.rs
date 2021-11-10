@@ -130,7 +130,7 @@ mod tests {
         FormatOptions::<Child<Expr>>::new()
             .max_columns(20)
             .format_text(text)
-            .expect("parse or format failed")
+            .unwrap_or_else(|e| format!("parse or format failed: {}", e))
     }
 
     #[test]

@@ -31,6 +31,7 @@ fn format_works() -> anyhow::Result<()> {
             continue;
         }
 
+        // TODO: Assume `*.erl` files are already well formatted.
         let mut formatted_path = path.clone();
         formatted_path.set_extension("erl.formatted");
         if !formatted_path.exists() {
