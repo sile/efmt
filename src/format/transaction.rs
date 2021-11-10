@@ -191,6 +191,12 @@ impl Transaction {
         Ok(())
     }
 
+    pub fn finish(mut self) -> Result<String> {
+        assert!(self.parent.is_none());
+        self.write_whitespace()?;
+        Ok(self.state.formatted_text)
+    }
+
     fn last_char(&self) -> Option<char> {
         self.state
             .formatted_text

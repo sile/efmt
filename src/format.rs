@@ -170,7 +170,7 @@ impl Formatter {
         self.write_comments_and_macros(&eof, None)
             .expect("TODO: error handling");
 
-        self.transaction.formatted_text().to_owned()
+        self.transaction.finish().expect("TODO: error handling")
     }
 
     pub fn max_columns(&self) -> usize {

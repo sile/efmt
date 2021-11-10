@@ -5,7 +5,7 @@
 -export([format_temps/1]).
 
 %% Only this function is exported
-format_temps([])->                        % No output for an empty list
+format_temps([]) ->  % No output for an empty list
     ok;
 format_temps([City | Rest]) ->
     print_temp(convert_to_celsius(City)),
