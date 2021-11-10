@@ -35,7 +35,7 @@ pub struct BitstringComprehensionExpr {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegment {
-    value: Either<LiteralExpr, Parenthesized<Expr>>,
+    value: Either<Either<LiteralExpr, Box<BitstringExpr>>, Parenthesized<Expr>>,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
 }
@@ -93,6 +93,7 @@ mod tests {
         let texts = [
             "<<>>",
             "<<1, 2:16, 3>>",
+            "<<<<\"foo\">>/binary>>",
             indoc::indoc! {"
                 <<1,
                   (foo()):4/little-signed-integer-unit:8,

@@ -116,6 +116,12 @@ pub trait Format: Span {
     }
 }
 
+impl<T: Format> Format for Box<T> {
+    fn format(&self, fmt: &mut Formatter) -> Result<()> {
+        (**self).format(fmt)
+    }
+}
+
 impl<A: Format, B: Format> Format for (A, B) {
     fn format(&self, fmt: &mut Formatter) -> Result<()> {
         fmt.format_item(&self.0)?;
