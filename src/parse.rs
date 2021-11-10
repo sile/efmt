@@ -83,6 +83,7 @@ pub fn parse_text<T: Parse>(text: &str) -> anyhow::Result<T> {
     Ok(item)
 }
 
+// TODO: remove this class?
 #[derive(Debug)]
 pub struct Parser<'a> {
     lexer: &'a mut Lexer,

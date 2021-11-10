@@ -23,6 +23,10 @@ fn main() -> anyhow::Result<()> {
             format_options.format_text(&text)?
         }
     };
+
+    // TODO: check before/after texts represent the same semantic meaning
+    //       (e.g., remove newlines and redundant spaces from those and compare the results)
+
     println!("{}", formatted_text);
 
     Ok(())

@@ -187,10 +187,12 @@ impl Formatter {
         self.transaction.current_column()
     }
 
+    // TODO: s/needs/write/
     pub fn needs_newline(&mut self) {
         self.transaction.needs_whitespace(Whitespace::Newline);
     }
 
+    // TODO: s/needs/write/
     pub fn needs_space(&mut self) {
         self.transaction.needs_whitespace(Whitespace::Blank);
     }
