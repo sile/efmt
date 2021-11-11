@@ -24,9 +24,8 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// TODO: s/Lexer/TokenStream/
 #[derive(Debug)]
-pub struct Lexer {
+pub struct TokenStream {
     tokenizer: Tokenizer<String>,
     tokens: Vec<Token>,
     current_token_index: usize,
@@ -36,7 +35,7 @@ pub struct Lexer {
     missing_macros: HashSet<String>,
 }
 
-impl Lexer {
+impl TokenStream {
     pub fn new(tokenizer: Tokenizer<String>) -> Self {
         Self {
             tokenizer,
@@ -287,19 +286,19 @@ impl Lexer {
             if let Ok(text) = std::fs::read_to_string(&path) {
                 let mut tokenizer = Tokenizer::new(text);
                 tokenizer.set_filepath(&path);
-                let mut lexer = Lexer::new(tokenizer);
+                let mut ts = TokenStream::new(tokenizer);
                 let ok = {
                     // TODO: Optimize by skipping to parse unnecessary items.
-                    lexer.parse::<crate::items::module::Module>().is_ok()
+                    ts.parse::<crate::items::module::Module>().is_ok()
                 };
                 if ok {
                     // TODO: delete this message
                     eprintln!(
                         "[INFO] Found {} macro definitions in {:?}",
-                        lexer.macro_defines.len(),
+                        ts.macro_defines.len(),
                         path
                     );
-                    self.macro_defines.extend(lexer.macro_defines);
+                    self.macro_defines.extend(ts.macro_defines);
                     return;
                 }
             }

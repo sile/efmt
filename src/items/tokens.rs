@@ -1,5 +1,5 @@
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, Lexer, Parse};
+use crate::parse::{self, TokenStream, Parse};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
@@ -46,10 +46,10 @@ macro_rules! impl_traits {
         }
 
         impl Parse for $name {
-            fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
-                match lexer.parse()? {
+            fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+                match ts.parse()? {
                     Token::$variant(token) => Ok(token),
-                    token => Err(parse::Error::unexpected_token(lexer, token)),
+                    token => Err(parse::Error::unexpected_token(ts, token)),
                 }
             }
         }

@@ -61,12 +61,12 @@ fn format<T>(
 where
     T: crate::parse::Parse + crate::format::Format,
 {
-    let mut lexer = crate::lex::Lexer::new(tokenizer);
-    let module: T = lexer.parse()?;
+    let mut ts = crate::lex::TokenStream::new(tokenizer);
+    let module: T = ts.parse()?;
     let mut formatter = crate::format::Formatter::new(
-        lexer.text().to_owned(),
-        lexer.comments().clone(),
-        lexer.macros().clone(),
+        ts.text().to_owned(),
+        ts.comments().clone(),
+        ts.macros().clone(),
         options,
     );
     formatter.format_item(&module)?;

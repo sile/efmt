@@ -1,7 +1,7 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::styles::Newline;
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
-use crate::parse::{self, Lexer, Parse};
+use crate::parse::{self, TokenStream, Parse};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
@@ -12,9 +12,9 @@ pub struct Maybe<T> {
 }
 
 impl<T> Maybe<T> {
-    pub fn none(lexer: &mut Lexer) -> parse::Result<Self> {
-        let prev_token_end_position = lexer.prev_token_end_position()?;
-        let next_token_start_position = lexer.next_token_start_position()?;
+    pub fn none(ts: &mut TokenStream) -> parse::Result<Self> {
+        let prev_token_end_position = ts.prev_token_end_position()?;
+        let next_token_start_position = ts.next_token_start_position()?;
         Ok(Self {
             item: None,
             prev_token_end_position,
@@ -42,11 +42,11 @@ impl<T: Span> Span for Maybe<T> {
 }
 
 impl<T: Parse> Parse for Maybe<T> {
-    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
-        let prev_token_end_position = lexer.prev_token_end_position()?;
-        let next_token_start_position = lexer.next_token_start_position()?;
+    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        let prev_token_end_position = ts.prev_token_end_position()?;
+        let next_token_start_position = ts.next_token_start_position()?;
         Ok(Self {
-            item: lexer.parse().ok(),
+            item: ts.parse().ok(),
             prev_token_end_position,
             next_token_start_position,
         })
@@ -123,12 +123,12 @@ impl<T: Span, D: Span> Span for NonEmptyItems<T, D> {
 }
 
 impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
-    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
-        let mut items = vec![lexer.parse()?];
+    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        let mut items = vec![ts.parse()?];
         let mut delimiters = Vec::new();
-        while let Some(delimiter) = lexer.parse().ok() {
+        while let Some(delimiter) = ts.parse().ok() {
             delimiters.push(delimiter);
-            items.push(lexer.parse()?);
+            items.push(ts.parse()?);
         }
         Ok(Self { items, delimiters })
     }
@@ -251,9 +251,9 @@ impl<T: Span> Span for MaybeRepeat<T> {
 }
 
 impl<T: Parse> Parse for MaybeRepeat<T> {
-    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
-        let mut items = vec![lexer.parse()?];
-        while let Some(item) = lexer.parse().ok() {
+    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        let mut items = vec![ts.parse()?];
+        while let Some(item) = ts.parse().ok() {
             items.push(item);
         }
         Ok(Self(items))
