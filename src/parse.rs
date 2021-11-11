@@ -1,10 +1,10 @@
 use crate::items::tokens::Token;
-use crate::lex::{self};
 use crate::span::{Position, Span as _};
 
+pub use self::token_stream::TokenStream;
 pub use efmt_derive::Parse;
 
-pub use crate::lex::TokenStream;
+mod token_stream;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,7 +15,7 @@ pub enum Error {
     UnexpectedToken { token: Token, message: String },
 
     #[error(transparent)]
-    LexError(#[from] lex::Error),
+    TokenizeError(#[from] erl_tokenize::Error),
 }
 
 impl Error {

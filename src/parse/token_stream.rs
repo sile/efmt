@@ -6,23 +6,13 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     StringToken, SymbolToken, Token, VariableToken,
 };
-use crate::parse;
-use crate::span::{Position, Span};
+use crate::parse::{Parse, Result};
+use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
-use erl_tokenize::{PositionRange as _, Tokenizer};
+use erl_tokenize::PositionRange as _;
+use erl_tokenize::Tokenizer;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    ParseError(#[from] Box<parse::Error>),
-
-    #[error(transparent)]
-    TokenizeError(#[from] erl_tokenize::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct TokenStream {
@@ -48,7 +38,7 @@ impl TokenStream {
         }
     }
 
-    pub fn parse<T: parse::Parse>(&mut self) -> parse::Result<T> {
+    pub fn parse<T: Parse>(&mut self) -> Result<T> {
         let index = self.current_token_index;
         let result = T::parse(self);
         if result.is_err() {
@@ -96,7 +86,7 @@ impl TokenStream {
         (&text[line_start..line_end]).trim_matches(char::is_control)
     }
 
-    pub fn peek<T: parse::Parse>(&mut self) -> bool {
+    pub fn peek<T: Parse>(&mut self) -> bool {
         let index = self.current_token_index;
         let ok = self.parse::<T>().is_ok();
         self.current_token_index = index;
@@ -228,7 +218,7 @@ impl TokenStream {
 
         let start_index = self.current_token_index - 1;
         let start_position = self.tokens[start_index].start_position();
-        let macro_name: MacroName = self.parse().map_err(Box::new)?;
+        let macro_name: MacroName = self.parse()?;
         let (variables, replacement) = if let Some(define) =
             self.macro_defines.get(macro_name.value())
         {
@@ -253,7 +243,7 @@ impl TokenStream {
         };
         let arity = variables.as_ref().map(|x| x.len());
         let question = QuestionSymbol::new(start_position);
-        let r#macro = Macro::parse(self, question, macro_name, arity).map_err(Box::new)?;
+        let r#macro = Macro::parse(self, question, macro_name, arity)?;
         let replacement = r#macro.expand(variables, replacement);
 
         let unread_tokens = self.tokens.split_off(self.current_token_index);

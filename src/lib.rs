@@ -1,6 +1,5 @@
 pub mod format;
 pub mod items;
-pub mod lex;
 pub mod parse;
 pub mod span;
 
@@ -61,7 +60,7 @@ fn format<T>(
 where
     T: crate::parse::Parse + crate::format::Format,
 {
-    let mut ts = crate::lex::TokenStream::new(tokenizer);
+    let mut ts = crate::parse::TokenStream::new(tokenizer);
     let module: T = ts.parse()?;
     let mut formatter = crate::format::Formatter::new(
         ts.text().to_owned(),
