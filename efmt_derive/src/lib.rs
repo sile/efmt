@@ -12,7 +12,7 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     let parse = generate_parse_fun_body(&input.data);
     let expanded = quote! {
         impl #impl_generics crate::parse::Parse for #name #ty_generics #where_clause {
-            fn parse(parser: &mut crate::parse::Parser) -> crate::parse::Result<Self> {
+            fn parse(lexer: &mut crate::parse::Lexer) -> crate::parse::Result<Self> {
                 #parse
             }
         }
@@ -35,7 +35,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
             Fields::Named(ref fields) => {
                 let parse = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: crate::parse::Parse::parse(parser)? }
+                    quote_spanned! { f.span() => #name: lexer.parse()? }
                 });
                 quote! {
                     Ok(Self{
@@ -45,7 +45,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
             }
             Fields::Unnamed(ref fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
-                quote! { parser.parse().map(Self) }
+                quote! { lexer.parse().map(Self) }
             }
             Fields::Unit => unimplemented!(),
         },
@@ -57,13 +57,20 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() =>  Ok(Self::#name(x)) }
+                quote_spanned! { variant.span() => match lexer.parse() {
+                    Ok(x) => return Ok(Self::#name(x)),
+                    Err(e) => {
+                        if error.as_ref().map_or(true, |x| x.position() < e.position()) {
+                            error = Some(e);
+                        }
+                    }
+                }}
             });
             quote! {
-                #( if let Some(x) = parser.try_parse() { #arms } else )*
-                {
-                    Err(parser.take_last_error().expect("unreachable"))
-                }
+
+                let mut error: Option<crate::parse::Error> = None;
+                #( #arms )*
+                Err(error.take().expect("unreachable"))
             }
         }
         Data::Union(_) => unimplemented!(),

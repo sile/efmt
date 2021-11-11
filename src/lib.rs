@@ -62,12 +62,11 @@ where
     T: crate::parse::Parse + crate::format::Format,
 {
     let mut lexer = crate::lex::Lexer::new(tokenizer);
-    let mut parser = crate::parse::Parser::new(&mut lexer);
-    let module: T = parser.parse()?;
+    let module: T = lexer.parse()?;
     let mut formatter = crate::format::Formatter::new(
-        parser.text().to_owned(),
-        parser.comments().clone(),
-        parser.macros().clone(),
+        lexer.text().to_owned(),
+        lexer.comments().clone(),
+        lexer.macros().clone(),
         options,
     );
     formatter.format_item(&module)?;

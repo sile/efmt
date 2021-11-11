@@ -1,18 +1,18 @@
 use crate::format::Format;
 use crate::items::tokens::SymbolToken;
-use crate::parse::{self, Parse, Parser};
+use crate::parse::{self, Lexer, Parse};
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 
 macro_rules! impl_parse {
     ($name:ident, $value:ident) => {
         impl Parse for $name {
-            fn parse(parser: &mut Parser) -> parse::Result<Self> {
-                let token: SymbolToken = parser.parse()?;
+            fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+                let token: SymbolToken = lexer.parse()?;
                 if token.value() == Symbol::$value {
                     Ok(Self(token))
                 } else {
-                    Err(parse::Error::unexpected_token(parser, token.into()))
+                    Err(parse::Error::unexpected_token(lexer, token.into()))
                 }
             }
         }

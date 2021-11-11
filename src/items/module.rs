@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::forms::Form;
-use crate::parse::{self, Parse, Parser};
+use crate::parse::{self, Lexer, Parse};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
@@ -20,12 +20,12 @@ impl Span for Module {
 }
 
 impl Parse for Module {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
         let mut forms = Vec::new();
-        while !parser.is_eof()? {
-            forms.push(parser.parse()?);
+        while !lexer.is_eof()? {
+            forms.push(lexer.parse()?);
         }
-        let position = parser.next_token_start_position()?;
+        let position = lexer.next_token_start_position()?;
         Ok(Self {
             forms,
             eof: Eof { position },

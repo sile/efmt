@@ -1,18 +1,18 @@
 use crate::format::Format;
 use crate::items::tokens::KeywordToken;
-use crate::parse::{self, Parse, Parser};
+use crate::parse::{self, Lexer, Parse};
 use crate::span::Span;
 use erl_tokenize::values::Keyword;
 
 macro_rules! impl_parse {
     ($name:ident,$value:ident) => {
         impl Parse for $name {
-            fn parse(parser: &mut Parser) -> parse::Result<Self> {
-                let token: KeywordToken = parser.parse()?;
+            fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+                let token: KeywordToken = lexer.parse()?;
                 if token.value() == Keyword::$value {
                     Ok(Self(token))
                 } else {
-                    Err(parse::Error::unexpected_token(parser, token.into()))
+                    Err(parse::Error::unexpected_token(lexer, token.into()))
                 }
             }
         }

@@ -6,7 +6,7 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     StringToken, SymbolToken, Token, VariableToken,
 };
-use crate::parse::{self, Parser};
+use crate::parse;
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
@@ -27,6 +27,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+// TODO: s/Lexer/TokenStream/
 #[derive(Debug)]
 pub struct Lexer {
     tokenizer: Tokenizer<String>,
@@ -53,6 +54,80 @@ impl Lexer {
             transactions: HashSet::new(),
             missing_macros: HashSet::new(),
         }
+    }
+
+    pub fn parse<T: parse::Parse>(&mut self) -> parse::Result<T> {
+        let transaction = self.start_transaction();
+        match T::parse(self) {
+            Ok(x) => {
+                self.commit(transaction).expect("unreachable");
+                Ok(x)
+            }
+            Err(e) => {
+                self.rollback(transaction).expect("unreachable");
+                Err(e)
+            }
+        }
+    }
+
+    // pub fn try_parse<T: parse::Parse>(&mut self) -> Option<T> {
+    //     let transaction = self.start_transaction();
+    //     match self.parse() {
+    //         Ok(x) => {
+    //             self.commit(transaction).expect("unreachable");
+    //             Some(x)
+    //         }
+    //         Err(_) => {
+    //             self.rollback(transaction).expect("unreachable");
+    //             None
+    //         }
+    //     }
+    // }
+
+    // TODO
+    pub fn generate_error_place(&self, unexpected_token: &Token) -> String {
+        use std::fmt::Write;
+
+        let line = unexpected_token.start_position().line();
+        let column = unexpected_token.start_position().column();
+        let file = self
+            .filepath()
+            .and_then(|x| x.to_str().map(|x| x.to_owned()))
+            .unwrap_or_else(|| "<anonymous>".to_owned());
+        let line_string = self.get_line_string(unexpected_token);
+
+        let mut m = String::new();
+        writeln!(&mut m).unwrap();
+        writeln!(&mut m, "--> {}:{}:{}", file, line, column).unwrap();
+        writeln!(&mut m, "{} | {}", line, line_string).unwrap();
+        writeln!(
+            &mut m,
+            "{:line_width$} | {:>token_column$} unexpected token",
+            "",
+            "^",
+            line_width = line.to_string().len(),
+            token_column = column
+        )
+        .unwrap();
+        m
+    }
+
+    fn get_line_string(&self, token: &Token) -> &str {
+        let text = self.text();
+        let offset = token.start_position().offset();
+        let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
+        let line_end = (&text[offset..])
+            .find('\n')
+            .map(|x| x + offset)
+            .unwrap_or_else(|| text.len());
+        (&text[line_start..line_end]).trim_matches(char::is_control)
+    }
+
+    pub fn peek<T: parse::Parse>(&mut self) -> bool {
+        let transaction = self.start_transaction();
+        let ok = self.parse::<T>().is_ok();
+        self.rollback(transaction).expect("unreachable");
+        ok
     }
 
     pub fn filepath(&self) -> Option<PathBuf> {
@@ -206,7 +281,7 @@ impl Lexer {
 
         let start_index = self.current_token_index - 1;
         let start_position = self.tokens[start_index].start_position();
-        let macro_name: MacroName = Parser::new(self).parse().map_err(Box::new)?;
+        let macro_name: MacroName = self.parse().map_err(Box::new)?;
         let (variables, replacement) = if let Some(define) =
             self.macro_defines.get(macro_name.value())
         {
@@ -231,8 +306,7 @@ impl Lexer {
         };
         let arity = variables.as_ref().map(|x| x.len());
         let question = QuestionSymbol::new(start_position);
-        let r#macro =
-            Macro::parse(&mut Parser::new(self), question, macro_name, arity).map_err(Box::new)?;
+        let r#macro = Macro::parse(self, question, macro_name, arity).map_err(Box::new)?;
         let replacement = r#macro.expand(variables, replacement);
 
         let unread_tokens = self.tokens.split_off(self.current_token_index);
@@ -246,7 +320,7 @@ impl Lexer {
 
     fn try_handle_directives(&mut self) -> Result<()> {
         self.current_token_index -= 1;
-        match Parser::new(self).try_parse() {
+        match self.parse().ok() {
             Some(Either::A(x)) => {
                 self.macro_defines
                     .insert(DefineDirective::macro_name(&x).to_owned(), x);
@@ -268,8 +342,7 @@ impl Lexer {
                 let mut lexer = Lexer::new(tokenizer);
                 let ok = {
                     // TODO: Optimize by skipping to parse unnecessary items.
-                    let mut parser = Parser::new(&mut lexer);
-                    parser.parse::<crate::items::module::Module>().is_ok()
+                    lexer.parse::<crate::items::module::Module>().is_ok()
                 };
                 if ok {
                     // TODO: delete this message

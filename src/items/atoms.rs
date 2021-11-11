@@ -1,17 +1,17 @@
 use crate::format::Format;
 use crate::items::tokens::AtomToken;
-use crate::parse::{self, Parse, Parser};
+use crate::parse::{self, Lexer, Parse};
 use crate::span::Span;
 
 macro_rules! impl_parse {
     ($name:ident, $value:expr) => {
         impl Parse for $name {
-            fn parse(parser: &mut Parser) -> parse::Result<Self> {
-                let token: AtomToken = parser.parse()?;
+            fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+                let token: AtomToken = lexer.parse()?;
                 if token.value() == $value {
                     Ok(Self(token))
                 } else {
-                    Err(parse::Error::unexpected_token(parser, token.into()))
+                    Err(parse::Error::unexpected_token(lexer, token.into()))
                 }
             }
         }

@@ -4,7 +4,7 @@ use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
 use crate::items::tokens::{AtomToken, Token, VariableToken};
-use crate::parse::{self, Parse, Parser};
+use crate::parse::{self, Lexer, Parse};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
@@ -22,7 +22,7 @@ impl Macro {
     }
 
     pub fn parse(
-        parser: &mut Parser,
+        lexer: &mut Lexer,
         question: QuestionSymbol,
         name: MacroName,
         arity: Option<usize>,
@@ -31,13 +31,13 @@ impl Macro {
             Ok(Self {
                 question,
                 name,
-                args: parser.parse()?,
+                args: lexer.parse()?,
             })
         } else {
             Ok(Self {
                 question,
                 name,
-                args: Maybe::none(parser)?,
+                args: Maybe::none(lexer)?,
             })
         }
     }
@@ -113,11 +113,11 @@ impl Span for MacroReplacement {
 }
 
 impl Parse for MacroReplacement {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
-        let start_position = parser.next_token_start_position()?;
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
+        let start_position = lexer.next_token_start_position()?;
         let mut tokens = Vec::new();
-        while !parser.peek::<(CloseParenSymbol, DotSymbol)>() {
-            tokens.push(parser.parse()?);
+        while !lexer.peek::<(CloseParenSymbol, DotSymbol)>() {
+            tokens.push(lexer.parse()?);
         }
         Ok(Self {
             tokens,
@@ -156,7 +156,7 @@ impl Span for MacroArg {
 }
 
 impl Parse for MacroArg {
-    fn parse(parser: &mut Parser) -> parse::Result<Self> {
+    fn parse(lexer: &mut Lexer) -> parse::Result<Self> {
         #[derive(Debug, Default, PartialEq, Eq)]
         struct Level {
             paren: usize,
@@ -176,11 +176,11 @@ impl Parse for MacroArg {
         let mut level = Level::default();
         while tokens.is_empty()
             || !level.is_toplevel()
-            || !parser.peek::<Either<CommaSymbol, CloseParenSymbol>>()
+            || !lexer.peek::<Either<CommaSymbol, CloseParenSymbol>>()
         {
-            let token: Token = parser.parse()?;
+            let token: Token = lexer.parse()?;
 
-            let is_macro_expanded = parser.macros().contains_key(&token.start_position());
+            let is_macro_expanded = lexer.macros().contains_key(&token.start_position());
             if is_macro_expanded {
                 tokens.push(token);
                 continue;
@@ -232,8 +232,8 @@ impl Parse for MacroArg {
                         level.block += 1;
                     }
                     Keyword::Fun => {
-                        if parser.peek::<OpenParenSymbol>()
-                            || parser.peek::<(Token, OpenParenSymbol)>()
+                        if lexer.peek::<OpenParenSymbol>()
+                            || lexer.peek::<(Token, OpenParenSymbol)>()
                         {
                             level.block += 1;
                         }
