@@ -15,9 +15,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("unknown transaction {transaction:?}")]
-    UnknownTransaction { transaction: Transaction },
-
     #[error(transparent)]
     ParseError(#[from] Box<parse::Error>),
 
@@ -36,8 +33,6 @@ pub struct Lexer {
     comments: BTreeMap<Position, CommentToken>,
     macros: BTreeMap<Position, Macro>,
     macro_defines: HashMap<String, DefineDirective>,
-    transaction_seqno: u64,
-    transactions: HashSet<Transaction>,
     missing_macros: HashSet<String>,
 }
 
@@ -50,39 +45,18 @@ impl Lexer {
             comments: BTreeMap::new(),
             macros: BTreeMap::new(),
             macro_defines: HashMap::new(),
-            transaction_seqno: 0,
-            transactions: HashSet::new(),
             missing_macros: HashSet::new(),
         }
     }
 
     pub fn parse<T: parse::Parse>(&mut self) -> parse::Result<T> {
-        let transaction = self.start_transaction();
-        match T::parse(self) {
-            Ok(x) => {
-                self.commit(transaction).expect("unreachable");
-                Ok(x)
-            }
-            Err(e) => {
-                self.rollback(transaction).expect("unreachable");
-                Err(e)
-            }
+        let index = self.current_token_index;
+        let result = T::parse(self);
+        if result.is_err() {
+            self.current_token_index = index;
         }
+        result
     }
-
-    // pub fn try_parse<T: parse::Parse>(&mut self) -> Option<T> {
-    //     let transaction = self.start_transaction();
-    //     match self.parse() {
-    //         Ok(x) => {
-    //             self.commit(transaction).expect("unreachable");
-    //             Some(x)
-    //         }
-    //         Err(_) => {
-    //             self.rollback(transaction).expect("unreachable");
-    //             None
-    //         }
-    //     }
-    // }
 
     // TODO
     pub fn generate_error_place(&self, unexpected_token: &Token) -> String {
@@ -124,9 +98,9 @@ impl Lexer {
     }
 
     pub fn peek<T: parse::Parse>(&mut self) -> bool {
-        let transaction = self.start_transaction();
+        let index = self.current_token_index;
         let ok = self.parse::<T>().is_ok();
-        self.rollback(transaction).expect("unreachable");
+        self.current_token_index = index;
         ok
     }
 
@@ -173,32 +147,6 @@ impl Lexer {
         } else {
             self.current_token_index = index;
             Ok(self.tokens[index].start_position())
-        }
-    }
-
-    pub fn start_transaction(&mut self) -> Transaction {
-        let index = self.current_token_index;
-        let seqno = self.transaction_seqno;
-        self.transaction_seqno += 1;
-        self.transactions.insert(Transaction { seqno, index });
-        Transaction { seqno, index }
-    }
-
-    pub fn commit(&mut self, transaction: Transaction) -> Result<()> {
-        if self.transactions.remove(&transaction) {
-            Ok(())
-        } else {
-            Err(Error::UnknownTransaction { transaction })
-        }
-    }
-
-    pub fn rollback(&mut self, transaction: Transaction) -> Result<()> {
-        if self.transactions.remove(&transaction) {
-            assert!(transaction.index <= self.current_token_index);
-            self.current_token_index = transaction.index;
-            Ok(())
-        } else {
-            Err(Error::UnknownTransaction { transaction })
         }
     }
 
@@ -361,12 +309,6 @@ impl Lexer {
             include.path()
         );
     }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Transaction {
-    seqno: u64,
-    index: usize,
 }
 
 fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
