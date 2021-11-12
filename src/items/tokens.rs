@@ -1,5 +1,5 @@
 use crate::format::{self, Format, Formatter};
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
@@ -245,6 +245,28 @@ impl CommentToken {
 }
 
 impl Span for CommentToken {
+    fn start_position(&self) -> Position {
+        self.start
+    }
+
+    fn end_position(&self) -> Position {
+        self.end
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WhitespaceToken {
+    start: Position,
+    end: Position,
+}
+
+impl WhitespaceToken {
+    pub fn new(start: Position, end: Position) -> Self {
+        Self { start, end }
+    }
+}
+
+impl Span for WhitespaceToken {
     fn start_position(&self) -> Position {
         self.start
     }

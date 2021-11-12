@@ -4,7 +4,7 @@ use crate::items::macros::Macro;
 use crate::items::symbols::QuestionSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
-    StringToken, SymbolToken, Token, VariableToken,
+    StringToken, SymbolToken, Token, VariableToken, WhitespaceToken,
 };
 use crate::parse::{Parse, Result};
 use crate::span::{Position, Span as _};
@@ -47,45 +47,6 @@ impl TokenStream {
         result
     }
 
-    // TODO
-    pub fn generate_error_place(&self, unexpected_token: &Token) -> String {
-        use std::fmt::Write;
-
-        let line = unexpected_token.start_position().line();
-        let column = unexpected_token.start_position().column();
-        let file = self
-            .filepath()
-            .and_then(|x| x.to_str().map(|x| x.to_owned()))
-            .unwrap_or_else(|| "<anonymous>".to_owned());
-        let line_string = self.get_line_string(unexpected_token);
-
-        let mut m = String::new();
-        writeln!(&mut m).unwrap();
-        writeln!(&mut m, "--> {}:{}:{}", file, line, column).unwrap();
-        writeln!(&mut m, "{} | {}", line, line_string).unwrap();
-        writeln!(
-            &mut m,
-            "{:line_width$} | {:>token_column$} unexpected token",
-            "",
-            "^",
-            line_width = line.to_string().len(),
-            token_column = column
-        )
-        .unwrap();
-        m
-    }
-
-    fn get_line_string(&self, token: &Token) -> &str {
-        let text = self.text();
-        let offset = token.start_position().offset();
-        let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
-        let line_end = (&text[offset..])
-            .find('\n')
-            .map(|x| x + offset)
-            .unwrap_or_else(|| text.len());
-        (&text[line_start..line_end]).trim_matches(char::is_control)
-    }
-
     pub fn peek<T: Parse>(&mut self) -> bool {
         let index = self.current_token_index;
         let ok = self.parse::<T>().is_ok();
@@ -110,17 +71,20 @@ impl TokenStream {
     }
 
     pub fn is_eof(&mut self) -> Result<bool> {
-        if self.current_token_index < self.tokens.len() {
-            Ok(false)
-        } else if self.read_token()?.is_some() {
-            self.current_token_index -= 1;
-            Ok(false)
-        } else {
-            Ok(true)
-        }
+        let index = self.current_token_index;
+        let eof = self.next().transpose()?.is_none();
+        self.current_token_index = index;
+        Ok(eof)
     }
 
-    pub fn prev_token_end_position(&mut self) -> Result<Position> {
+    pub fn current_whitespace_token(&mut self) -> Result<WhitespaceToken> {
+        Ok(WhitespaceToken::new(
+            self.prev_token_end_position()?,
+            self.next_token_start_position()?,
+        ))
+    }
+
+    fn prev_token_end_position(&mut self) -> Result<Position> {
         let index = self.current_token_index;
         if index == 0 {
             Ok(self.tokenizer.next_position().into())
@@ -129,7 +93,7 @@ impl TokenStream {
         }
     }
 
-    pub fn next_token_start_position(&mut self) -> Result<Position> {
+    fn next_token_start_position(&mut self) -> Result<Position> {
         let index = self.current_token_index;
         if index == self.tokens.len() && self.read_token()?.is_none() {
             Ok(self.tokenizer.next_position().into())
@@ -139,7 +103,7 @@ impl TokenStream {
         }
     }
 
-    pub fn read_token(&mut self) -> Result<Option<Token>> {
+    fn read_token(&mut self) -> Result<Option<Token>> {
         if let Some(token) = self.tokens.get(self.current_token_index).cloned() {
             self.current_token_index += 1;
             return Ok(Some(token));
@@ -297,6 +261,14 @@ impl TokenStream {
             "[WARN] Cannot handle an include directive: path={:?}",
             include.path()
         );
+    }
+}
+
+impl Iterator for TokenStream {
+    type Item = Result<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.read_token().transpose()
     }
 }
 

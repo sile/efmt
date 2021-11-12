@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::forms::Form;
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ impl Parse for Module {
         while !ts.is_eof()? {
             forms.push(ts.parse()?);
         }
-        let position = ts.next_token_start_position()?;
+        let position = ts.current_whitespace_token()?.end_position();
         Ok(Self {
             forms,
             eof: Eof { position },

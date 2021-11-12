@@ -4,7 +4,7 @@ use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
 use crate::items::tokens::{AtomToken, Token, VariableToken};
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
@@ -114,7 +114,7 @@ impl Span for MacroReplacement {
 
 impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        let start_position = ts.next_token_start_position()?;
+        let start_position = ts.current_whitespace_token()?.end_position();
         let mut tokens = Vec::new();
         while !ts.peek::<(CloseParenSymbol, DotSymbol)>() {
             tokens.push(ts.parse()?);
@@ -232,9 +232,7 @@ impl Parse for MacroArg {
                         level.block += 1;
                     }
                     Keyword::Fun => {
-                        if ts.peek::<OpenParenSymbol>()
-                            || ts.peek::<(Token, OpenParenSymbol)>()
-                        {
+                        if ts.peek::<OpenParenSymbol>() || ts.peek::<(Token, OpenParenSymbol)>() {
                             level.block += 1;
                         }
                     }

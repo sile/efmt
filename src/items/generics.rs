@@ -1,55 +1,49 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::styles::Newline;
 use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
-use crate::parse::{self, TokenStream, Parse};
+use crate::items::tokens::WhitespaceToken;
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
-pub struct Maybe<T> {
-    item: Option<T>,
-    prev_token_end_position: Position,
-    next_token_start_position: Position,
-}
+pub struct Maybe<T>(Either<T, WhitespaceToken>);
 
 impl<T> Maybe<T> {
     pub fn none(ts: &mut TokenStream) -> parse::Result<Self> {
-        let prev_token_end_position = ts.prev_token_end_position()?;
-        let next_token_start_position = ts.next_token_start_position()?;
-        Ok(Self {
-            item: None,
-            prev_token_end_position,
-            next_token_start_position,
-        })
+        ts.current_whitespace_token().map(Either::B).map(Self)
     }
 
     pub fn get(&self) -> Option<&T> {
-        self.item.as_ref()
+        if let Either::A(x) = &self.0 {
+            Some(x)
+        } else {
+            None
+        }
     }
 }
 
 impl<T: Span> Span for Maybe<T> {
     fn start_position(&self) -> Position {
-        self.item
-            .as_ref()
-            .map_or(self.next_token_start_position, |x| x.start_position())
+        match &self.0 {
+            Either::A(x) => x.start_position(),
+            Either::B(x) => x.end_position(), // TODO: add note comment
+        }
     }
 
     fn end_position(&self) -> Position {
-        self.item
-            .as_ref()
-            .map_or(self.prev_token_end_position, |x| x.end_position())
+        match &self.0 {
+            Either::A(x) => x.end_position(),
+            Either::B(x) => x.start_position(), // TODO: add note comment
+        }
     }
 }
 
 impl<T: Parse> Parse for Maybe<T> {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        let prev_token_end_position = ts.prev_token_end_position()?;
-        let next_token_start_position = ts.next_token_start_position()?;
-        Ok(Self {
-            item: ts.parse().ok(),
-            prev_token_end_position,
-            next_token_start_position,
-        })
+        ts.parse()
+            .map(Either::A)
+            .or_else(|_| ts.current_whitespace_token().map(Either::B))
+            .map(Self)
     }
 }
 
