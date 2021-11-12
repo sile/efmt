@@ -95,6 +95,10 @@ impl TokenStream {
         Ok(eof)
     }
 
+    pub fn current_position(&self) -> Position {
+        self.tokenizer.next_position().into()
+    }
+
     pub fn current_whitespace_token(&mut self) -> Result<WhitespaceToken> {
         Ok(WhitespaceToken::new(
             self.prev_token_end_position(),

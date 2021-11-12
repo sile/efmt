@@ -33,6 +33,17 @@ impl Token {
     }
 }
 
+impl Parse for Token {
+    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        if let Some(token) = ts.next().transpose()? {
+            Ok(token)
+        } else {
+            let position = ts.current_position();
+            Err(parse::Error::UnexpectedEof { position })
+        }
+    }
+}
+
 macro_rules! impl_traits {
     ($name:ident, $variant:ident, $is_primitive:expr) => {
         impl Span for $name {
