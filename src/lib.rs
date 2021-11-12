@@ -60,7 +60,7 @@ fn format<T>(
 where
     T: crate::parse::Parse + crate::format::Format,
 {
-    let mut ts = crate::parse::TokenStream::new(tokenizer);
+    let mut ts = crate::parse::TokenStream::new(tokenizer, Default::default());
     let module: T = ts.parse()?;
     let mut formatter = crate::format::Formatter::new(
         ts.text().to_owned(),

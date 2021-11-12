@@ -1,6 +1,7 @@
 use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::generics::Either;
-use crate::items::macros::Macro;
+use crate::items::macros::{Macro, MacroName};
+use crate::items::module::Module;
 use crate::items::symbols::QuestionSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
@@ -9,10 +10,25 @@ use crate::items::tokens::{
 use crate::parse::{Parse, Result};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
-use erl_tokenize::PositionRange as _;
-use erl_tokenize::Tokenizer;
+use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Default, Clone)]
+pub struct TokenStreamOptions {
+    code_paths: Vec<PathBuf>,
+}
+
+impl TokenStreamOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn code_path(mut self, path: impl AsRef<Path>) -> Self {
+        self.code_paths.push(path.as_ref().to_path_buf());
+        self
+    }
+}
 
 #[derive(Debug)]
 pub struct TokenStream {
@@ -23,10 +39,11 @@ pub struct TokenStream {
     macros: BTreeMap<Position, Macro>,
     macro_defines: HashMap<String, DefineDirective>,
     missing_macros: HashSet<String>,
+    options: TokenStreamOptions,
 }
 
 impl TokenStream {
-    pub fn new(tokenizer: Tokenizer<String>) -> Self {
+    pub fn new(tokenizer: Tokenizer<String>, options: TokenStreamOptions) -> Self {
         Self {
             tokenizer,
             tokens: Vec::new(),
@@ -35,6 +52,7 @@ impl TokenStream {
             macros: BTreeMap::new(),
             macro_defines: HashMap::new(),
             missing_macros: HashSet::new(),
+            options,
         }
     }
 
@@ -79,26 +97,24 @@ impl TokenStream {
 
     pub fn current_whitespace_token(&mut self) -> Result<WhitespaceToken> {
         Ok(WhitespaceToken::new(
-            self.prev_token_end_position()?,
+            self.prev_token_end_position(),
             self.next_token_start_position()?,
         ))
     }
 
-    fn prev_token_end_position(&mut self) -> Result<Position> {
-        let index = self.current_token_index;
-        if index == 0 {
-            Ok(self.tokenizer.next_position().into())
+    fn prev_token_end_position(&mut self) -> Position {
+        if let Some(i) = self.current_token_index.checked_sub(1) {
+            self.tokens[i].end_position()
         } else {
-            Ok(self.tokens[index - 1].end_position())
+            self.tokenizer.next_position().into()
         }
     }
 
     fn next_token_start_position(&mut self) -> Result<Position> {
         let index = self.current_token_index;
-        if index == self.tokens.len() && self.read_token()?.is_none() {
+        if index == self.tokens.len() && self.is_eof()? {
             Ok(self.tokenizer.next_position().into())
         } else {
-            self.current_token_index = index;
             Ok(self.tokens[index].start_position())
         }
     }
@@ -177,34 +193,27 @@ impl TokenStream {
     }
 
     fn expand_macro(&mut self) -> Result<()> {
-        // TODO:
-        use crate::items::macros::MacroName;
-
         let start_index = self.current_token_index - 1;
         let start_position = self.tokens[start_index].start_position();
         let macro_name: MacroName = self.parse()?;
-        let (variables, replacement) = if let Some(define) =
-            self.macro_defines.get(macro_name.value())
-        {
-            (
-                define.variables().map(|x| x.to_owned()),
-                define.replacement().to_owned(),
-            )
-        } else if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
-            (None, replacement)
-        } else {
-            if !self.missing_macros.contains(macro_name.value()) {
-                // TODO: use logger
-                eprintln!(
-                    "[WARN] The macro {:?} is not defined. Use the atom 'EFMT_DUMMY' instead.",
-                    macro_name.value()
-                );
-                self.missing_macros.insert(macro_name.value().to_owned());
-            }
-            let dummy_token = AtomToken::new("EFMT_DUMMY", start_position, start_position);
-            let replacement = vec![Token::from(dummy_token)];
-            (None, replacement)
-        };
+        let (variables, replacement) =
+            if let Some(define) = self.macro_defines.get(macro_name.value()) {
+                (
+                    define.variables().map(|x| x.to_owned()),
+                    define.replacement().to_owned(),
+                )
+            } else if let Some(replacement) = get_predefined_macro(macro_name.value()) {
+                (None, replacement)
+            } else {
+                if !self.missing_macros.contains(macro_name.value()) {
+                    log::warn!(
+                        "The macro {:?} is not defined. 'EFMT_DUMMY' atom is used instead.",
+                        macro_name.value()
+                    );
+                    self.missing_macros.insert(macro_name.value().to_owned());
+                }
+                (None, vec![Token::from(dummy_atom())])
+            };
         let arity = variables.as_ref().map(|x| x.len());
         let question = QuestionSymbol::new(start_position);
         let r#macro = Macro::parse(self, question, macro_name, arity)?;
@@ -221,46 +230,51 @@ impl TokenStream {
 
     fn try_handle_directives(&mut self) -> Result<()> {
         self.current_token_index -= 1;
-        match self.parse().ok() {
-            Some(Either::A(x)) => {
-                self.macro_defines
-                    .insert(DefineDirective::macro_name(&x).to_owned(), x);
+        let result: Result<Either<DefineDirective, IncludeDirective>> = self.parse();
+        match result {
+            Ok(Either::A(x)) => {
+                self.macro_defines.insert(x.macro_name().to_owned(), x);
             }
-            Some(Either::B(x)) => {
+            Ok(Either::B(x)) => {
                 self.handle_include(x);
             }
-            None => {}
+            Err(_) => {}
         }
         Ok(())
     }
 
     fn handle_include(&mut self, include: IncludeDirective) {
-        let code_paths: Vec<String> = Vec::new(); // TODO
-        if let Some(path) = include.get_include_path(&code_paths) {
-            if let Ok(text) = std::fs::read_to_string(&path) {
-                let mut tokenizer = Tokenizer::new(text);
-                tokenizer.set_filepath(&path);
-                let mut ts = TokenStream::new(tokenizer);
-                let ok = {
-                    // TODO: Optimize by skipping to parse unnecessary items.
-                    ts.parse::<crate::items::module::Module>().is_ok()
-                };
-                if ok {
-                    // TODO: delete this message
-                    eprintln!(
-                        "[INFO] Found {} macro definitions in {:?}",
-                        ts.macro_defines.len(),
-                        path
-                    );
-                    self.macro_defines.extend(ts.macro_defines);
-                    return;
-                }
+        let path = if let Some(path) = include.get_include_path(&self.options.code_paths) {
+            path
+        } else {
+            log::warn!("Cannot find include file {:?}", include.path());
+            return;
+        };
+
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) => {
+                log::warn!("Cannot read include file {:?}: {}", include.path(), e);
+                return;
+            }
+        };
+
+        let mut tokenizer = Tokenizer::new(text);
+        tokenizer.set_filepath(&path);
+        let mut ts = TokenStream::new(tokenizer, self.options.clone());
+        match ts.parse::<Module>() {
+            Ok(_) => {
+                log::debug!(
+                    "Found {} macro definitions in {:?}",
+                    ts.macro_defines.len(),
+                    path
+                );
+                self.macro_defines.extend(ts.macro_defines);
+            }
+            Err(e) => {
+                log::warn!("Cannot parse include file {:?}: {}", include.path(), e);
             }
         }
-        eprintln!(
-            "[WARN] Cannot handle an include directive: path={:?}",
-            include.path()
-        );
     }
 }
 
@@ -272,14 +286,24 @@ impl Iterator for TokenStream {
     }
 }
 
-fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
+fn get_predefined_macro(name: &str) -> Option<Vec<Token>> {
     let token: Token = match name {
-        "MODULE" => AtomToken::new("EFMT_DUMMY", position, position).into(),
-        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => IntegerToken::new(position, position).into(),
-        "MODULE_STRING" | "FILE" | "MACHINE" | "FUNCTION_NAME" => {
-            StringToken::new("EFMT_DUMMY", position, position).into()
-        }
+        "MODULE" => dummy_atom().into(),
+        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer().into(),
+        "MODULE_STRING" | "FILE" | "MACHINE" | "FUNCTION_NAME" => dummy_string().into(),
         _ => return None,
     };
     Some(vec![token])
+}
+
+fn dummy_atom() -> AtomToken {
+    AtomToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
+}
+
+fn dummy_integer() -> IntegerToken {
+    IntegerToken::new(Position::new(0, 0, 0), Position::new(0, 0, 0))
+}
+
+fn dummy_string() -> StringToken {
+    StringToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
 }

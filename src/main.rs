@@ -1,4 +1,5 @@
 use efmt::items::module::Module;
+use env_logger::Env;
 use std::io::Read as _;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -12,6 +13,8 @@ struct Opt {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+
     let opt = Opt::from_args();
 
     let format_options = efmt::FormatOptions::<Module>::new().max_columns(opt.max_columns);

@@ -63,7 +63,7 @@ impl<A: Parse, B: Parse> Parse for (A, B) {
 #[cfg(test)]
 pub fn parse_text<T: Parse>(text: &str) -> anyhow::Result<T> {
     let tokenizer = erl_tokenize::Tokenizer::new(text.to_owned());
-    let mut ts = TokenStream::new(tokenizer);
+    let mut ts = TokenStream::new(tokenizer, Default::default());
     let item = ts.parse()?;
     anyhow::ensure!(ts.is_eof()?, "there are unconsumed tokens");
     Ok(item)
