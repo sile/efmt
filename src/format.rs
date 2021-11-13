@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 pub use self::transaction::{Transaction, TransactionConfig};
 pub use efmt_derive::Format;
 
+pub mod region; // TODO: private
 mod transaction;
 
 pub trait Format: Span {
@@ -24,8 +25,8 @@ impl<T: Format> Format for Box<T> {
 
 impl<A: Format, B: Format> Format for (A, B) {
     fn format(&self, fmt: &mut Formatter) -> Result<()> {
-        fmt.format_item(&self.0)?;
-        fmt.format_item(&self.1)?;
+        self.0.format(fmt)?;
+        self.1.format(fmt)?;
         Ok(())
     }
 }
@@ -201,12 +202,8 @@ impl Formatter {
         self.transaction.write_blank()
     }
 
-    pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
-        self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
-        item.format(self)
-    }
-
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
+        self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
         self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.transaction.write_item(&self.text, item)?;
         Ok(())

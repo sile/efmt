@@ -83,6 +83,6 @@ where
         ts.macros().clone(),
         options,
     );
-    formatter.format_item(&module)?;
+    module.format(&mut formatter)?;
     Ok(formatter.finish())
 }

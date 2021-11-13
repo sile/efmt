@@ -44,12 +44,12 @@ pub struct BinaryOpType {
 
 impl Format for BinaryOpType {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.format_item(&self.left)?;
-        fmt.format_item(&self.op)?;
+        self.left.format(fmt)?;
+        self.op.format(fmt)?;
         if fmt.multiline_mode().is_recommended() && matches!(self.op, BinaryOp::Union(_)) {
             fmt.write_newline()?;
         }
-        fmt.format_item(&self.right)?;
+        self.right.format(fmt)?;
         Ok(())
     }
 }

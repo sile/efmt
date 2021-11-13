@@ -13,7 +13,7 @@ impl Format for StringExpr {
             format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
             |fmt| {
                 for (i, item) in self.0.get().iter().enumerate() {
-                    fmt.format_item(item)?;
+                    item.format(fmt)?;
                     if i + 1 < self.0.get().len() {
                         fmt.write_newline()?;
                     }

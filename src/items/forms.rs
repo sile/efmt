@@ -83,8 +83,8 @@ pub struct SpecClause {
 
 impl Format for SpecClause {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.format_item(&self.params)?;
-        fmt.format_item(&self.arrow)?;
+        self.params.format(fmt)?;
+        self.arrow.format(fmt)?;
         fmt.with_subregion(format::RegionOptions::new().forbid_multiline(), |fmt| {
             let options = if fmt.multiline_mode().is_recommended() {
                 format::RegionOptions::new()
@@ -93,9 +93,9 @@ impl Format for SpecClause {
             } else {
                 format::RegionOptions::new().indent(format::IndentMode::CurrentColumn)
             };
-            fmt.with_subregion(options, |fmt| fmt.format_item(&self.r#return))
+            fmt.with_subregion(options, |fmt| self.r#return.format(fmt))
         })?;
-        fmt.format_item(&self.constraint)?;
+        self.constraint.format(fmt)?;
         Ok(())
     }
 }

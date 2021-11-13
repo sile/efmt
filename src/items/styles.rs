@@ -14,7 +14,7 @@ impl<T> Child<T> {
 
 impl<T: Format> Format for Child<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(format::RegionOptions::new(), |fmt| fmt.format_item(&self.0))
+        fmt.with_subregion(format::RegionOptions::new(), |fmt| self.0.format(fmt))
     }
 }
 
@@ -25,7 +25,7 @@ impl<T: Format> Format for ColumnIndent<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.with_subregion(
             format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
-            |fmt| fmt.format_item(&self.0),
+            |fmt| self.0.format(fmt),
         )
     }
 }
@@ -45,7 +45,7 @@ impl<T: Format> Format for Block<T> {
             format::RegionOptions::new()
                 .newline()
                 .indent(format::IndentMode::offset(4)),
-            |fmt| fmt.format_item(&self.0),
+            |fmt| self.0.format(fmt),
         )
     }
 }
@@ -63,7 +63,7 @@ impl<T> Space<T> {
 impl<T: Format> Format for Space<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.write_blank()?;
-        fmt.format_item(&self.0)?;
+        self.0.format(fmt)?;
         fmt.write_blank()?;
         Ok(())
     }
@@ -74,7 +74,7 @@ pub struct RightSpace<T>(T);
 
 impl<T: Format> Format for RightSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.format_item(&self.0)?;
+        self.0.format(fmt)?;
         fmt.write_blank()?;
         Ok(())
     }
@@ -87,7 +87,7 @@ pub struct LeftSpace<T>(T);
 impl<T: Format> Format for LeftSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.write_blank()?;
-        fmt.format_item(&self.0)?;
+        self.0.format(fmt)?;
         Ok(())
     }
 }
@@ -97,7 +97,7 @@ pub struct Newline<T>(T);
 
 impl<T: Format> Format for Newline<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.format_item(&self.0)?;
+        self.0.format(fmt)?;
         fmt.write_newline()?;
         Ok(())
     }

@@ -36,10 +36,10 @@ impl Parse for Module {
 impl Format for Module {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         for form in &self.forms {
-            fmt.with_subregion(format::RegionOptions::new(), |fmt| fmt.format_item(form))?;
+            fmt.with_subregion(format::RegionOptions::new(), |fmt| form.format(fmt))?;
             fmt.write_newline()?;
         }
-        fmt.format_item(&self.eof)?; // For comments and empty macros
+        self.eof.format(fmt)?; // For comments and empty macros
         Ok(())
     }
 }

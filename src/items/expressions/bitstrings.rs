@@ -54,17 +54,21 @@ pub struct BitstringSegmentType {
 
 impl Format for BitstringSegmentType {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.format_item(&self.slash)?;
+        self.slash.format(fmt)?;
         for (item, delimiter) in self
             .specifiers
             .items
             .iter()
             .zip(self.specifiers.delimiters.iter())
         {
-            fmt.format_item(item)?;
-            fmt.format_item(delimiter)?;
+            item.format(fmt)?;
+            delimiter.format(fmt)?;
         }
-        fmt.format_item(self.specifiers.items.last().expect("unreachable"))?;
+        self.specifiers
+            .items
+            .last()
+            .expect("unreachable")
+            .format(fmt)?;
         Ok(())
     }
 }

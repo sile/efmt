@@ -217,7 +217,7 @@ fn generate_format_method_body(data: &Data) -> TokenStream {
             Fields::Named(ref fields) => {
                 let format = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => fmt.format_item(&self.#name)? }
+                    quote_spanned! { f.span() => self.#name.format(fmt)? }
                 });
                 quote! {
                     #(#format ;)*

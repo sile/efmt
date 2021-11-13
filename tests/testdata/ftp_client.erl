@@ -46,8 +46,8 @@ lls() ->
 put(Handle, File) ->
     case file:read_file(File) of
         {ok, Contents} ->
-            remote(Handle,
-                   {put, File, Contents});
+            remote(Handle, {put, File,
+                            Contents});
         Other ->
             Other
     end.

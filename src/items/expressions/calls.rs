@@ -37,8 +37,8 @@ pub struct BinaryOpCallExpr {
 
 impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.format_item(&self.left)?;
-        fmt.format_item(&self.op)?;
+        self.left.format(fmt)?;
+        self.op.format(fmt)?;
         fmt.with_subregion(Default::default(), |fmt| self.format_right(fmt))?;
         Ok(())
     }
@@ -58,7 +58,7 @@ impl BinaryOpCallExpr {
         } else {
             options.forbid_multiline()
         };
-        fmt.with_subregion(options, |fmt| fmt.format_item(&self.right))?;
+        fmt.with_subregion(options, |fmt| self.right.format(fmt))?;
         Ok(())
     }
 }

@@ -77,14 +77,14 @@ impl<T> Parenthesized<T> {
 
 impl<T: Format> Format for Parenthesized<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.format_item(&self.open)?;
+        self.open.format(fmt)?;
         fmt.with_subregion(
             format::RegionOptions::new()
                 .indent(format::IndentMode::CurrentColumn)
                 .trailing_item_size(1),
-            |fmt| fmt.format_item(&self.item),
+            |fmt| self.item.format(fmt),
         )?;
-        fmt.format_item(&self.close)?;
+        self.close.format(fmt)?;
         Ok(())
     }
 }
@@ -131,15 +131,15 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
-            fmt.format_item(item)?;
-            fmt.format_item(delimiter)?;
+            item.format(fmt)?;
+            delimiter.format(fmt)?;
             if fmt.multiline_mode().is_recommended() {
                 fmt.write_newline()?;
             } else {
                 fmt.write_blank()?;
             }
         }
-        fmt.format_item(self.items.last().expect("unreachable"))?;
+        self.items.last().expect("unreachable").format(fmt)?;
         Ok(())
     }
 }
@@ -175,15 +175,15 @@ impl<T: Format> Elements<T> {
                 fmt.write_newline()?;
             }
             first = false;
-            fmt.format_item(item)?;
-            fmt.format_item(delimiter)?;
+            item.format(fmt)?;
+            delimiter.format(fmt)?;
             fmt.write_blank()?;
         }
         let item = items.last().expect("unreachable");
         if !first && fmt.current_column() + item.len() > fmt.max_columns() {
             fmt.write_newline()?;
         }
-        fmt.format_item(item)?;
+        item.format(fmt)?;
 
         Ok(())
     }
@@ -220,7 +220,7 @@ impl<T: Format> Format for Clauses<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.with_subregion(
             format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
-            |fmt| fmt.format_item(&self.0),
+            |fmt| self.0.format(fmt),
         )
     }
 }
@@ -257,7 +257,7 @@ impl<T: Parse> Parse for MaybeRepeat<T> {
 impl<T: Format> Format for MaybeRepeat<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         for item in &self.0 {
-            fmt.format_item(item)?;
+            item.format(fmt)?;
         }
         Ok(())
     }
