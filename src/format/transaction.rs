@@ -105,6 +105,12 @@ impl Transaction {
         self.parent.as_ref().map(|x| x.as_ref())
     }
 
+    pub fn pop_last_char(&mut self) {
+        if self.state.formatted_text.pop().is_none() {
+            self.parent.as_mut().map(|x| x.pop_last_char());
+        }
+    }
+
     pub fn next_position(&self) -> Position {
         self.state.next_position
     }
@@ -113,23 +119,23 @@ impl Transaction {
         self.state.current_column
     }
 
-    pub fn needs_whitespace(&mut self, whitespace: Whitespace) {
-        let c = self.last_char();
-        if c == None {
-            return;
+    pub fn needs_whitespace(&mut self, whitespace: Whitespace) -> Result<()> {
+        match whitespace {
+            Whitespace::Blank => {
+                if self.last_char().map_or(false, |c| !matches!(c, ' ' | '\n')) {
+                    self.write(" ").expect("TODO");
+                }
+            }
+            Whitespace::Newline => {
+                if self.last_char().map_or(false, |c| c != '\n') {
+                    if self.last_char() == Some(' ') {
+                        self.pop_last_char();
+                    }
+                    self.write("\n")?;
+                }
+            }
         }
-        if c == Some('\n') {
-            return;
-        }
-        if c == Some(' ') && whitespace == Whitespace::Blank {
-            return;
-        }
-        if self.state.needs_whitespace == Some(Whitespace::Newline)
-            && whitespace == Whitespace::Blank
-        {
-            return;
-        }
-        self.state.needs_whitespace = Some(whitespace);
+        Ok(())
     }
 
     // TODO: rename
@@ -178,7 +184,14 @@ impl Transaction {
             }
             self.state.current_column += indent;
         } else {
-            self.write("  ")?;
+            if self.last_char() == Some('\n') {
+                self.pop_last_char();
+            }
+            if self.last_char() == Some(' ') {
+                self.write(" ")?;
+            } else {
+                self.write("  ")?;
+            }
             self.state.current_column += 2;
         }
 
@@ -186,7 +199,7 @@ impl Transaction {
         self.state.formatted_text.push_str(text);
         self.state.current_column += text.len();
         self.state.next_position = comment.end_position();
-        self.needs_whitespace(Whitespace::Newline);
+        self.needs_whitespace(Whitespace::Newline)?;
 
         Ok(())
     }
@@ -262,7 +275,7 @@ impl Transaction {
                 assert!(!c.is_control());
 
                 if self.state.current_column >= self.config.max_columns {
-                    if self.config.multiline_mode != MultilineMode::Recommend {
+                    if c != ' ' && self.config.multiline_mode != MultilineMode::Recommend {
                         // Should retry with setting `multiline_mode` to `MultilineMode::Recommend.
                         return Err(Error::MaxColumnsExceeded);
                     } else {

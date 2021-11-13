@@ -8,6 +8,40 @@ pub use efmt_derive::Format;
 
 mod transaction;
 
+pub trait Format: Span {
+    fn format(&self, fmt: &mut Formatter) -> Result<()>;
+
+    // TODO: rename (should packed?)
+    fn is_primitive(&self) -> bool {
+        false
+    }
+}
+
+impl<T: Format> Format for Box<T> {
+    fn format(&self, fmt: &mut Formatter) -> Result<()> {
+        (**self).format(fmt)
+    }
+}
+
+impl<A: Format, B: Format> Format for (A, B) {
+    fn format(&self, fmt: &mut Formatter) -> Result<()> {
+        fmt.format_item(&self.0)?;
+        fmt.format_item(&self.1)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("max columns exceeded")]
+    MaxColumnsExceeded,
+
+    #[error("unexpected multiline: {position:?}")]
+    Multiline { position: Position },
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MultilineMode {
     Forbid,
@@ -27,6 +61,7 @@ impl MultilineMode {
     }
 }
 
+// TODO: delete
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Whitespace {
     Blank,
@@ -107,43 +142,6 @@ impl RegionOptions {
     }
 }
 
-pub trait Format: Span {
-    fn format(&self, fmt: &mut Formatter) -> Result<()>;
-
-    // TODO: rename (should packed?)
-    fn is_primitive(&self) -> bool {
-        false
-    }
-}
-
-impl<T: Format> Format for Box<T> {
-    fn format(&self, fmt: &mut Formatter) -> Result<()> {
-        (**self).format(fmt)
-    }
-}
-
-impl<A: Format, B: Format> Format for (A, B) {
-    fn format(&self, fmt: &mut Formatter) -> Result<()> {
-        fmt.format_item(&self.0)?;
-        fmt.format_item(&self.1)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("max columns exceeded")]
-    MaxColumnsExceeded,
-
-    #[error("unexpected multiline: {position:?}")]
-    Multiline { position: Position },
-
-    #[error(transparent)]
-    Int(#[from] std::num::ParseIntError),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
 #[derive(Debug)]
 pub struct Formatter {
     transaction: Transaction,
@@ -188,13 +186,13 @@ impl Formatter {
     }
 
     // TODO: s/needs/write/
-    pub fn needs_newline(&mut self) {
-        self.transaction.needs_whitespace(Whitespace::Newline);
+    pub fn needs_newline(&mut self) -> Result<()> {
+        self.transaction.needs_whitespace(Whitespace::Newline)
     }
 
     // TODO: s/needs/write/
-    pub fn needs_space(&mut self) {
-        self.transaction.needs_whitespace(Whitespace::Blank);
+    pub fn needs_space(&mut self) -> Result<()> {
+        self.transaction.needs_whitespace(Whitespace::Blank)
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
@@ -219,7 +217,7 @@ impl Formatter {
         let config = options.to_transaction_config(self);
         let result = self.with_transaction(config, |this| {
             if options.newline {
-                this.needs_newline();
+                this.needs_newline()?;
             }
             f(this)
         });
@@ -249,7 +247,7 @@ impl Formatter {
         self.transaction.write_item(&self.text, item)?;
 
         if !item.has_args() && self.text.as_bytes()[item.end_position().offset()] == b' ' {
-            self.needs_space();
+            self.needs_space()?;
         }
         Ok(())
     }

@@ -67,7 +67,8 @@ mod tests {
             "#foo{}",
             indoc::indoc! {"
                 #foo{bar = 2,
-                     baz = {bar, baz}}"},
+                     baz = {bar,
+                            baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
