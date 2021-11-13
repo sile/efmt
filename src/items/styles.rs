@@ -61,9 +61,9 @@ impl<T> Space<T> {
 
 impl<T: Format> Format for Space<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.needs_space()?;
+        fmt.write_blank()?;
         fmt.format_item(&self.0)?;
-        fmt.needs_space()?;
+        fmt.write_blank()?;
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ pub struct RightSpace<T>(T);
 impl<T: Format> Format for RightSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.format_item(&self.0)?;
-        fmt.needs_space()?;
+        fmt.write_blank()?;
         Ok(())
     }
 }
@@ -85,7 +85,7 @@ pub struct LeftSpace<T>(T);
 
 impl<T: Format> Format for LeftSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.needs_space()?;
+        fmt.write_blank()?;
         fmt.format_item(&self.0)?;
         Ok(())
     }
@@ -97,7 +97,7 @@ pub struct Newline<T>(T);
 impl<T: Format> Format for Newline<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.format_item(&self.0)?;
-        fmt.needs_newline()?;
+        fmt.write_newline()?;
         Ok(())
     }
 }

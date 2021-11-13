@@ -134,9 +134,9 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
             fmt.format_item(item)?;
             fmt.format_item(delimiter)?;
             if fmt.multiline_mode().is_recommended() {
-                fmt.needs_newline()?;
+                fmt.write_newline()?;
             } else {
-                fmt.needs_space()?;
+                fmt.write_blank()?;
             }
         }
         fmt.format_item(self.items.last().expect("unreachable"))?;
@@ -172,16 +172,16 @@ impl<T: Format> Elements<T> {
         let mut first = true;
         for (item, delimiter) in items.iter().zip(delimiters.iter()) {
             if !first && fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
-                fmt.needs_newline()?;
+                fmt.write_newline()?;
             }
             first = false;
             fmt.format_item(item)?;
             fmt.format_item(delimiter)?;
-            fmt.needs_space()?;
+            fmt.write_blank()?;
         }
         let item = items.last().expect("unreachable");
         if !first && fmt.current_column() + item.len() > fmt.max_columns() {
-            fmt.needs_newline()?;
+            fmt.write_newline()?;
         }
         fmt.format_item(item)?;
 

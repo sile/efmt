@@ -61,13 +61,6 @@ impl MultilineMode {
     }
 }
 
-// TODO: delete
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Whitespace {
-    Blank,
-    Newline,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IndentMode {
     CurrentIndent,
@@ -185,14 +178,12 @@ impl Formatter {
         self.transaction.current_column()
     }
 
-    // TODO: s/needs/write/
-    pub fn needs_newline(&mut self) -> Result<()> {
-        self.transaction.needs_whitespace(Whitespace::Newline)
+    pub fn write_newline(&mut self) -> Result<()> {
+        self.transaction.write_newline()
     }
 
-    // TODO: s/needs/write/
-    pub fn needs_space(&mut self) -> Result<()> {
-        self.transaction.needs_whitespace(Whitespace::Blank)
+    pub fn write_blank(&mut self) -> Result<()> {
+        self.transaction.write_blank()
     }
 
     pub fn format_item(&mut self, item: &impl Format) -> Result<()> {
@@ -217,7 +208,7 @@ impl Formatter {
         let config = options.to_transaction_config(self);
         let result = self.with_transaction(config, |this| {
             if options.newline {
-                this.needs_newline()?;
+                this.write_newline()?;
             }
             f(this)
         });
@@ -247,7 +238,7 @@ impl Formatter {
         self.transaction.write_item(&self.text, item)?;
 
         if !item.has_args() && self.text.as_bytes()[item.end_position().offset()] == b' ' {
-            self.needs_space()?;
+            self.write_blank()?;
         }
         Ok(())
     }

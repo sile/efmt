@@ -15,7 +15,7 @@ impl Format for StringExpr {
                 for (i, item) in self.0.get().iter().enumerate() {
                     fmt.format_item(item)?;
                     if i + 1 < self.0.get().len() {
-                        fmt.needs_newline()?;
+                        fmt.write_newline()?;
                     }
                 }
                 Ok(())

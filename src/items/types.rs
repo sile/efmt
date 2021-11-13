@@ -47,7 +47,7 @@ impl Format for BinaryOpType {
         fmt.format_item(&self.left)?;
         fmt.format_item(&self.op)?;
         if fmt.multiline_mode().is_recommended() && matches!(self.op, BinaryOp::Union(_)) {
-            fmt.needs_newline()?;
+            fmt.write_newline()?;
         }
         fmt.format_item(&self.right)?;
         Ok(())

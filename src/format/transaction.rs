@@ -1,4 +1,4 @@
-use crate::format::{Error, IndentMode, MultilineMode, Result, Whitespace};
+use crate::format::{Error, IndentMode, MultilineMode, Result};
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 
@@ -23,7 +23,6 @@ impl TransactionConfig {
 pub struct TransactionState {
     next_position: Position,
     current_column: usize,
-    needs_whitespace: Option<Whitespace>,
     formatted_text: String,
     indent: Option<usize>,
 }
@@ -33,7 +32,6 @@ impl TransactionState {
         Self {
             next_position: self.next_position,
             current_column: self.current_column,
-            needs_whitespace: self.needs_whitespace,
             formatted_text: String::new(),
             indent: None,
         }
@@ -42,7 +40,6 @@ impl TransactionState {
     fn copy_from_committed_transaction(&mut self, commited: Self) {
         self.next_position = commited.next_position;
         self.current_column = commited.current_column;
-        self.needs_whitespace = commited.needs_whitespace;
         self.formatted_text.push_str(&commited.formatted_text);
     }
 }
@@ -61,7 +58,6 @@ impl Transaction {
             state: TransactionState {
                 next_position: Position::new(0, 0, 0),
                 current_column: 0,
-                needs_whitespace: None,
                 formatted_text: String::new(),
                 indent: None,
             },
@@ -119,28 +115,21 @@ impl Transaction {
         self.state.current_column
     }
 
-    pub fn needs_whitespace(&mut self, whitespace: Whitespace) -> Result<()> {
-        match whitespace {
-            Whitespace::Blank => {
-                if self.last_char().map_or(false, |c| !matches!(c, ' ' | '\n')) {
-                    self.write(" ").expect("TODO");
-                }
-            }
-            Whitespace::Newline => {
-                if self.last_char().map_or(false, |c| c != '\n') {
-                    if self.last_char() == Some(' ') {
-                        self.pop_last_char();
-                    }
-                    self.write("\n")?;
-                }
-            }
+    pub fn write_blank(&mut self) -> Result<()> {
+        if self.last_char().map_or(false, |c| !matches!(c, ' ' | '\n')) {
+            self.write(" ")?;
         }
         Ok(())
     }
 
-    // TODO: rename
-    pub fn whitespace(&self) -> Option<Whitespace> {
-        self.state.needs_whitespace
+    pub fn write_newline(&mut self) -> Result<()> {
+        if self.last_char().map_or(false, |c| c != '\n') {
+            if self.last_char() == Some(' ') {
+                self.pop_last_char();
+            }
+            self.write("\n")?;
+        }
+        Ok(())
     }
 
     pub fn write_item(&mut self, text: &str, item: &impl Span) -> Result<()> {
@@ -159,7 +148,6 @@ impl Transaction {
         }
         let text = &text[start..end];
 
-        self.write_whitespace()?;
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;
         }
@@ -172,9 +160,6 @@ impl Transaction {
         assert!(!comment.is_empty());
 
         if comment.kind() == CommentKind::Post {
-            if self.state.needs_whitespace == Some(Whitespace::Newline) {
-                self.write_whitespace()?;
-            }
             if self.state.next_position.line() + 1 < comment.start_position().line() {
                 self.write("\n")?;
             }
@@ -199,14 +184,13 @@ impl Transaction {
         self.state.formatted_text.push_str(text);
         self.state.current_column += text.len();
         self.state.next_position = comment.end_position();
-        self.needs_whitespace(Whitespace::Newline)?;
+        self.write_newline()?;
 
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<String> {
+    pub fn finish(self) -> Result<String> {
         assert!(self.parent.is_none());
-        self.write_whitespace()?;
         Ok(self.state.formatted_text)
     }
 
@@ -216,14 +200,6 @@ impl Transaction {
             .chars()
             .last()
             .or_else(|| self.parent.as_ref().and_then(|x| x.last_char()))
-    }
-
-    fn write_whitespace(&mut self) -> Result<()> {
-        match self.state.needs_whitespace.take() {
-            None => Ok(()),
-            Some(Whitespace::Blank) => self.write(" "),
-            Some(Whitespace::Newline) => self.write("\n"),
-        }
     }
 
     fn calc_indent(&mut self) -> usize {
@@ -239,13 +215,7 @@ impl Transaction {
         let indent = match self.config.indent {
             IndentMode::CurrentIndent => parent_indent,
             IndentMode::Offset(n) => parent_indent + n,
-            IndentMode::CurrentColumn => {
-                let mut current_column = self.state.current_column;
-                if self.state.needs_whitespace == Some(Whitespace::Blank) {
-                    current_column += 1;
-                }
-                std::cmp::max(parent_indent, current_column)
-            }
+            IndentMode::CurrentColumn => std::cmp::max(parent_indent, self.state.current_column),
         };
         self.state.indent = Some(indent);
         indent
