@@ -9,10 +9,14 @@ pub trait Span {
     }
 
     fn len(&self) -> usize {
-        // TODO: Add a note comment about the cases where the end position would be smaller than the start one.
-        self.end_position()
-            .offset()
-            .saturating_sub(self.start_position().offset())
+        if self.start_position() <= self.end_position() {
+            self.end_position().offset() - self.start_position().offset()
+        } else {
+            // This branch is for `crate::items::generics::Maybe<T>` that
+            // can have a smaller end position than the start position
+            // if `T` is missing and there are whitespaces between previous and next tokens.
+            0
+        }
     }
 }
 
