@@ -44,15 +44,6 @@ pub struct ListComprehensionExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::parse::parse_text;
-
-    fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn proper_list_works() {
@@ -71,13 +62,7 @@ mod tests {
                  9]"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::List(x)) = &x {
-                assert!(matches!(**x, ListExpr::Proper(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -91,13 +76,7 @@ mod tests {
                                  5]]"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::List(x)) = &x {
-                assert!(matches!(**x, ListExpr::Improper(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -113,13 +92,7 @@ mod tests {
                            false]"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::List(x)) = &x {
-                assert!(matches!(**x, ListExpr::Comprehension(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

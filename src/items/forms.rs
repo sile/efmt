@@ -225,16 +225,6 @@ impl IncludeDirective {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::styles::Child;
-    use crate::parse::parse_text;
-    use crate::FormatOptions;
-
-    fn format(text: &str) -> String {
-        FormatOptions::<Child<Form>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn define_directive_works() {
@@ -244,8 +234,7 @@ mod tests {
             "-define(Baz(A, B), A), {B).",
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::Define(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -256,8 +245,7 @@ mod tests {
             r#"-include_lib("path/to/hrl")."#,
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::Include(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -273,8 +261,7 @@ mod tests {
             "-elif(true).",
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::Attr(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -294,8 +281,7 @@ mod tests {
             ),
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::Attr(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -310,8 +296,7 @@ mod tests {
             ),
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::RecordDecl(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -337,8 +322,7 @@ mod tests {
             ),
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::FunDecl(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -355,8 +339,7 @@ mod tests {
                                atom()}."},
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::FunSpec(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -371,8 +354,7 @@ mod tests {
             ),
         ];
         for text in texts {
-            assert!(matches!(parse_text(text).unwrap(), Form::TypeDecl(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Form);
         }
     }
 }

@@ -101,14 +101,6 @@ pub enum BinaryOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::parse::parse_text;
-    fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn function_call_works() {
@@ -122,12 +114,7 @@ mod tests {
             "foo:bar(baz)",
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Expr::NonLeftRecursive(NonLeftRecursiveExpr::FunctionCall(_))
-            ));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -135,12 +122,7 @@ mod tests {
     fn unary_op_call_works() {
         let texts = ["-1", "bnot Foo(1, +2, 3)"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Expr::NonLeftRecursive(NonLeftRecursiveExpr::UnaryOpCall(_))
-            ));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -157,9 +139,7 @@ mod tests {
                     quux() div 2"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(x, Expr::BinaryOpCall(_)));
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

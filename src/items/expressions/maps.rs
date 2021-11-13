@@ -41,15 +41,6 @@ pub struct MapItem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::parse::parse_text;
-
-    fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn map_construct_works() {
@@ -60,13 +51,7 @@ mod tests {
                   foo => {bar, baz}}"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Map(x)) = &x {
-                assert!(matches!(**x, MapExpr::Construct(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -80,13 +65,7 @@ mod tests {
                                  baz}}"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Map(x)) = &x {
-                assert!(matches!(**x, MapExpr::Update(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

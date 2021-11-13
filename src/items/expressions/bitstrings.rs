@@ -78,11 +78,11 @@ pub struct BitstringSegmentTypeSpecifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::parse::parse_text;
+    use crate::items::styles::Child;
+    use crate::FormatOptions;
 
     fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
+        FormatOptions::<Child<Expr>>::new()
             .max_columns(20)
             .format_text(text)
             .expect("parse or format failed")
@@ -100,12 +100,6 @@ mod tests {
                   C/binary>>"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Bitstring(x)) = &x {
-                assert!(matches!(**x, BitstringExpr::Construct(_)));
-            } else {
-                panic!("{:?}", x);
-            }
             assert_eq!(format(text), text);
         }
     }
@@ -129,12 +123,6 @@ mod tests {
                                  false>>"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Bitstring(x)) = &x {
-                assert!(matches!(**x, BitstringExpr::Comprehension(_)));
-            } else {
-                panic!("{:?}", x);
-            }
             assert_eq!(format(text), text);
         }
     }

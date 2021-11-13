@@ -60,15 +60,6 @@ pub struct RecordField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::parse::parse_text;
-
-    fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn record_construct_works() {
@@ -79,13 +70,7 @@ mod tests {
                      baz = {bar, baz}}"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Record(x)) = &x {
-                assert!(matches!(**x, RecordExpr::Construct(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -93,13 +78,7 @@ mod tests {
     fn record_index_works() {
         let texts = ["#foo.bar"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Record(x)) = &x {
-                assert!(matches!(**x, RecordExpr::Index(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -111,13 +90,7 @@ mod tests {
             "N2#nrec2.nrec1#nrec1.nrec0#nrec0.name",
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Record(x)) = &x {
-                assert!(matches!(**x, RecordExpr::Access(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -131,13 +104,7 @@ mod tests {
                                    baz}}"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Record(x)) = &x {
-                assert!(matches!(**x, RecordExpr::Update(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

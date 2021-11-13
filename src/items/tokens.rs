@@ -290,45 +290,44 @@ impl Span for WhitespaceToken {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse_text;
 
     #[test]
     fn atom_works() {
-        assert!(matches!(parse_text("foo").unwrap(), Token::Atom(_)));
+        crate::assert_format!("foo", Token);
     }
 
     #[test]
     fn char_works() {
-        assert!(matches!(parse_text("$a").unwrap(), Token::Char(_)));
+        crate::assert_format!("$a", Token);
     }
 
     #[test]
     fn float_works() {
-        assert!(matches!(parse_text("12.3").unwrap(), Token::Float(_)));
+        crate::assert_format!("12.3", Token);
     }
 
     #[test]
     fn integer_works() {
-        assert!(matches!(parse_text("12").unwrap(), Token::Integer(_)));
+        crate::assert_format!("12", Token);
     }
 
     #[test]
     fn keyword_works() {
-        assert!(matches!(parse_text("case").unwrap(), Token::Keyword(_)));
+        crate::assert_format!("case", Token);
     }
 
     #[test]
     fn string_works() {
-        assert!(matches!(parse_text("\"foo\"").unwrap(), Token::String(_)));
+        crate::assert_format!("\"foo\"", Token);
     }
 
     #[test]
     fn symbol_works() {
-        assert!(matches!(parse_text("-").unwrap(), Token::Symbol(_)));
+        crate::assert_format!("-", Token);
     }
 
     #[test]
     fn variable_works() {
-        assert!(matches!(parse_text("Foo").unwrap(), Token::Variable(_)));
+        crate::assert_format!("Foo", Token);
     }
 }

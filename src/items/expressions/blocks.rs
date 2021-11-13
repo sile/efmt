@@ -121,17 +121,6 @@ pub struct CatchExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::NonLeftRecursiveExpr;
-    use crate::items::styles::Child;
-    use crate::parse::parse_text;
-    use crate::FormatOptions;
-
-    fn format(text: &str) -> String {
-        FormatOptions::<Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .unwrap_or_else(|e| format!("parse or format failed: {}", e))
-    }
 
     #[test]
     fn case_works() {
@@ -153,13 +142,7 @@ mod tests {
             ),
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::Case(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -181,13 +164,7 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::If(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -218,13 +195,7 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::Receive(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -242,13 +213,7 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::Begin(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -295,13 +260,7 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::Try(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -316,13 +275,7 @@ mod tests {
                       4"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Block(x)) = &x {
-                assert!(matches!(**x, BlockExpr::Catch(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

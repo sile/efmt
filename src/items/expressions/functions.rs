@@ -72,27 +72,12 @@ pub struct NameAndArity<N = AtomLikeExpr, A = IntegerLikeExpr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::expressions::{Expr, NonLeftRecursiveExpr};
-    use crate::parse::parse_text;
-
-    fn format(text: &str) -> String {
-        crate::FormatOptions::<crate::items::styles::Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn defined_function_works() {
         let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Function(x)) = &x {
-                assert!(matches!(**x, FunctionExpr::Defined(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -120,13 +105,7 @@ mod tests {
                     (A) -> A end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Function(x)) = &x {
-                assert!(matches!(**x, FunctionExpr::Anonymous(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -142,13 +121,7 @@ mod tests {
                     Foo(A, _B) when is_integer(A) -> A end"},
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            if let Expr::NonLeftRecursive(NonLeftRecursiveExpr::Function(x)) = &x {
-                assert!(matches!(**x, FunctionExpr::Named(_)));
-            } else {
-                panic!("{:?}", x);
-            }
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

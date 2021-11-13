@@ -3,6 +3,21 @@ pub mod items;
 pub mod parse;
 pub mod span;
 
+#[cfg(test)]
+#[macro_export]
+macro_rules! assert_format {
+    ($text:expr, $item_type:ident) => {{
+        use crate::items::styles::Child;
+        use crate::FormatOptions;
+        let formatted = FormatOptions::<Child<$item_type>>::new()
+            .max_columns(20)
+            .format_text($text)
+            .unwrap_or_else(|e| format!("parse or format failed: {}", e));
+        let expected = $text;
+        similar_asserts::assert_str_eq!(formatted, expected);
+    }};
+}
+
 #[derive(Debug, Clone)]
 pub struct FormatOptions<T = crate::items::module::Module> {
     // TODO

@@ -189,98 +189,75 @@ pub struct BitstringUnitSize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::styles::Child;
-    use crate::parse::parse_text;
-    use crate::FormatOptions;
-
-    fn format(text: &str) -> String {
-        FormatOptions::<Child<Type>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn parse_mfargs_works() {
         let texts = ["foo()", "foo:bar(A, 1)"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Mfargs(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
     #[test]
     fn format_mfargs_works() {
-        assert_eq!(format("foo()"), "foo()");
-        assert_eq!(format("foo:bar(A,1)"), "foo:bar(A, 1)");
-        assert_eq!(
-            format("foo:bar(A,1,baz(),qux())"),
-            concat!(
-                "foo:bar(A,\n",
-                "        1,\n",
-                "        baz(),\n",
-                "        qux())"
-            )
-        );
+        let texts = [
+            "foo()",
+            "foo:bar(A, 1)",
+            indoc::indoc! {"
+                foo:bar(A,
+                        1,
+                        baz(),
+                        qux())"},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Type);
+        }
     }
 
     #[test]
     fn parse_list_works() {
-        let texts = ["[]", "[foo()]", "[10,...]"];
+        let texts = ["[]", "[foo()]", "[10, ...]"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::List(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
     #[test]
     fn format_list_works() {
-        assert_eq!(format("[]"), "[]");
-        assert_eq!(format("[foo()]"), "[foo()]");
-        assert_eq!(format("[10,...]"), "[10, ...]");
+        let texts = ["[]", "[foo()]", "[10, ...]"];
+        for text in texts {
+            crate::assert_format!(text, Type);
+        }
     }
 
     #[test]
     fn parse_tuple_works() {
         let texts = ["{}", "{foo()}", "{atom, 1}"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Tuple(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
     #[test]
     fn format_tuple_works() {
-        assert_eq!(format("{}"), "{}");
-        assert_eq!(format("{foo()}"), "{foo()}");
-        assert_eq!(
-            format("{foo(),bar(),[baz()]}"),
-            concat!(
-                "{foo(),\n", //
-                " bar(),\n",
-                " [baz()]}"
-            )
-        );
+        let texts = [
+            "{}",
+            "{foo()}",
+            indoc::indoc! {"
+                {foo(),
+                 bar(),
+                 [baz()]}"},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Type);
+        }
     }
 
     #[test]
     fn parse_map_works() {
         let texts = ["#{}", "#{atom() := integer()}", "#{a => b, 1 := 2}"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Map(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -289,31 +266,31 @@ mod tests {
         let expected = [
             "#{}",
             "#{atom() := integer()}",
-            concat!(
-                "#{atom() := {aaa,\n", //
-                "             bbb,\n",
-                "             ccc}}"
-            ),
-            concat!(
-                "#{a => b,\n", //
-                "  1 := 2,\n",
-                "  atom() := atom()}"
-            ),
+            indoc::indoc! {"
+                #{atom() := {aaa,
+                             bbb,
+                             ccc}}"},
+            indoc::indoc! {"
+                #{a => b,
+                  1 := 2,
+                  atom() := atom()}"},
         ];
         for text in expected {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 
     #[test]
     fn parse_record_works() {
-        let texts = ["#foo{}", "#foo{bar = integer()}", "#foo{bar = b, baz = 2}"];
+        let texts = [
+            "#foo{}",
+            "#foo{bar = integer()}",
+            indoc::indoc! {"
+                #foo{bar = b,
+                     baz = 2}"},
+        ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Record(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -322,13 +299,12 @@ mod tests {
         let texts = [
             "#foo{}",
             "#foo{bar = integer()}",
-            concat!(
-                "#foo{bar = b,\n", //
-                "     baz = 2}"
-            ),
+            indoc::indoc! {"
+                #foo{bar = b,
+                     baz = 2}"},
         ];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -341,11 +317,7 @@ mod tests {
             "fun ((A, b, $c) -> tuple())",
         ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Function(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -355,15 +327,14 @@ mod tests {
             "fun ()",
             "fun ((...) -> atom())",
             "fun (() -> integer())",
-            concat!(
-                "fun ((A,\n",
-                "      b,\n",
-                "      $c,\n",
-                "      {foo()}) -> tuple())"
-            ),
+            indoc::indoc! {"
+                fun ((A,
+                      b,
+                      $c,
+                      {foo()}) -> tuple())"},
         ];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -371,11 +342,7 @@ mod tests {
     fn parse_unary_op_works() {
         let texts = ["-10", "+10", "bnot 100"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::UnaryOp(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -383,16 +350,22 @@ mod tests {
     fn format_unary_op_works() {
         let texts = ["-10", "+10", "bnot 100"];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 
     #[test]
     fn parse_binary_op_works() {
-        let texts = ["-10 + 20 rem 3", "foo | (3 + 10) | -1..+20", "A :: atom()"];
+        let texts = [
+            "-10 + 20 rem 3",
+            indoc::indoc! {"
+                foo |
+                (3 + 10) |
+                -1..+20"},
+            "A :: atom()",
+        ];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(x, Type::BinaryOp(_)));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -400,15 +373,14 @@ mod tests {
     fn format_binary_op_works() {
         let texts = [
             "-10 + 20 rem 3",
-            concat!(
-                "foo |\n", //
-                "(3 + 10) |\n",
-                "-1..+20"
-            ),
+            indoc::indoc! {"
+                foo |
+                (3 + 10) |
+                -1..+20"},
             "A :: atom()",
         ];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -416,11 +388,7 @@ mod tests {
     fn parse_bitstring_works() {
         let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
         for text in texts {
-            let x = parse_text(text).unwrap();
-            assert!(matches!(
-                x,
-                Type::NonLeftRecursive(NonLeftRecursiveType::Bitstring(_))
-            ));
+            crate::assert_format!(text, Type);
         }
     }
 
@@ -428,7 +396,7 @@ mod tests {
     fn format_bitstring_works() {
         let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Type);
         }
     }
 }
