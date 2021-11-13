@@ -1,3 +1,4 @@
+use self::region::{RegionConfig, RegionWriter};
 use crate::items::macros::Macro;
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
@@ -6,7 +7,7 @@ use std::collections::BTreeMap;
 pub use self::transaction::{Transaction, TransactionConfig};
 pub use efmt_derive::Format;
 
-pub mod region; // TODO: private
+mod region;
 mod transaction;
 
 pub trait Format: Span {
@@ -36,8 +37,8 @@ pub enum Error {
     #[error("max columns exceeded")]
     MaxColumnsExceeded,
 
-    #[error("unexpected multiline: {position:?}")]
-    Multiline { position: Position },
+    #[error("unexpected multiline")]
+    Multiline, // TODO: s/Multiline/ForbiddenMultiLine
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -209,6 +210,11 @@ impl Formatter {
         Ok(())
     }
 
+    fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
+        self.transaction.write_comment(&self.text, item)?;
+        Ok(())
+    }
+
     pub fn multiline_mode(&self) -> MultilineMode {
         self.transaction.config().multiline_mode
     }
@@ -231,17 +237,12 @@ impl Formatter {
                 assert!(!options.multiline_mode.is_recommended());
                 self.with_subregion(options.recommend_multiline(), f)
             }
-            Err(Error::Multiline { .. }) if options.multiline_mode == MultilineMode::Forbid => {
+            Err(Error::Multiline) if options.multiline_mode == MultilineMode::Forbid => {
                 assert!(!options.multiline_mode.is_recommended());
                 self.with_subregion(options.recommend_multiline(), f)
             }
             _ => result,
         }
-    }
-
-    fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
-        self.transaction.write_comment(&self.text, item)?;
-        Ok(())
     }
 
     fn write_macro(&mut self, item: &Macro) -> Result<()> {

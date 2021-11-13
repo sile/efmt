@@ -212,9 +212,7 @@ impl Transaction {
         for c in s.chars() {
             if c == '\n' {
                 if self.is_multiline_forbiden() {
-                    //self.config.multiline_mode == MultilineMode::Forbid {
-                    let position = self.next_position();
-                    return Err(Error::Multiline { position });
+                    return Err(Error::Multiline);
                 }
 
                 self.state.current_column = 0;

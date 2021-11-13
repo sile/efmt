@@ -240,18 +240,28 @@ pub enum CommentKind {
 
 #[derive(Debug, Clone)]
 pub struct CommentToken {
+    value: String,
     start: Position,
     end: Position,
     kind: CommentKind,
 }
 
 impl CommentToken {
-    pub fn new(kind: CommentKind, start: Position, end: Position) -> Self {
-        Self { start, end, kind }
+    pub fn new(kind: CommentKind, value: &str, start: Position, end: Position) -> Self {
+        Self {
+            start,
+            value: value.to_owned(),
+            end,
+            kind,
+        }
     }
 
     pub fn kind(&self) -> CommentKind {
         self.kind
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
     }
 }
 
