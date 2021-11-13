@@ -52,11 +52,8 @@ impl BinaryOpCallExpr {
                 BinaryOp::Send(_) | BinaryOp::Match(_) => options
                     .newline()
                     .recommend_multiline()
-                    .indent(format::IndentMode::Offset(4)),
-                _ => options
-                    .newline()
-                    .recommend_multiline()
-                    .indent(format::IndentMode::Offset(0)),
+                    .indent(format::IndentMode::offset(4)),
+                _ => options.newline().recommend_multiline(),
             }
         } else {
             options.forbid_multiline()

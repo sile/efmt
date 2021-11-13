@@ -45,7 +45,7 @@ impl Parse for Token {
 }
 
 macro_rules! impl_traits {
-    ($name:ident, $variant:ident, $is_primitive:expr) => {
+    ($name:ident, $variant:ident, $should_be_packed:expr) => {
         impl Span for $name {
             fn start_position(&self) -> Position {
                 self.start
@@ -70,8 +70,8 @@ macro_rules! impl_traits {
                 fmt.write_text(self)
             }
 
-            fn is_primitive(&self) -> bool {
-                $is_primitive
+            fn should_be_packed(&self) -> bool {
+                $should_be_packed
             }
         }
 

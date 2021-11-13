@@ -11,8 +11,7 @@ mod transaction;
 pub trait Format: Span {
     fn format(&self, fmt: &mut Formatter) -> Result<()>;
 
-    // TODO: rename (should packed?)
-    fn is_primitive(&self) -> bool {
+    fn should_be_packed(&self) -> bool {
         false
     }
 }
@@ -61,16 +60,22 @@ impl MultilineMode {
     }
 }
 
+// TODO: private(?)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IndentMode {
-    CurrentIndent,
+    CurrentIndent { offset: usize },
     CurrentColumn,
-    Offset(usize),
+}
+
+impl IndentMode {
+    pub fn offset(n: usize) -> Self {
+        Self::CurrentIndent { offset: n }
+    }
 }
 
 impl Default for IndentMode {
     fn default() -> Self {
-        Self::CurrentIndent
+        Self::CurrentIndent { offset: 0 }
     }
 }
 
@@ -113,8 +118,8 @@ impl RegionOptions {
         self
     }
 
-    pub fn indent(mut self, x: IndentMode) -> Self {
-        self.indent = x;
+    pub fn indent(mut self, indent: IndentMode) -> Self {
+        self.indent = indent;
         self
     }
 
@@ -124,8 +129,18 @@ impl RegionOptions {
     }
 
     fn to_transaction_config(&self, fmt: &Formatter) -> TransactionConfig {
+        let indent = match self.indent {
+            IndentMode::CurrentIndent { offset } => fmt.transaction.config().indent + offset,
+            IndentMode::CurrentColumn => {
+                if fmt.transaction.last_char() == Some('\n') {
+                    fmt.transaction.config().indent
+                } else {
+                    fmt.current_column()
+                }
+            }
+        };
         TransactionConfig {
-            indent: self.indent,
+            indent,
             max_columns: fmt
                 .max_columns()
                 .checked_sub(self.trailing_item_size)

@@ -44,12 +44,13 @@ impl<T: Format> Format for Block<T> {
         fmt.with_subregion(
             format::RegionOptions::new()
                 .newline()
-                .indent(format::IndentMode::Offset(4)),
+                .indent(format::IndentMode::offset(4)),
             |fmt| fmt.format_item(&self.0),
         )
     }
 }
 
+// TODO: s/Space/Blank/
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Space<T>(T);
 

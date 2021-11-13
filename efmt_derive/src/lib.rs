@@ -188,14 +188,14 @@ pub fn derive_format_trait(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let generics = add_format_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let format = generate_format_method_body(&input.data);
-    let is_primitive = generate_is_primitive_method_body(&input.data);
+    let should_be_packed = generate_should_be_packed_method_body(&input.data);
     let expanded = quote! {
         impl #impl_generics crate::format::Format for #name #ty_generics #where_clause {
             fn format(&self, fmt: &mut crate::format::Formatter) -> crate::format::Result<()> {
                 #format
             }
-            fn is_primitive(&self) -> bool {
-                #is_primitive
+            fn should_be_packed(&self) -> bool {
+                #should_be_packed
             }
         }
     };
@@ -250,7 +250,7 @@ fn generate_format_method_body(data: &Data) -> TokenStream {
     }
 }
 
-fn generate_is_primitive_method_body(data: &Data) -> TokenStream {
+fn generate_should_be_packed_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(_) => {
@@ -258,7 +258,7 @@ fn generate_is_primitive_method_body(data: &Data) -> TokenStream {
             }
             Fields::Unnamed(ref fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.is_primitive() }
+                quote! { self.0.should_be_packed() }
             }
             Fields::Unit => unimplemented!(),
         },
@@ -270,7 +270,7 @@ fn generate_is_primitive_method_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() => Self::#name(x) => x.is_primitive(), }
+                quote_spanned! { variant.span() => Self::#name(x) => x.should_be_packed(), }
             });
             quote! {
                 match self {

@@ -89,7 +89,7 @@ impl Format for SpecClause {
             let options = if fmt.multiline_mode().is_recommended() {
                 format::RegionOptions::new()
                     .newline()
-                    .indent(format::IndentMode::Offset(1))
+                    .indent(format::IndentMode::offset(1))
             } else {
                 format::RegionOptions::new().indent(format::IndentMode::CurrentColumn)
             };

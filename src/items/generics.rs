@@ -196,7 +196,7 @@ impl<T: Format> Format for Elements<T> {
                 .indent(format::IndentMode::CurrentColumn)
                 .trailing_item_size(1), // TODO: maybe ">>"
             |fmt| {
-                let packed = self.0.get().iter().all(|x| x.is_primitive());
+                let packed = self.0.get().iter().all(|x| x.should_be_packed());
                 if packed {
                     self.format_packed_items(fmt)
                 } else {

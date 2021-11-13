@@ -88,7 +88,7 @@ impl Format for Body {
         fmt.with_subregion(
             format::RegionOptions::new()
                 .newline()
-                .indent(format::IndentMode::Offset(4))
+                .indent(format::IndentMode::offset(4))
                 .trailing_item_size(1),
             |fmt| fmt.format_item(&self.exprs),
         )
@@ -104,7 +104,7 @@ impl Format for MaybeInlineBody {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         let mut options = format::RegionOptions::new().trailing_item_size(4); // ' end'
         if self.exprs.get().len() > 1 {
-            options = options.newline().indent(format::IndentMode::Offset(4));
+            options = options.newline().indent(format::IndentMode::offset(4));
         }
         fmt.with_subregion(options, |fmt| fmt.format_item(&self.exprs))?;
         Ok(())

@@ -1,10 +1,10 @@
-use crate::format::{Error, IndentMode, MultilineMode, Result};
+use crate::format::{Error, MultilineMode, Result};
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
 pub struct TransactionConfig {
-    pub indent: IndentMode,
+    pub indent: usize,
     pub max_columns: usize,
     pub multiline_mode: MultilineMode,
 }
@@ -12,7 +12,7 @@ pub struct TransactionConfig {
 impl TransactionConfig {
     fn root(max_columns: usize) -> Self {
         Self {
-            indent: IndentMode::default(),
+            indent: 0,
             max_columns,
             multiline_mode: MultilineMode::Allow,
         }
@@ -24,7 +24,6 @@ pub struct TransactionState {
     next_position: Position,
     current_column: usize,
     formatted_text: String,
-    indent: Option<usize>,
 }
 
 impl TransactionState {
@@ -33,7 +32,6 @@ impl TransactionState {
             next_position: self.next_position,
             current_column: self.current_column,
             formatted_text: String::new(),
-            indent: None,
         }
     }
 
@@ -59,7 +57,6 @@ impl Transaction {
                 next_position: Position::new(0, 0, 0),
                 current_column: 0,
                 formatted_text: String::new(),
-                indent: None,
             },
             parent: None,
         }
@@ -163,11 +160,10 @@ impl Transaction {
             if self.state.next_position.line() + 1 < comment.start_position().line() {
                 self.write("\n")?;
             }
-            let indent = self.calc_indent();
-            for _ in 0..indent {
+            for _ in 0..self.config.indent {
                 self.state.formatted_text.push(' ');
             }
-            self.state.current_column += indent;
+            self.state.current_column += self.config.indent;
         } else {
             if self.last_char() == Some('\n') {
                 self.pop_last_char();
@@ -194,31 +190,12 @@ impl Transaction {
         Ok(self.state.formatted_text)
     }
 
-    fn last_char(&self) -> Option<char> {
+    pub fn last_char(&self) -> Option<char> {
         self.state
             .formatted_text
             .chars()
             .last()
             .or_else(|| self.parent.as_ref().and_then(|x| x.last_char()))
-    }
-
-    fn calc_indent(&mut self) -> usize {
-        if let Some(i) = self.state.indent {
-            return i;
-        }
-
-        let parent_indent = self
-            .parent
-            .as_mut()
-            .map(|parent| parent.calc_indent())
-            .unwrap_or(0);
-        let indent = match self.config.indent {
-            IndentMode::CurrentIndent => parent_indent,
-            IndentMode::Offset(n) => parent_indent + n,
-            IndentMode::CurrentColumn => std::cmp::max(parent_indent, self.state.current_column),
-        };
-        self.state.indent = Some(indent);
-        indent
     }
 
     fn is_multiline_forbiden(&self) -> bool {
@@ -254,12 +231,11 @@ impl Transaction {
                 }
 
                 if c != ' ' {
-                    let indent = self.calc_indent();
-                    if self.state.current_column < indent {
-                        for _ in self.state.current_column..indent {
+                    if self.state.current_column < self.config.indent {
+                        for _ in self.state.current_column..self.config.indent {
                             self.state.formatted_text.push(' ');
                         }
-                        self.state.current_column = indent;
+                        self.state.current_column = self.config.indent;
                     }
                 }
                 self.state.current_column += 1;
