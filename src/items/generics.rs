@@ -118,7 +118,7 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let mut items = vec![ts.parse()?];
         let mut delimiters = Vec::new();
-        while let Some(delimiter) = ts.parse().ok() {
+        while let Ok(delimiter) = ts.parse() {
             delimiters.push(delimiter);
             items.push(ts.parse()?);
         }
@@ -262,7 +262,7 @@ impl<T: Span> Span for MaybeRepeat<T> {
 impl<T: Parse> Parse for MaybeRepeat<T> {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let mut items = vec![ts.parse()?];
-        while let Some(item) = ts.parse().ok() {
+        while let Ok(item) = ts.parse() {
             items.push(item);
         }
         Ok(Self(items))
