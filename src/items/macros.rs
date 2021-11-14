@@ -261,9 +261,10 @@ impl Parse for MacroArg {
             tokens.push(token);
         }
 
-        if expr.as_ref().map_or(false, |x| {
-            x.end_position() != tokens[tokens.len() - 1].end_position()
-        }) {
+        let is_expr = expr.as_ref().map_or(false, |x| {
+            x.end_position() == tokens[tokens.len() - 1].end_position()
+        });
+        if !is_expr {
             expr = None;
         }
 
