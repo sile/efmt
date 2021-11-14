@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "efmt"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "efmt_derive",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "efmt_derive"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,6 +1,6 @@
 [package]
 name = "efmt"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1"
 erl_tokenize = "0.4"
-efmt_derive = { path = "efmt_derive", version = "0.0.1" }
+efmt_derive = { path = "efmt_derive", version = "0.0.2" }
 env_logger = "0.9"
 log = "0.4"
 structopt = "0.3"
