@@ -103,7 +103,7 @@ impl RegionWriter {
         &self.state.formatted_text
     }
 
-    pub fn write_blank(&mut self) -> Result<()> {
+    pub fn write_space(&mut self) -> Result<()> {
         if !matches!(self.last_char(), ' ' | '\n') {
             self.write(" ")?;
         }

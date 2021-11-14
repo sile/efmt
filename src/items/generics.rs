@@ -134,7 +134,7 @@ impl<T: Format, D: Format> NonEmptyItems<T, D> {
             if multi_line {
                 fmt.write_newline()?;
             } else {
-                fmt.write_blank()?;
+                fmt.write_space()?;
             }
         }
         self.items.last().expect("unreachable").format(fmt)?;
@@ -194,7 +194,7 @@ impl<T: Format> Elements<T> {
 
             item.format(fmt)?;
             delimiter.format(fmt)?;
-            fmt.write_blank()?;
+            fmt.write_space()?;
         }
 
         let item = items.last().expect("unreachable");

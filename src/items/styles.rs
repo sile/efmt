@@ -53,9 +53,9 @@ impl<T> Space<T> {
 
 impl<T: Format> Format for Space<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.write_blank()?;
+        fmt.write_space()?;
         self.0.format(fmt)?;
-        fmt.write_blank()?;
+        fmt.write_space()?;
         Ok(())
     }
 }
@@ -66,19 +66,7 @@ pub struct RightSpace<T>(T);
 impl<T: Format> Format for RightSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         self.0.format(fmt)?;
-        fmt.write_blank()?;
-        Ok(())
-    }
-}
-
-// TODO: remove
-#[derive(Debug, Clone, Span, Parse)]
-pub struct LeftSpace<T>(T);
-
-impl<T: Format> Format for LeftSpace<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.write_blank()?;
-        self.0.format(fmt)?;
+        fmt.write_space()?;
         Ok(())
     }
 }

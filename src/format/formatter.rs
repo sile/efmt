@@ -65,9 +65,9 @@ impl Formatter {
         Ok(())
     }
 
-    pub fn write_blank(&mut self) -> Result<()> {
+    pub fn write_space(&mut self) -> Result<()> {
         if !matches!(self.macro_state, MacroState::Written(_)) {
-            self.writer.write_blank()?;
+            self.writer.write_space()?;
         }
         Ok(())
     }
@@ -125,14 +125,14 @@ impl Formatter {
                 self.text.as_bytes().get(start_offset.saturating_sub(1)),
                 Some(b' ')
             ) {
-                self.write_blank()?;
+                self.write_space()?;
             }
 
             item.format(self)?;
 
             let end_offset = item.end_position().offset();
             if matches!(self.text.as_bytes().get(end_offset), Some(b' ' | b'\n')) {
-                self.write_blank()?;
+                self.write_space()?;
             }
             Ok(())
         })();
