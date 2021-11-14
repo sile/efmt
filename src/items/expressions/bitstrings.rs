@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{Expr, IntegerLikeExpr, LiteralExpr};
-use crate::items::generics::{Either, Elements, Maybe, NonEmptyItems, Parenthesized};
+use crate::items::expressions::{Expr, IntegerLikeExpr, NonLeftRecursiveExpr};
+use crate::items::generics::{Elements, Maybe, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
 use crate::items::styles::{ColumnIndent, RightSpace, Space};
 use crate::items::symbols::{
@@ -35,7 +35,7 @@ pub struct BitstringComprehensionExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringSegment {
-    value: Either<Either<LiteralExpr, Box<BitstringExpr>>, Parenthesized<Expr>>,
+    value: NonLeftRecursiveExpr,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
 }
@@ -101,14 +101,14 @@ mod tests {
         let texts = [
             "<<>>",
             indoc::indoc! {"
-                <<1, 2, 3, 4, 5,
-                  6, 7, 8, 9>>"},
+            <<1, 2, 3, 4, 5,
+              6, 7, 8, 9>>"},
             "<<1, 2:16, 3>>",
             "<<<<\"foo\">>/binary>>",
             indoc::indoc! {"
-                <<1,
-                  (foo()):4/little-signed-integer-unit:8,
-                  C/binary>>"},
+            <<1,
+              (foo()):4/little-signed-integer-unit:8,
+              C/binary>>"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -119,19 +119,29 @@ mod tests {
     fn bitstring_comprehension_works() {
         let texts = [
             indoc::indoc! {"
-                << <<X>> || X <- [1,
-                                  2,
-                                  3]>>"},
+            << <<X>> || X <- [1,
+                              2,
+                              3]>>"},
             indoc::indoc! {"
-                << foo(X,
-                       Y,
-                       Z,
-                       bar(),
-                       baz()) || X <- [1,
-                                       2,
-                                       3],
-                                 Y <= Z,
-                                 false>>"},
+            << foo(X,
+                   Y,
+                   Z,
+                   bar(),
+                   baz()) || X <- [1,
+                                   2,
+                                   3],
+                             Y <= Z,
+                             false>>"},
+            indoc::indoc! {"
+            << <<if
+                     X < 10 ->
+                         X +
+                         $0;
+                     true ->
+                         X -
+                         10 +
+                         $A
+                 end>> || <<X:4>> <= B>>"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

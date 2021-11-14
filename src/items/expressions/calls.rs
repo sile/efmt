@@ -113,10 +113,13 @@ mod tests {
             "foo()",
             "Foo(1, 2, 3)",
             indoc::indoc! {"
-                (foo(Bar))(a,
-                           b,
-                           c())"},
+            (foo(Bar))(a,
+                       b,
+                       c())"},
             "foo:bar(baz)",
+            indoc::indoc! {"
+            foo(A *
+                10 * B / 1_0.0)"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
