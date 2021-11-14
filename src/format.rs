@@ -89,6 +89,16 @@ impl<'a> RegionOptions<'a> {
     {
         self.fmt.with_subregion(self.config, f)
     }
+
+    pub fn enter_with_newline<F>(self, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Formatter) -> Result<()>,
+    {
+        self.fmt.with_subregion(self.config, |fmt| {
+            fmt.write_newline()?;
+            f(fmt)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

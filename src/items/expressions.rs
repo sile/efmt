@@ -123,27 +123,28 @@ pub struct Guard {
 
 impl Format for Guard {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if fmt
+        let format = |fmt: &mut format::Formatter| {
+            self.when.format(fmt)?;
+            self.condition.format(fmt)?;
+            Ok(())
+        };
+
+        if fmt.current_relative_column() < 2 {
+            fmt.subregion()
+                .trailing_columns(3) // ' ->'
+                .enter(format)?;
+        } else if fmt
             .subregion()
             .trailing_columns(3) // ' ->'
             .forbid_too_long_line()
             .forbid_multi_line()
-            .enter(|fmt| {
-                self.when.format(fmt)?;
-                self.condition.format(fmt)?;
-                Ok(())
-            })
+            .enter(format)
             .is_err()
         {
             fmt.subregion()
                 .indent_offset(2)
                 .trailing_columns(3) // ' ->'
-                .enter(|fmt| {
-                    fmt.write_newline()?;
-                    self.when.format(fmt)?;
-                    self.condition.format(fmt)?;
-                    Ok(())
-                })?
+                .enter_with_newline(format)?;
         }
         Ok(())
     }

@@ -46,6 +46,10 @@ impl Formatter {
         }
     }
 
+    pub fn current_relative_column(&self) -> usize {
+        self.current_column() - self.writer.config().indent
+    }
+
     pub fn region_config(&self) -> &RegionConfig {
         self.writer.config()
     }

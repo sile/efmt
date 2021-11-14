@@ -320,7 +320,8 @@ mod tests {
             foo(_, _) ->
                 baz."},
             indoc::indoc! {"
-            foo(A) when is_atom(A) ->
+            foo(A)
+              when is_atom(A) ->
                 bar,
                 baz;
             foo(_) ->

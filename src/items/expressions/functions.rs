@@ -90,8 +90,9 @@ mod tests {
                     (A) -> A end"},
             indoc::indoc! {"
                 fun ({a, b}, C) -> C;
-                    (A, B) when is_integer(A);
-                                is_atom(B) -> A end"},
+                    (A, B)
+                      when is_integer(A);
+                           is_atom(B) -> A end"},
             indoc::indoc! {"
                 fun (A) ->
                         foo(),
@@ -118,7 +119,8 @@ mod tests {
                     Foo(A) -> A end"},
             indoc::indoc! {"
                 fun Foo({a, b}, C) -> C;
-                    Foo(A, _B) when is_integer(A) -> A end"},
+                    Foo(A, _B)
+                      when is_integer(A) -> A end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
