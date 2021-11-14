@@ -33,11 +33,24 @@ pub struct BitstringComprehensionExpr {
     close: DoubleRightAngleSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringSegment {
     value: Either<Either<LiteralExpr, Box<BitstringExpr>>, Parenthesized<Expr>>,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
+}
+
+impl Format for BitstringSegment {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.value.format(fmt)?;
+        self.size.format(fmt)?;
+        self.ty.format(fmt)?;
+        Ok(())
+    }
+
+    fn should_be_packed(&self) -> bool {
+        self.value.should_be_packed() && self.size.get().map_or(true, |x| x.size.should_be_packed())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -87,6 +100,9 @@ mod tests {
     fn bitstring_construct_works() {
         let texts = [
             "<<>>",
+            indoc::indoc! {"
+                <<1, 2, 3, 4, 5,
+                  6, 7, 8, 9>>"},
             "<<1, 2:16, 3>>",
             "<<<<\"foo\">>/binary>>",
             indoc::indoc! {"

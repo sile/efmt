@@ -54,6 +54,10 @@ impl<T: Format> Format for Maybe<T> {
         }
         Ok(())
     }
+
+    fn should_be_packed(&self) -> bool {
+        self.get().map_or(true, |x| x.should_be_packed())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
