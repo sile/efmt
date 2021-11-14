@@ -4,7 +4,7 @@ use crate::span::Span;
 
 // TODO: delete or rename
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Child<T>(T);
+pub struct Child<T>(pub T); // TODO: private
 
 impl<T> Child<T> {
     pub fn get(&self) -> &T {

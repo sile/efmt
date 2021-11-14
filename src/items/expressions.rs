@@ -4,7 +4,7 @@ use crate::items::keywords::WhenKeyword;
 use crate::items::styles::{Child, ColumnIndent, Newline, Space};
 use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, CharToken, FloatToken, IntegerToken, VariableToken};
-use crate::parse::Parse;
+use crate::parse::{self, Parse};
 use crate::span::Span;
 
 pub mod bitstrings;
@@ -27,10 +27,20 @@ pub use self::records::RecordExpr;
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Format)]
 pub enum Expr {
     BinaryOpCall(Box<BinaryOpCallExpr>),
     NonLeftRecursive(NonLeftRecursiveExpr),
+}
+
+impl Parse for Expr {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let expr: NonLeftRecursiveExpr = ts.parse()?;
+        match BinaryOpCallExpr::try_parse(ts, expr) {
+            Ok(expr) => Ok(Self::BinaryOpCall(Box::new(expr))),
+            Err(expr) => Ok(Self::NonLeftRecursive(expr)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

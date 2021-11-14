@@ -4,7 +4,7 @@ use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
 use crate::items::styles::{Child, RightSpace, Space};
 use crate::items::symbols::{self, ColonSymbol};
-use crate::parse::Parse;
+use crate::parse::{self, Parse};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -33,6 +33,22 @@ pub struct BinaryOpCallExpr {
     left: Child<NonLeftRecursiveExpr>,
     op: Space<BinaryOp>,
     right: Expr,
+}
+
+impl BinaryOpCallExpr {
+    pub fn try_parse(
+        ts: &mut parse::TokenStream,
+        left: NonLeftRecursiveExpr,
+    ) -> Result<Self, NonLeftRecursiveExpr> {
+        match ts.parse::<(_, _)>() {
+            Ok((op, right)) => Ok(Self {
+                left: Child(left),
+                op,
+                right,
+            }),
+            Err(_) => Err(left),
+        }
+    }
 }
 
 impl Format for BinaryOpCallExpr {
