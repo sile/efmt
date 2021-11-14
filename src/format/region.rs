@@ -125,7 +125,7 @@ impl RegionWriter {
         // an item's start and end positions could be smaller than `next_position`.
         let start = std::cmp::max(item.start_position(), self.state.next_position);
         let end = std::cmp::max(item.end_position(), start);
-        let text = &text[start.offset()..end.offset()];
+        let text = text[start.offset()..end.offset()].trim();
 
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;

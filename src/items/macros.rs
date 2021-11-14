@@ -183,7 +183,10 @@ impl Parse for MacroArg {
         let mut level = Level::default();
         while tokens.is_empty()
             || !level.is_toplevel()
-            || ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_none()
+            || ts
+                .peek::<Either<CommaSymbol, CloseParenSymbol>>()
+                .filter(|t| !ts.macros().contains_key(&t.start_position()))
+                .is_none()
         {
             let token: Token = ts.parse()?;
 
@@ -368,19 +371,22 @@ mod tests {
             -define(foo, [],[).
             -define(bar(A), A).
 
-            main() -> ?bar(?foo) c].
+            main() ->
+                ?bar(?foo) c].
             "},
             indoc::indoc! {"
             -define(foo, [],).
             -define(bar(A), A).
 
-            main() -> ?bar(?foo) [c].
+            main() ->
+                ?bar(?foo) [c].
             "},
             indoc::indoc! {"
-            -define(foo, [1, 2, 3], [).
-            -define(bar(A), A).
+            -define(a, [1, 2, 3], [).
+            -define(b(A), A).
 
-            main() -> ?bar(?foo a), c].
+            main() ->
+                ?b(?a a), c].
             "},
         ];
         for text in texts {

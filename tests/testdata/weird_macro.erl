@@ -11,5 +11,6 @@
 
 hello(A) ->
     io?BAR "hello ~p\n", [A]).
-main() ?a(?qux a, b), c],
+main() ?a(?qux a, b)
+    , c],
     [1, hello(world?quux 3].
