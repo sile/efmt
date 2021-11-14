@@ -260,4 +260,59 @@ impl Format for MacroArg {
     }
 }
 
-// TODO: add unit tests
+#[cfg(test)]
+mod tests {
+    use crate::items::module::Module;
+
+    #[test]
+    fn macro_without_args_works() {
+        let texts = [
+            indoc::indoc! {"
+            -define(FOO, bar).
+            baz() ->
+                ?FOO.
+            "},
+            indoc::indoc! {"
+            -define(INC, 1 +).
+            inc(A) ->
+                ?INC A.
+            "},
+            indoc::indoc! {"
+            -define(FOO_OPEN, foo().
+            -define(FOO_CLOSE, )).
+            foo(A) ->
+                ?FOO_OPEN A ?FOO_CLOSE.
+            "},
+            indoc::indoc! {"
+            -define(EMPTY, ).
+
+            ?EMPTY hello ?EMPTY () ->
+                ?EMPTY ?EMPTY world.
+            ?EMPTY"},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+
+    #[test]
+    fn macro_with_args_works() {
+        let texts = [
+            indoc::indoc! {"
+            -define(FOO(Bar), {Bar,
+               Baz}).
+            qux() ->
+                ?FOO(quux).
+            "},
+            indoc::indoc! {"
+            -define(FOO(Bar,
+                        Baz), {Bar, Baz}).
+            qux() ->
+                ?FOO(begin foo, bar, baz end, hello).
+            "},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+}

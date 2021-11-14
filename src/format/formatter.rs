@@ -11,6 +11,7 @@ pub struct Formatter {
     text: String,
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
+    in_macro_expansion: Option<Position>,
 }
 
 impl Formatter {
@@ -25,6 +26,7 @@ impl Formatter {
             text,
             macros,
             comments,
+            in_macro_expansion: None,
         }
     }
 
@@ -57,21 +59,34 @@ impl Formatter {
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        self.writer.write_newline()
+        if self.in_macro_expansion.is_none() {
+            self.writer.write_newline()?;
+        }
+        Ok(())
     }
 
     pub fn write_blank(&mut self) -> Result<()> {
-        self.writer.write_blank()
+        if self.in_macro_expansion.is_none() {
+            self.writer.write_blank()?;
+        }
+        Ok(())
     }
 
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
         self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
         self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.writer.write_item(&self.text, item)?;
+        if self
+            .in_macro_expansion
+            .map_or(false, |end| end < item.end_position())
+        {
+            self.in_macro_expansion = None;
+        }
         Ok(())
     }
 
     fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
+        assert!(self.in_macro_expansion.is_none());
         self.writer.write_comment(&self.text, item)?;
         Ok(())
     }
@@ -105,11 +120,30 @@ impl Formatter {
     fn write_macro(&mut self, item: &Macro) -> Result<()> {
         // TODO: Use `item.format()` to format the args.
         //       (But be careful to prevent infinite recursive call of the format method)
-        self.writer.write_item(&self.text, item)?;
+        self.in_macro_expansion = None; // This is needed for empty macros.
 
-        if !item.has_args() && self.text.as_bytes()[item.end_position().offset()] == b' ' {
+        if !item.has_args()
+            && matches!(
+                self.text.as_bytes().get(item.start_position().offset() - 1),
+                Some(b' ')
+            )
+            && self.writer.last_char() != ' '
+        {
             self.write_blank()?;
         }
+
+        self.writer.write_item(&self.text, item)?;
+
+        if !item.has_args()
+            && matches!(
+                self.text.as_bytes().get(item.end_position().offset()),
+                Some(b' ' | b'\n')
+            )
+        {
+            self.write_blank()?;
+        }
+
+        self.in_macro_expansion = Some(item.end_position());
         Ok(())
     }
 
