@@ -147,7 +147,7 @@ impl TokenStream {
                     };
                     self.comments.insert(
                         start_position,
-                        CommentToken::new(kind, x.value(), start_position, end_position),
+                        CommentToken::new(kind, start_position, end_position),
                     );
                     continue;
                 }

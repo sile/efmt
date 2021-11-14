@@ -83,7 +83,9 @@ mod tests {
     #[test]
     fn list_comprehension_works() {
         let texts = [
-            "[X || X <- [1, 2, 3]]",
+            indoc::indoc! {"
+                [X || X <- [1, 2,
+                            3]]"},
             indoc::indoc! {"
                 [[X, Y] || X <- [1,
                                  2,

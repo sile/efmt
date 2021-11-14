@@ -78,12 +78,10 @@ impl<T> Parenthesized<T> {
 impl<T: Format> Format for Parenthesized<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         self.open.format(fmt)?;
-        fmt.with_subregion(
-            format::RegionOptions::new()
-                .indent(format::IndentMode::CurrentColumn)
-                .trailing_item_size(1),
-            |fmt| self.item.format(fmt),
-        )?;
+        fmt.subregion()
+            .current_column_as_indent()
+            .trailing_columns(1) // ')'
+            .enter(|fmt| self.item.format(fmt))?;
         self.close.format(fmt)?;
         Ok(())
     }
@@ -128,18 +126,33 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+impl<T: Format, D: Format> NonEmptyItems<T, D> {
+    fn format_items(&self, fmt: &mut Formatter, multi_line: bool) -> format::Result<()> {
         for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
             item.format(fmt)?;
             delimiter.format(fmt)?;
-            if fmt.multiline_mode().is_recommended() {
+            if multi_line {
                 fmt.write_newline()?;
             } else {
                 fmt.write_blank()?;
             }
         }
         self.items.last().expect("unreachable").format(fmt)?;
+        Ok(())
+    }
+}
+
+impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        if fmt
+            .subregion()
+            .forbid_multi_line()
+            .forbid_too_long_line()
+            .enter(|fmt| self.format_items(fmt, false))
+            .is_err()
+        {
+            self.format_items(fmt, true)?;
+        }
         Ok(())
     }
 }
@@ -191,19 +204,17 @@ impl<T: Format> Elements<T> {
 
 impl<T: Format> Format for Elements<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(
-            format::RegionOptions::new()
-                .indent(format::IndentMode::CurrentColumn)
-                .trailing_item_size(1), // TODO: maybe ">>"
-            |fmt| {
+        fmt.subregion()
+            .current_column_as_indent()
+            .trailing_columns(2) // '>>' or ']' or ... (use const generic?)
+            .enter(|fmt| {
                 let packed = self.0.get().iter().all(|x| x.should_be_packed());
                 if packed {
                     self.format_packed_items(fmt)
                 } else {
                     self.0.format(fmt)
                 }
-            },
-        )
+            })
     }
 }
 
@@ -218,10 +229,9 @@ impl<T> Clauses<T> {
 
 impl<T: Format> Format for Clauses<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(
-            format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
-            |fmt| self.0.format(fmt),
-        )
+        fmt.subregion()
+            .current_column_as_indent()
+            .enter(|fmt| self.0.format(fmt))
     }
 }
 

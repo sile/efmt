@@ -141,7 +141,7 @@ impl RegionWriter {
         Ok(())
     }
 
-    pub fn write_comment(&mut self, comment: &CommentToken) -> Result<()> {
+    pub fn write_comment(&mut self, text: &str, comment: &CommentToken) -> Result<()> {
         assert!(!comment.is_empty());
 
         match comment.kind() {
@@ -168,7 +168,8 @@ impl RegionWriter {
             }
         }
 
-        self.state.formatted_text.push_str(comment.value());
+        let text = &text[comment.start_position().offset()..comment.end_position().offset()];
+        self.state.formatted_text.push_str(text);
         self.state.next_position = comment.end_position();
         self.write_newline()?;
 
@@ -205,7 +206,7 @@ impl RegionWriter {
         Ok(())
     }
 
-    fn last_char(&self) -> char {
+    pub fn last_char(&self) -> char {
         if let Some(c) = self.state.formatted_text.chars().last() {
             c
         } else if let Some(parent) = &self.parent {

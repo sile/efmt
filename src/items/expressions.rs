@@ -85,13 +85,13 @@ pub struct Body {
 
 impl Format for Body {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.with_subregion(
-            format::RegionOptions::new()
-                .newline()
-                .indent(format::IndentMode::offset(4))
-                .trailing_item_size(1),
-            |fmt| self.exprs.format(fmt),
-        )
+        fmt.subregion()
+            .indent_offset(4)
+            .trailing_columns(1) // '.' or ',' or ';' (TODO move other place?)
+            .enter(|fmt| {
+                fmt.write_newline()?;
+                self.exprs.format(fmt)
+            })
     }
 }
 
@@ -102,12 +102,16 @@ pub struct MaybeInlineBody {
 
 impl Format for MaybeInlineBody {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let mut options = format::RegionOptions::new().trailing_item_size(4); // ' end'
+        let mut options = fmt.subregion().trailing_columns(4); // ' end'
         if self.exprs.get().len() > 1 {
-            options = options.newline().indent(format::IndentMode::offset(4));
+            options = options.indent_offset(4)
         }
-        fmt.with_subregion(options, |fmt| self.exprs.format(fmt))?;
-        Ok(())
+        options.enter(|fmt| {
+            if self.exprs.get().len() > 1 {
+                fmt.write_newline()?;
+            }
+            self.exprs.format(fmt)
+        })
     }
 }
 

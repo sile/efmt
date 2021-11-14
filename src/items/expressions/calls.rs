@@ -39,26 +39,35 @@ impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         self.left.format(fmt)?;
         self.op.format(fmt)?;
-        fmt.with_subregion(Default::default(), |fmt| self.format_right(fmt))?;
+        match fmt
+            .subregion()
+            .forbid_too_long_line()
+            .enter(|fmt| self.format_right(fmt, false))
+        {
+            Err(format::Error::MaxColumnsExceeded) => {
+                fmt.subregion().enter(|fmt| self.format_right(fmt, true))?;
+            }
+            other => other?,
+        }
         Ok(())
     }
 }
 
 impl BinaryOpCallExpr {
-    fn format_right(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let options = format::RegionOptions::new().noretry();
-        let options = if fmt.multiline_mode().is_recommended() {
-            match self.op.get() {
-                BinaryOp::Send(_) | BinaryOp::Match(_) => options
-                    .newline()
-                    .recommend_multiline()
-                    .indent(format::IndentMode::offset(4)),
-                _ => options.newline().recommend_multiline(),
-            }
+    fn format_right(&self, fmt: &mut format::Formatter, multi_line: bool) -> format::Result<()> {
+        if !multi_line {
+            self.right.format(fmt)?;
+        } else if matches!(self.op.get(), BinaryOp::Send(_) | BinaryOp::Match(_)) {
+            fmt.subregion().indent_offset(4).enter(|fmt| {
+                fmt.write_newline()?;
+                self.right.format(fmt)
+            })?;
         } else {
-            options.forbid_multiline()
-        };
-        fmt.with_subregion(options, |fmt| self.right.format(fmt))?;
+            fmt.subregion().enter(|fmt| {
+                fmt.write_newline()?;
+                self.right.format(fmt)
+            })?;
+        }
         Ok(())
     }
 }

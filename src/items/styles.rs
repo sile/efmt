@@ -3,7 +3,7 @@ use crate::parse::Parse;
 use crate::span::Span;
 
 // TODO: delete or rename
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Child<T>(T);
 
 impl<T> Child<T> {
@@ -12,21 +12,14 @@ impl<T> Child<T> {
     }
 }
 
-impl<T: Format> Format for Child<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(format::RegionOptions::new(), |fmt| self.0.format(fmt))
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse)]
 pub struct ColumnIndent<T>(T);
 
 impl<T: Format> Format for ColumnIndent<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(
-            format::RegionOptions::new().indent(format::IndentMode::CurrentColumn),
-            |fmt| self.0.format(fmt),
-        )
+        fmt.subregion()
+            .current_column_as_indent()
+            .enter(|fmt| self.0.format(fmt))
     }
 }
 
@@ -41,12 +34,10 @@ impl<T> Block<T> {
 
 impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.with_subregion(
-            format::RegionOptions::new()
-                .newline()
-                .indent(format::IndentMode::offset(4)),
-            |fmt| self.0.format(fmt),
-        )
+        fmt.subregion().indent_offset(4).enter(|fmt| {
+            fmt.write_newline()?;
+            self.0.format(fmt)
+        })
     }
 }
 

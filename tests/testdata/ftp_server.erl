@@ -1,9 +1,10 @@
 % From: http://www1.erlang.org/examples/examples-2.0.html
 
 start() ->
-    case (catch register(ftp_server, spawn(?MODULE,
-                                           internal,
-                                           []))) of
+    case (catch register(ftp_server,
+                         spawn(?MODULE,
+                               internal,
+                               []))) of
         {'EXIT', _} ->
             already_started;
         Pid ->
@@ -29,16 +30,19 @@ loop(Users, N) ->
                     Max = max_connections(),
                     if
                         N > Max ->
-                            Pid ! {ftp_server,
-                                   {error,
-                                    too_many_connections}},
+                            Pid !
+                                {ftp_server,
+                                 {error,
+                                  too_many_connections}},
                             loop(Users, N);
                         true ->
-                            New = spawn_link(?MODULE,
-                                             handler,
-                                             [Pid]),
-                            Pid ! {ftp_server,
-                                   {ok, New}},
+                            New =
+                                spawn_link(?MODULE,
+                                           handler,
+                                           [Pid]),
+                            Pid !
+                                {ftp_server,
+                                 {ok, New}},
                             loop(Users, N + 1)
                     end;
                 false ->

@@ -85,16 +85,27 @@ impl Format for SpecClause {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         self.params.format(fmt)?;
         self.arrow.format(fmt)?;
-        fmt.with_subregion(format::RegionOptions::new().forbid_multiline(), |fmt| {
-            let options = if fmt.multiline_mode().is_recommended() {
-                format::RegionOptions::new()
-                    .newline()
-                    .indent(format::IndentMode::offset(1))
-            } else {
-                format::RegionOptions::new().indent(format::IndentMode::CurrentColumn)
-            };
-            fmt.with_subregion(options, |fmt| self.r#return.format(fmt))
-        })?;
+        if fmt
+            .subregion()
+            .forbid_multi_line()
+            .forbid_too_long_line()
+            .enter(|fmt| self.r#return.format(fmt))
+            .is_err()
+        {
+            fmt.write_newline()?;
+            if fmt
+                .subregion()
+                .forbid_multi_line()
+                .forbid_too_long_line()
+                .indent_offset(1)
+                .enter(|fmt| self.r#return.format(fmt))
+                .is_err()
+            {
+                fmt.subregion()
+                    .indent_offset(1)
+                    .enter(|fmt| self.r#return.format(fmt))?;
+            }
+        }
         self.constraint.format(fmt)?;
         Ok(())
     }
@@ -330,8 +341,13 @@ mod tests {
     fn fun_spec_works() {
         let texts = [
             indoc::indoc! {"
-                -spec foo(T1, T2) -> T3;
-                         (T4, T5) -> T6."},
+                -spec foo(X) -> X;
+                         (Y) -> Y."},
+            indoc::indoc! {"
+                -spec foo(T1, T2) ->
+                          T3;
+                         (T4, T5) ->
+                          T6."},
             "-spec id(X) -> X when X :: tuple().",
             indoc::indoc! {"
                 -callback foo(atom()) ->
