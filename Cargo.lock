@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "efmt"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "efmt_derive",
