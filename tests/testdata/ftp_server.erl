@@ -46,8 +46,9 @@ loop(Users, N) ->
                             loop(Users, N + 1)
                     end;
                 false ->
-                    Pid ! {ftp_server,
-                           {error, rejected}},
+                    Pid !
+                        {ftp_server,
+                         {error, rejected}},
                     loop(Users, N)
             end;
         {'EXIT', Pid} ->

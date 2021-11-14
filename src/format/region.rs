@@ -180,14 +180,14 @@ impl RegionWriter {
         for c in s.chars() {
             if c == '\n' {
                 if !self.config.allow_multi_line {
-                    return Err(Error::Multiline);
+                    return Err(Error::MultiLine);
                 }
                 self.state.current_column = 0;
             } else if c != ' ' {
-                if self.state.current_column >= self.config.max_columns {
-                    if !self.config.allow_too_long_line {
-                        return Err(Error::MaxColumnsExceeded);
-                    }
+                if self.state.current_column >= self.config.max_columns
+                    && !self.config.allow_too_long_line
+                {
+                    return Err(Error::LineTooLong);
                 }
 
                 if self.state.current_column < self.config.indent {
@@ -218,7 +218,9 @@ impl RegionWriter {
 
     fn pop_last_char(&mut self) {
         if self.state.formatted_text.pop().is_none() {
-            self.parent.as_mut().map(|x| x.pop_last_char());
+            if let Some(x) = &mut self.parent {
+                x.pop_last_char();
+            }
         }
     }
 }

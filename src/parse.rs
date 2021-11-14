@@ -2,7 +2,7 @@ use crate::items::tokens::Token;
 use crate::span::{Position, Span as _};
 use std::path::PathBuf;
 
-pub use self::token_stream::TokenStream;
+pub use self::token_stream::{TokenStream, TokenStreamOptions};
 pub use efmt_derive::Parse;
 
 mod token_stream;

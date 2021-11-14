@@ -1,3 +1,5 @@
+use efmt::items::module::Module;
+
 #[test]
 fn format_works() -> anyhow::Result<()> {
     for entry in std::fs::read_dir("tests/testdata/")? {
@@ -6,7 +8,9 @@ fn format_works() -> anyhow::Result<()> {
         if path.extension().map_or(true, |ext| ext != "erl") {
             continue;
         }
-        let formatted = efmt::format_file(&path)?;
+        let formatted = efmt::format::FormatOptions::new()
+            .max_columns(50)
+            .format_file::<Module, _>(&path)?;
         let expected = std::fs::read_to_string(&path)?;
         similar_asserts::assert_str_eq!(formatted, expected, "target={:?}", path);
     }

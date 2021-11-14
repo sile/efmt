@@ -1,3 +1,4 @@
+use efmt::format::FormatOptions;
 use efmt::items::module::Module;
 use env_logger::Env;
 use std::io::Read as _;
@@ -17,13 +18,13 @@ fn main() -> anyhow::Result<()> {
 
     let opt = Opt::from_args();
 
-    let format_options = efmt::FormatOptions::<Module>::new().max_columns(opt.max_columns);
+    let format_options = FormatOptions::new().max_columns(opt.max_columns);
     let formatted_text = match opt.file {
-        Some(path) => format_options.format_file(path)?,
+        Some(path) => format_options.format_file::<Module, _>(path)?,
         None => {
             let mut text = String::new();
             std::io::stdin().lock().read_to_string(&mut text)?;
-            format_options.format_text(&text)?
+            format_options.format_text::<Module>(&text)?
         }
     };
 

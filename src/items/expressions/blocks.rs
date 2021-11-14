@@ -271,8 +271,8 @@ mod tests {
             indoc::indoc! {"
                 catch foo(bar,
                           Baz,
-                          qux) + 3 +
-                      4"},
+                          qux) +
+                      3 + 4"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

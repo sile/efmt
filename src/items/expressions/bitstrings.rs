@@ -82,15 +82,6 @@ pub struct BitstringSegmentTypeSpecifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::styles::Child;
-    use crate::FormatOptions;
-
-    fn format(text: &str) -> String {
-        FormatOptions::<Child<Expr>>::new()
-            .max_columns(20)
-            .format_text(text)
-            .expect("parse or format failed")
-    }
 
     #[test]
     fn bitstring_construct_works() {
@@ -104,7 +95,7 @@ mod tests {
                   C/binary>>"},
         ];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -127,7 +118,7 @@ mod tests {
                                  false>>"},
         ];
         for text in texts {
-            assert_eq!(format(text), text);
+            crate::assert_format!(text, Expr);
         }
     }
 }

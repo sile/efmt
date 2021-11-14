@@ -1,11 +1,12 @@
-use self::region::{RegionConfig, RegionWriter};
-use crate::items::macros::Macro;
-use crate::items::tokens::{CommentKind, CommentToken};
-use crate::span::{Position, Span};
-use std::collections::BTreeMap;
+use self::region::RegionConfig;
+use crate::parse::{Parse, TokenStream, TokenStreamOptions};
+use crate::span::Span;
+use std::path::Path;
 
+pub use self::formatter::Formatter;
 pub use efmt_derive::Format;
 
+mod formatter;
 mod region;
 
 pub trait Format: Span {
@@ -20,6 +21,10 @@ impl<T: Format> Format for Box<T> {
     fn format(&self, fmt: &mut Formatter) -> Result<()> {
         (**self).format(fmt)
     }
+
+    fn should_be_packed(&self) -> bool {
+        (**self).should_be_packed()
+    }
 }
 
 impl<A: Format, B: Format> Format for (A, B) {
@@ -33,10 +38,10 @@ impl<A: Format, B: Format> Format for (A, B) {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("max columns exceeded")]
-    MaxColumnsExceeded,
+    LineTooLong,
 
-    #[error("unexpected multiline")]
-    Multiline, // TODO: s/Multiline/ForbiddenMultiLine
+    #[error("unexpected multi-line")]
+    MultiLine,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -49,7 +54,7 @@ pub struct RegionOptions<'a> {
 
 impl<'a> RegionOptions<'a> {
     pub fn new(fmt: &'a mut Formatter) -> Self {
-        let config = fmt.writer.config().clone();
+        let config = fmt.region_config().clone();
         Self { fmt, config }
     }
 
@@ -59,8 +64,8 @@ impl<'a> RegionOptions<'a> {
     }
 
     pub fn current_column_as_indent(mut self) -> Self {
-        self.config.indent = if self.fmt.writer.last_char() == '\n' {
-            self.fmt.writer.config().indent
+        self.config.indent = if self.fmt.is_newline() {
+            self.fmt.region_config().indent
         } else {
             self.fmt.current_column()
         };
@@ -86,148 +91,68 @@ impl<'a> RegionOptions<'a> {
     where
         F: FnOnce(&mut Formatter) -> Result<()>,
     {
-        self.fmt.writer.start_subregion(self.config);
-        let result = f(self.fmt);
-        if result.is_ok() {
-            self.fmt.writer.commit_subregion();
-        } else {
-            self.fmt.writer.abort_subregion();
-        }
-        result
+        self.fmt.with_subregion(self.config, f)
     }
 }
 
-#[derive(Debug)]
-pub struct Formatter {
-    writer: RegionWriter,
-    text: String,
-    macros: BTreeMap<Position, Macro>,
-    comments: BTreeMap<Position, CommentToken>,
+#[derive(Debug, Clone)]
+pub struct FormatOptions {
+    max_columns: usize,
+    token_stream: TokenStreamOptions,
 }
 
-impl Formatter {
-    pub fn new<T>(
-        text: String,
-        comments: BTreeMap<Position, CommentToken>,
-        macros: BTreeMap<Position, Macro>,
-        options: &crate::FormatOptions<T>,
-    ) -> Self {
+impl Default for FormatOptions {
+    fn default() -> Self {
         Self {
-            writer: RegionWriter::new(options.max_columns),
-            text,
-            macros,
-            comments,
+            max_columns: Self::DEFAULT_MAX_COLUMNS,
+            token_stream: Default::default(),
         }
     }
+}
 
-    pub fn finish(mut self) -> String {
-        let eof = crate::items::module::Eof {
-            position: Position::new(usize::MAX, usize::MAX, usize::MAX),
-        };
-        self.write_comments_and_macros(&eof, None)
-            .expect("TODO: error handling");
+impl FormatOptions {
+    pub const DEFAULT_MAX_COLUMNS: usize = 120;
 
-        self.writer.formatted_text().to_owned()
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn max_columns(&self) -> usize {
-        self.writer.config().max_columns
+    pub fn max_columns(mut self, n: usize) -> Self {
+        self.max_columns = n;
+        self
     }
 
-    pub fn current_column(&self) -> usize {
-        self.writer.current_column()
+    pub fn code_path(mut self, path: impl AsRef<Path>) -> Self {
+        self.token_stream = self.token_stream.code_path(path);
+        self
     }
 
-    pub fn indent(&self) -> usize {
-        self.writer.config().indent
+    pub fn format_file<T: Parse + Format, P: AsRef<Path>>(self, path: P) -> anyhow::Result<String> {
+        let text = std::fs::read_to_string(&path)?;
+        let mut tokenizer = erl_tokenize::Tokenizer::new(text);
+        tokenizer.set_filepath(path);
+        self.format::<T>(tokenizer)
     }
 
-    pub fn write_newline(&mut self) -> Result<()> {
-        self.writer.write_newline()
+    pub fn format_text<T: Parse + Format>(self, text: &str) -> anyhow::Result<String> {
+        let tokenizer = erl_tokenize::Tokenizer::new(text.to_owned());
+        self.format::<T>(tokenizer)
     }
 
-    pub fn write_blank(&mut self) -> Result<()> {
-        self.writer.write_blank()
-    }
-
-    pub fn is_multi_line_allowed(&self) -> bool {
-        self.writer.config().allow_multi_line
-    }
-
-    pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
-        self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
-        self.write_comments_and_macros(item, Some(CommentKind::Post))?;
-        self.writer.write_item(&self.text, item)?;
-        Ok(())
-    }
-
-    fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
-        self.writer.write_comment(&self.text, item)?;
-        Ok(())
-    }
-
-    pub fn subregion(&mut self) -> RegionOptions {
-        RegionOptions::new(self)
-    }
-
-    fn write_macro(&mut self, item: &Macro) -> Result<()> {
-        // TODO: Use `item.format()` to format the args.
-        //       (But be careful to prevent infinite recursive call of the format method)
-        self.writer.write_item(&self.text, item)?;
-
-        if !item.has_args() && self.text.as_bytes()[item.end_position().offset()] == b' ' {
-            self.write_blank()?;
-        }
-        Ok(())
-    }
-
-    fn write_comments_and_macros(
-        &mut self,
-        next_item: &impl Span,
-        allowed_comment_kind: Option<CommentKind>,
-    ) -> Result<()> {
-        let item_start = next_item.start_position();
-        loop {
-            let comment_start = self.next_comment_position();
-            let macro_start = self.next_macro_position();
-            if comment_start.map_or(true, |p| item_start < p)
-                && macro_start.map_or(true, |p| item_start < p)
-            {
-                break;
-            }
-
-            if comment_start.map_or(false, |c| macro_start.map_or(true, |m| c < m)) {
-                let comment = self.comments[&comment_start.unwrap()].clone();
-                if allowed_comment_kind.map_or(true, |k| k == comment.kind()) {
-                    self.write_comment(&comment)?;
-                } else {
-                    break;
-                }
-            } else {
-                let macro_call = self.macros[&macro_start.unwrap()].clone();
-                self.write_macro(&macro_call)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn next_comment_position(&self) -> Option<Position> {
-        self.comments
-            .range(self.next_position()..)
-            .map(|x| x.0)
-            .copied()
-            .next()
-    }
-
-    fn next_macro_position(&self) -> Option<Position> {
-        self.macros
-            .range(self.next_position()..)
-            .map(|x| x.0)
-            .copied()
-            .next()
-    }
-
-    fn next_position(&self) -> Position {
-        self.writer.next_position()
+    fn format<T: Parse + Format>(
+        self,
+        tokenizer: erl_tokenize::Tokenizer<String>,
+    ) -> anyhow::Result<String> {
+        let mut ts = TokenStream::new(tokenizer, self.token_stream);
+        let item: T = ts.parse()?;
+        let mut formatter = Formatter::new(
+            ts.text().to_owned(),
+            ts.comments().clone(),
+            ts.macros().clone(),
+            self.max_columns,
+        );
+        item.format(&mut formatter)?;
+        let formatted_text = formatter.finish()?;
+        Ok(formatted_text)
     }
 }

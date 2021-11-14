@@ -39,15 +39,14 @@ impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         self.left.format(fmt)?;
         self.op.format(fmt)?;
-        match fmt
+        if fmt
             .subregion()
+            .forbid_multi_line()
             .forbid_too_long_line()
             .enter(|fmt| self.format_right(fmt, false))
+            .is_err()
         {
-            Err(format::Error::MaxColumnsExceeded) => {
-                fmt.subregion().enter(|fmt| self.format_right(fmt, true))?;
-            }
-            other => other?,
+            fmt.subregion().enter(|fmt| self.format_right(fmt, true))?;
         }
         Ok(())
     }
@@ -138,11 +137,10 @@ mod tests {
             "1 + 2",
             "1 - 2 * 3",
             indoc::indoc! {"
-                {A, B, C} = {foo,
-                             bar,
-                             baz} =
-                    qux() /
-                    quux() div 2"},
+                {A, B, C} =
+                    {foo, bar, baz} =
+                        qux() /
+                        quux() div 2"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
