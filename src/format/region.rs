@@ -141,7 +141,9 @@ impl RegionWriter {
 
         match comment.kind() {
             CommentKind::Post => {
-                assert_eq!(self.last_char(), '\n');
+                if self.last_char() != '\n' {
+                    self.write("\n")?;
+                }
 
                 if self.state.next_position.line() + 1 < comment.start_position().line() {
                     self.write("\n")?;
