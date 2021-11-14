@@ -1,4 +1,5 @@
 use crate::format::{self, Format, Formatter};
+use crate::items::expressions::Expr;
 use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
@@ -17,10 +18,6 @@ pub struct Macro {
 }
 
 impl Macro {
-    pub fn has_args(&self) -> bool {
-        self.args.get().is_some()
-    }
-
     pub fn parse(
         ts: &mut TokenStream,
         question: QuestionSymbol,
@@ -89,6 +86,7 @@ impl MacroName {
 #[derive(Debug, Clone)]
 pub struct MacroReplacement {
     tokens: Vec<Token>,
+    expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
     start_position: Position,
 }
 
@@ -115,28 +113,35 @@ impl Span for MacroReplacement {
 impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let start_position = ts.current_whitespace_token()?.end_position();
+        let expr = ts
+            .peek::<(Expr, (CloseParenSymbol, DotSymbol))>()
+            .map(|(expr, _)| expr);
         let mut tokens = Vec::new();
-        while !ts.peek::<(CloseParenSymbol, DotSymbol)>() {
+        while ts.peek::<(CloseParenSymbol, DotSymbol)>().is_none() {
             tokens.push(ts.parse()?);
         }
         Ok(Self {
             tokens,
+            expr,
             start_position,
         })
     }
 }
 
 impl Format for MacroReplacement {
-    // TODO: try parse
-    // TODO: consider comment (by formatter)
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.write_text(self)
+        if let Some(expr) = &self.expr {
+            expr.format(fmt)
+        } else {
+            fmt.write_text(self)
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct MacroArg {
     tokens: Vec<Token>,
+    expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
 }
 
 impl MacroArg {
@@ -157,6 +162,8 @@ impl Span for MacroArg {
 
 impl Parse for MacroArg {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        let mut expr = ts.peek::<Expr>();
+
         #[derive(Debug, Default, PartialEq, Eq)]
         struct Level {
             paren: usize,
@@ -176,7 +183,7 @@ impl Parse for MacroArg {
         let mut level = Level::default();
         while tokens.is_empty()
             || !level.is_toplevel()
-            || !ts.peek::<Either<CommaSymbol, CloseParenSymbol>>()
+            || ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_none()
         {
             let token: Token = ts.parse()?;
 
@@ -232,7 +239,9 @@ impl Parse for MacroArg {
                         level.block += 1;
                     }
                     Keyword::Fun => {
-                        if ts.peek::<OpenParenSymbol>() || ts.peek::<(Token, OpenParenSymbol)>() {
+                        if ts.peek::<OpenParenSymbol>().is_some()
+                            || ts.peek::<(Token, OpenParenSymbol)>().is_some()
+                        {
                             level.block += 1;
                         }
                     }
@@ -248,15 +257,24 @@ impl Parse for MacroArg {
             }
             tokens.push(token);
         }
-        Ok(Self { tokens })
+
+        if expr.as_ref().map_or(false, |x| {
+            x.end_position() != tokens[tokens.len() - 1].end_position()
+        }) {
+            expr = None;
+        }
+
+        Ok(Self { tokens, expr })
     }
 }
 
 impl Format for MacroArg {
-    // TODO: try parse
-    // TODO: consider comment (by formatter)
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.write_text(self)
+        if let Some(expr) = &self.expr {
+            expr.format(fmt)
+        } else {
+            fmt.write_text(self)
+        }
     }
 }
 
@@ -298,17 +316,71 @@ mod tests {
     #[test]
     fn macro_with_args_works() {
         let texts = [
+            // TODO: Should have a newline after ',' if the line is too long.
             indoc::indoc! {"
             -define(FOO(Bar), {Bar,
-               Baz}).
+                               Baz}).
             qux() ->
                 ?FOO(quux).
             "},
             indoc::indoc! {"
             -define(FOO(Bar,
-                        Baz), {Bar, Baz}).
+                        Baz), {Bar,
+                               Baz}).
             qux() ->
-                ?FOO(begin foo, bar, baz end, hello).
+                ?FOO(begin
+                         foo,
+                         bar,
+                         baz
+                     end,
+                     hello).
+            "},
+            indoc::indoc! {"
+            -define(FOO(Bar), Bar).
+
+            qux() ->
+                [?FOO(begin
+                          foo,
+                          bar,
+                          baz
+                      end),
+                 1,
+                 2].
+            "},
+            indoc::indoc! {"
+            -define(foo, foo).
+            -define(bar(A), A).
+            -define(baz(A), A).
+
+            main() ->
+                ?baz(?bar(?foo)).
+            "},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+
+    #[test]
+    fn weird_macro_works() {
+        let texts = [
+            indoc::indoc! {"
+            -define(foo, [],[).
+            -define(bar(A), A).
+
+            main() -> ?bar(?foo) c].
+            "},
+            indoc::indoc! {"
+            -define(foo, [],).
+            -define(bar(A), A).
+
+            main() -> ?bar(?foo) [c].
+            "},
+            indoc::indoc! {"
+            -define(foo, [1, 2, 3], [).
+            -define(bar(A), A).
+
+            main() -> ?bar(?foo a), c].
             "},
         ];
         for text in texts {

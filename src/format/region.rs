@@ -125,13 +125,8 @@ impl RegionWriter {
         // an item's start and end positions could be smaller than `next_position`.
         let start = std::cmp::max(item.start_position(), self.state.next_position);
         let end = std::cmp::max(item.end_position(), start);
-        // TODO
-        // if start == end {
-        //     return Ok(());
-        // }
         let text = &text[start.offset()..end.offset()];
 
-        // TODO: move to format.rs
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;
         }
@@ -148,7 +143,6 @@ impl RegionWriter {
             CommentKind::Post => {
                 assert_eq!(self.last_char(), '\n');
 
-                // TODO: move to format.rs
                 if self.state.next_position.line() + 1 < comment.start_position().line() {
                     self.write("\n")?;
                 }

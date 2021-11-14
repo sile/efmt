@@ -65,11 +65,11 @@ impl TokenStream {
         result
     }
 
-    pub fn peek<T: Parse>(&mut self) -> bool {
+    pub fn peek<T: Parse>(&mut self) -> Option<T> {
         let index = self.current_token_index;
-        let ok = self.parse::<T>().is_ok();
+        let result = self.parse::<T>().ok();
         self.current_token_index = index;
-        ok
+        result
     }
 
     pub fn filepath(&self) -> Option<PathBuf> {

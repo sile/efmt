@@ -1,5 +1,5 @@
 use crate::format::region::{RegionConfig, RegionWriter};
-use crate::format::{Error, RegionOptions, Result};
+use crate::format::{Error, Format as _, RegionOptions, Result};
 use crate::items::macros::Macro;
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
@@ -11,7 +11,7 @@ pub struct Formatter {
     text: String,
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
-    in_macro_expansion: Option<Position>,
+    macro_state: MacroState,
 }
 
 impl Formatter {
@@ -26,7 +26,7 @@ impl Formatter {
             text,
             macros,
             comments,
-            in_macro_expansion: None,
+            macro_state: MacroState::None,
         }
     }
 
@@ -59,14 +59,14 @@ impl Formatter {
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        if self.in_macro_expansion.is_none() {
+        if !matches!(self.macro_state, MacroState::Written(_)) {
             self.writer.write_newline()?;
         }
         Ok(())
     }
 
     pub fn write_blank(&mut self) -> Result<()> {
-        if self.in_macro_expansion.is_none() {
+        if !matches!(self.macro_state, MacroState::Written(_)) {
             self.writer.write_blank()?;
         }
         Ok(())
@@ -76,17 +76,17 @@ impl Formatter {
         self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
         self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.writer.write_item(&self.text, item)?;
-        if self
-            .in_macro_expansion
-            .map_or(false, |end| end < item.end_position())
-        {
-            self.in_macro_expansion = None;
+        match self.macro_state {
+            MacroState::Written(end) if end < item.end_position() => {
+                self.macro_state = MacroState::None;
+            }
+            _ => {}
         }
         Ok(())
     }
 
     fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
-        assert!(self.in_macro_expansion.is_none());
+        assert_eq!(self.macro_state, MacroState::None);
         self.writer.write_comment(&self.text, item)?;
         Ok(())
     }
@@ -118,33 +118,30 @@ impl Formatter {
     }
 
     fn write_macro(&mut self, item: &Macro) -> Result<()> {
-        // TODO: Use `item.format()` to format the args.
-        //       (But be careful to prevent infinite recursive call of the format method)
-        self.in_macro_expansion = None; // This is needed for empty macros.
-
-        if !item.has_args()
-            && matches!(
-                self.text.as_bytes().get(item.start_position().offset() - 1),
+        self.macro_state = MacroState::Writing(item.start_position());
+        let result = (|| {
+            let start_offset = item.start_position().offset();
+            if matches!(
+                self.text.as_bytes().get(start_offset.saturating_sub(1)),
                 Some(b' ')
-            )
-            && self.writer.last_char() != ' '
-        {
-            self.write_blank()?;
+            ) {
+                self.write_blank()?;
+            }
+
+            item.format(self)?;
+
+            let end_offset = item.end_position().offset();
+            if matches!(self.text.as_bytes().get(end_offset), Some(b' ' | b'\n')) {
+                self.write_blank()?;
+            }
+            Ok(())
+        })();
+        if result.is_err() {
+            self.macro_state = MacroState::None;
+        } else {
+            self.macro_state = MacroState::Written(item.end_position());
         }
-
-        self.writer.write_item(&self.text, item)?;
-
-        if !item.has_args()
-            && matches!(
-                self.text.as_bytes().get(item.end_position().offset()),
-                Some(b' ' | b'\n')
-            )
-        {
-            self.write_blank()?;
-        }
-
-        self.in_macro_expansion = Some(item.end_position());
-        Ok(())
+        result
     }
 
     fn write_comments_and_macros(
@@ -170,6 +167,9 @@ impl Formatter {
                     break;
                 }
             } else {
+                if self.macro_state == MacroState::Writing(macro_start.expect("unreachable")) {
+                    break;
+                }
                 let macro_call = self.macros[&macro_start.unwrap()].clone();
                 self.write_macro(&macro_call)?;
             }
@@ -196,4 +196,11 @@ impl Formatter {
     fn next_position(&self) -> Position {
         self.writer.next_position()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MacroState {
+    None,
+    Writing(Position),
+    Written(Position),
 }
