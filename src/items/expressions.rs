@@ -115,13 +115,62 @@ impl Format for MaybeInlineBody {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Guard {
     when: Space<WhenKeyword>,
     condition: ColumnIndent<GuardCondition>,
 }
 
+impl Format for Guard {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if fmt
+            .subregion()
+            .trailing_columns(3) // ' ->'
+            .forbid_too_long_line()
+            .forbid_multi_line()
+            .enter(|fmt| {
+                self.when.format(fmt)?;
+                self.condition.format(fmt)?;
+                Ok(())
+            })
+            .is_err()
+        {
+            fmt.subregion()
+                .indent_offset(2)
+                .trailing_columns(3) // ' ->'
+                .enter(|fmt| {
+                    fmt.write_newline()?;
+                    self.when.format(fmt)?;
+                    self.condition.format(fmt)?;
+                    Ok(())
+                })?
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct GuardCondition {
     conditions: NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::items::forms::Form;
+
+    #[test]
+    fn when_works() {
+        let texts = [
+            indoc::indoc! {"
+            foo(A) when A ->
+                A."},
+            indoc::indoc! {"
+            foo(A, B, C)
+              when A =:= B ->
+                C."},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Form);
+        }
+    }
 }
