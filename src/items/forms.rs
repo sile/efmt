@@ -280,16 +280,14 @@ mod tests {
     fn attr_works() {
         let texts = [
             "-export([foo/0]).",
-            concat!(
-                "-export([foo/0,\n", //
-                "         bar/1])."
-            ),
-            concat!(
-                "-dialyzer({[no_return,\n",
-                "            no_match],\n",
-                "           [g/0,\n",
-                "            h/0]})."
-            ),
+            indoc::indoc! {"
+            -export([foo/0,
+                     bar/1])."},
+            indoc::indoc! {"
+            -dialyzer({[no_return,
+                        no_match],
+                       [g/0,
+                        h/0]})."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
@@ -300,11 +298,10 @@ mod tests {
     fn record_decl_works() {
         let texts = [
             "-record(foo, {}).",
-            concat!(
-                "-record(rec, {field1 = [] :: Type1,\n",
-                "              field2,\n",
-                "              field3 = 42 :: Type3})."
-            ),
+            indoc::indoc! {"
+            -record(rec, {field1 = [] :: Type1,
+                          field2,
+                          field3 = 42 :: Type3})."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
@@ -314,23 +311,20 @@ mod tests {
     #[test]
     fn fun_decl_works() {
         let texts = [
-            concat!(
-                "foo() ->\n", //
-                "    bar."
-            ),
-            concat!(
-                "foo(A, {B, [C]}) ->\n",
-                "    bar;\n",
-                "foo(_, _) ->\n",
-                "    baz."
-            ),
-            concat!(
-                "foo(A) when is_atom(A) ->\n",
-                "    bar,\n",
-                "    baz;\n",
-                "foo(_) ->\n",
-                "    qux."
-            ),
+            indoc::indoc! {"
+            foo() ->
+                bar."},
+            indoc::indoc! {"
+            foo(A, {B, [C]}) ->
+                bar;
+            foo(_, _) ->
+                baz."},
+            indoc::indoc! {"
+            foo(A) when is_atom(A) ->
+                bar,
+                baz;
+            foo(_) ->
+                qux."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
@@ -363,11 +357,10 @@ mod tests {
     fn type_decl_works() {
         let texts = [
             "-type height() :: pos_integer().",
-            concat!(
-                "-opaque orddict(Key,\n",
-                "                Val) :: [{Key,\n",
-                "                          Val}]."
-            ),
+            indoc::indoc! {"
+            -opaque orddict(Key,
+                            Val) :: [{Key,
+                                      Val}]."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);

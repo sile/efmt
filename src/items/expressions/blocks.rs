@@ -125,21 +125,19 @@ mod tests {
     #[test]
     fn case_works() {
         let texts = [
-            concat!(
-                "case Foo of\n", //
-                "    1 ->\n",
-                "        2\n",
-                "end"
-            ),
-            concat!(
-                "case foo() of\n",
-                "    {1, 2} ->\n",
-                "        3;\n",
-                "    A when is_integer(A),\n",
-                "           A > 100 ->\n",
-                "        A / 10\n",
-                "end"
-            ),
+            indoc::indoc! {"
+            case Foo of
+                1 ->
+                    2
+            end"},
+            indoc::indoc! {"
+            case foo() of
+                {1, 2} ->
+                    3;
+                A when is_integer(A),
+                       A > 100 ->
+                    A / 10
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
