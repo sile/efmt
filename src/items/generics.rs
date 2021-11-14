@@ -182,18 +182,23 @@ impl<T: Format> Elements<T> {
                 return Ok(());
             };
 
-        let mut first = true;
+        let max_columns = fmt.region_config().max_columns;
+        fn is_head(fmt: &Formatter) -> bool {
+            fmt.current_column() == fmt.region_config().indent
+        }
+
         for (item, delimiter) in items.iter().zip(delimiters.iter()) {
-            if !first && fmt.current_column() + item.len() + delimiter.len() > fmt.max_columns() {
+            if !is_head(fmt) && fmt.current_column() + item.len() + delimiter.len() > max_columns {
                 fmt.write_newline()?;
             }
-            first = false;
+
             item.format(fmt)?;
             delimiter.format(fmt)?;
             fmt.write_blank()?;
         }
+
         let item = items.last().expect("unreachable");
-        if !first && fmt.current_column() + item.len() > fmt.max_columns() {
+        if !is_head(fmt) && fmt.current_column() + item.len() > max_columns {
             fmt.write_newline()?;
         }
         item.format(fmt)?;

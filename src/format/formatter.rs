@@ -36,16 +36,24 @@ impl Formatter {
         Ok(self.writer.formatted_text().to_owned())
     }
 
-    pub fn max_columns(&self) -> usize {
-        self.writer.config().max_columns
-    }
-
     pub fn current_column(&self) -> usize {
-        self.writer.current_column()
+        if self.writer.last_char() == '\n' {
+            self.writer.config().indent
+        } else {
+            self.writer.current_column()
+        }
     }
 
-    pub fn indent(&self) -> usize {
-        self.writer.config().indent
+    pub fn region_config(&self) -> &RegionConfig {
+        self.writer.config()
+    }
+
+    pub fn is_multi_line_allowed(&self) -> bool {
+        self.writer.config().allow_multi_line
+    }
+
+    pub fn subregion(&mut self) -> RegionOptions {
+        RegionOptions::new(self)
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
@@ -54,10 +62,6 @@ impl Formatter {
 
     pub fn write_blank(&mut self) -> Result<()> {
         self.writer.write_blank()
-    }
-
-    pub fn is_multi_line_allowed(&self) -> bool {
-        self.writer.config().allow_multi_line
     }
 
     pub fn write_text(&mut self, item: &impl Span) -> Result<()> {
@@ -72,19 +76,7 @@ impl Formatter {
         Ok(())
     }
 
-    pub fn region_config(&self) -> &RegionConfig {
-        self.writer.config()
-    }
-
-    pub fn is_newline(&self) -> bool {
-        self.writer.last_char() == '\n'
-    }
-
-    pub fn subregion(&mut self) -> RegionOptions {
-        RegionOptions::new(self)
-    }
-
-    pub fn with_subregion<F>(&mut self, config: RegionConfig, f: F) -> Result<()>
+    pub(super) fn with_subregion<F>(&mut self, config: RegionConfig, f: F) -> Result<()>
     where
         F: FnOnce(&mut Self) -> Result<()>,
     {

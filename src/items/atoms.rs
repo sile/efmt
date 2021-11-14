@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::tokens::AtomToken;
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;
 
 macro_rules! impl_parse {

@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::tokens::SymbolToken;
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 

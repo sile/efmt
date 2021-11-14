@@ -64,11 +64,7 @@ impl<'a> RegionOptions<'a> {
     }
 
     pub fn current_column_as_indent(mut self) -> Self {
-        self.config.indent = if self.fmt.is_newline() {
-            self.fmt.region_config().indent
-        } else {
-            self.fmt.current_column()
-        };
+        self.config.indent = self.fmt.current_column();
         self
     }
 

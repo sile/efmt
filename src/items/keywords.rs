@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::tokens::KeywordToken;
-use crate::parse::{self, TokenStream, Parse};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;
 use erl_tokenize::values::Keyword;
 
