@@ -1,3 +1,4 @@
+pub mod erl;
 pub mod format;
 pub mod items;
 pub mod parse;

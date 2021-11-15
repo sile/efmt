@@ -181,28 +181,24 @@ impl IncludeDirective {
 
     pub fn get_include_path<P: AsRef<Path>>(&self, code_paths: &[P]) -> Option<PathBuf> {
         let path = self.get_var_substituted_path();
-        if matches!(self.include, Either::B(_)) {
+        if matches!(self.include, Either::B(_)) && path.components().count() > 1 {
             let app_name = if let std::path::Component::Normal(name) = path.components().next()? {
                 name.to_str()?
             } else {
                 return None;
             };
-            let prefix = format!("{}-", app_name);
-            for code_path in code_paths {
-                let entry = std::fs::read_dir(code_path)
-                    .ok()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|x| x.ok())
-                    .filter(|x| x.path().is_dir())
-                    .find(|x| x.path().starts_with(&prefix));
-                if let Some(root) = entry {
-                    let mut target_path = root.path();
-                    target_path.extend(path.components().skip(1));
-                    return Some(target_path);
+            match crate::erl::erl_eval(&format!("code:lib_dir({})", app_name)) {
+                Err(e) => {
+                    log::warn!("{}", e);
+                    return None;
+                }
+                Ok(base_dir) => {
+                    let mut resolved_path = PathBuf::from(base_dir);
+                    resolved_path.extend(path.components().skip(1));
+                    log::debug!("Resolved include path: {:?}", resolved_path);
+                    Some(resolved_path)
                 }
             }
-            None
         } else {
             Some(path)
         }
