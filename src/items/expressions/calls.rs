@@ -1,19 +1,40 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{AtomLikeExpr, Expr, NonLeftRecursiveExpr};
+use crate::items::expressions::{BaseExpr, Expr, NonLeftRecursiveExpr};
 use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
 use crate::items::styles::{Child, RightSpace, Space};
 use crate::items::symbols::{self, ColonSymbol};
 use crate::items::tokens::Token;
-use crate::parse::{self, Parse};
+use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionCallExpr {
-    module: Maybe<(AtomLikeExpr, ColonSymbol)>,
-    function: AtomLikeExpr,
+    module: Maybe<(BaseExpr, ColonSymbol)>,
+    function: BaseExpr,
     args: Args<Expr>,
+}
+
+impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
+    fn resume_parse(
+        ts: &mut parse::TokenStream,
+        (expr, is_remote): (BaseExpr, bool),
+    ) -> parse::Result<Self> {
+        if is_remote {
+            Ok(Self {
+                module: Maybe::from_item((expr, ts.parse()?)),
+                function: ts.parse()?,
+                args: ts.parse()?,
+            })
+        } else {
+            Ok(Self {
+                module: Maybe::from_position(expr.start_position()),
+                function: expr,
+                args: ts.parse()?,
+            })
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -37,24 +58,36 @@ pub struct BinaryOpCallExpr {
     right: Expr,
 }
 
-impl BinaryOpCallExpr {
-    pub fn try_parse(
+impl ResumeParse<NonLeftRecursiveExpr> for BinaryOpCallExpr {
+    fn resume_parse(
         ts: &mut parse::TokenStream,
         left: NonLeftRecursiveExpr,
-    ) -> Result<Self, NonLeftRecursiveExpr> {
-        match ts.parse::<(_, _)>() {
-            Ok((op, right)) => Ok(Self {
-                left: Child(left),
-                op,
-                right,
-            }),
-            Err(_) => Err(left),
-        }
+    ) -> parse::Result<Self> {
+        Ok(Self {
+            left: Child(left),
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
+}
+
+impl BinaryOpCallExpr {
+    fn is_name_and_arity(&self) -> bool {
+        self.left.get().is_atom_token()
+            && matches!(self.op.get(), BinaryOp::FloatDiv(_))
+            && self.right.is_integer_token()
     }
 }
 
 impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if self.is_name_and_arity() {
+            self.left.format(fmt)?;
+            self.op.get().format(fmt)?;
+            self.right.format(fmt)?;
+            return Ok(());
+        }
+
         self.left.format(fmt)?;
         self.op.format(fmt)?;
         if fmt

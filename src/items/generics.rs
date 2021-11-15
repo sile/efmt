@@ -9,6 +9,14 @@ use crate::span::{Position, Span};
 pub struct Maybe<T>(Either<T, WhitespaceToken>);
 
 impl<T> Maybe<T> {
+    pub fn from_item(item: T) -> Self {
+        Self(Either::A(item))
+    }
+
+    pub fn from_position(position: Position) -> Self {
+        Self(Either::B(WhitespaceToken::new(position, position)))
+    }
+
     pub fn none(ts: &mut TokenStream) -> parse::Result<Self> {
         ts.current_whitespace_token().map(Either::B).map(Self)
     }

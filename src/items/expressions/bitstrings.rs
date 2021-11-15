@@ -1,5 +1,5 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{Expr, IntegerLikeExpr, NonLeftRecursiveExpr};
+use crate::items::expressions::{BaseExpr, Expr, IntegerLikeExpr};
 use crate::items::generics::{Elements, Maybe, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
 use crate::items::styles::{ColumnIndent, RightSpace, Space};
@@ -35,7 +35,7 @@ pub struct BitstringComprehensionExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringSegment {
-    value: NonLeftRecursiveExpr,
+    value: BaseExpr,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
 }

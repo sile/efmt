@@ -2,10 +2,13 @@ use crate::format::{self, Format};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::{Child, ColumnIndent, Newline, Space};
-use crate::items::symbols::{CommaSymbol, SemicolonSymbol};
-use crate::items::tokens::{AtomToken, CharToken, FloatToken, IntegerToken, VariableToken};
+use crate::items::symbols::{CommaSymbol, OpenBraceSymbol, SemicolonSymbol};
+use crate::items::tokens::{
+    AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
+};
 use crate::parse::{self, Parse};
 use crate::span::Span;
+use erl_tokenize::values::{Keyword, Symbol};
 
 pub mod bitstrings;
 pub mod blocks;
@@ -19,7 +22,7 @@ pub mod tuples;
 
 pub use self::bitstrings::BitstringExpr;
 pub use self::blocks::BlockExpr;
-pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
+pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::FunctionExpr;
 pub use self::lists::ListExpr;
 pub use self::maps::MapExpr;
@@ -36,26 +39,130 @@ pub enum Expr {
 impl Parse for Expr {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
         let expr: NonLeftRecursiveExpr = ts.parse()?;
-        match BinaryOpCallExpr::try_parse(ts, expr) {
-            Ok(expr) => Ok(Self::BinaryOpCall(Box::new(expr))),
-            Err(expr) => Ok(Self::NonLeftRecursive(expr)),
+        if ts.peek::<BinaryOp>().is_some() {
+            ts.resume_parse(expr).map(Self::BinaryOpCall)
+        } else {
+            Ok(Self::NonLeftRecursive(expr))
         }
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub enum NonLeftRecursiveExpr {
+impl Expr {
+    pub fn is_integer_token(&self) -> bool {
+        if let Self::NonLeftRecursive(x) = self {
+            x.is_integer_token()
+        } else {
+            false
+        }
+    }
+}
+
+// TODO: rename
+#[derive(Debug, Clone, Span, Format)]
+pub enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
     Map(Box<MapExpr>),
     Record(Box<RecordExpr>),
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
-    FunctionCall(Box<FunctionCallExpr>),
     UnaryOpCall(Box<UnaryOpCallExpr>),
     Parenthesized(Box<Parenthesized<Expr>>),
     Literal(LiteralExpr),
     Block(Box<BlockExpr>),
+}
+
+impl BaseExpr {
+    pub fn is_atom_token(&self) -> bool {
+        matches!(self, Self::Literal(LiteralExpr::Atom(_)))
+    }
+
+    pub fn is_integer_token(&self) -> bool {
+        matches!(self, Self::Literal(LiteralExpr::Integer(_)))
+    }
+}
+
+impl Parse for BaseExpr {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        match ts.peek::<Token>() {
+            Some(Token::Symbol(token)) => match token.value() {
+                Symbol::OpenSquare => ts.parse().map(Self::List),
+                Symbol::OpenBrace => ts.parse().map(Self::Tuple),
+                Symbol::DoubleLeftAngle => ts.parse().map(Self::Bitstring),
+                Symbol::OpenParen => ts.parse().map(Self::Parenthesized),
+                Symbol::Sharp => {
+                    if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
+                        ts.parse().map(Self::Map)
+                    } else {
+                        ts.parse().map(Self::Record)
+                    }
+                }
+                _ => ts.parse().map(Self::UnaryOpCall),
+            },
+            Some(Token::Keyword(token)) => match token.value() {
+                Keyword::Fun => ts.parse().map(Self::Function),
+                Keyword::Bnot | Keyword::Not => ts.parse().map(Self::UnaryOpCall),
+                _ => ts.parse().map(Self::Block),
+            },
+            Some(_) => ts.parse().map(Self::Literal),
+            None => Err(parse::Error::UnexpectedEof {
+                position: ts.current_position(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Format)]
+pub enum NonLeftRecursiveExpr {
+    Base(BaseExpr),
+    FunctionCall(Box<FunctionCallExpr>),
+    Map(Box<MapExpr>),       // TODO: MapUpdate?
+    Record(Box<RecordExpr>), // TODO: RecordAccessOrUpdate?
+}
+
+impl NonLeftRecursiveExpr {
+    pub fn is_atom_token(&self) -> bool {
+        if let Self::Base(x) = self {
+            x.is_atom_token()
+        } else {
+            false
+        }
+    }
+
+    pub fn is_integer_token(&self) -> bool {
+        if let Self::Base(x) = self {
+            x.is_integer_token()
+        } else {
+            false
+        }
+    }
+}
+
+impl Parse for NonLeftRecursiveExpr {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let expr: BaseExpr = ts.parse()?;
+        match ts.peek::<SymbolToken>() {
+            Some(token) => match token.value() {
+                Symbol::Sharp => {
+                    if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
+                        ts.resume_parse(expr).map(Self::Map)
+                    } else {
+                        ts.resume_parse(expr).map(Self::Record)
+                    }
+                }
+                Symbol::Colon => {
+                    if let Some(x) = ts.resume_parse((expr.clone(), true)).ok() {
+                        Ok(Self::FunctionCall(x))
+                    } else {
+                        Ok(Self::Base(expr))
+                    }
+                }
+                Symbol::OpenParen => ts.resume_parse((expr, false)).map(Self::FunctionCall),
+                _ => Ok(Self::Base(expr)),
+            },
+            None => Ok(Self::Base(expr)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -68,15 +175,10 @@ pub enum LiteralExpr {
     VariableToken(VariableToken),
 }
 
+// TODO: delete?
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum AtomLikeExpr {
     Atom(AtomToken),
-    Variable(VariableToken),
-    Expr(Parenthesized<Expr>),
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub enum VariableLikeExpr {
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }

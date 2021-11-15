@@ -253,6 +253,13 @@ mod tests {
                 try
                     foo()
                 catch
+                    _:#foo{} = E ->
+                        E
+                end"},
+            indoc::indoc! {"
+                try
+                    foo()
+                catch
                     throw:_ ->
                         throw;
                     error:_ ->

@@ -290,6 +290,10 @@ mod tests {
             -export([foo/0,
                      bar/1])."},
             indoc::indoc! {"
+            -import(foo,
+                    [bar/0,
+                     baz/1])."},
+            indoc::indoc! {"
             -dialyzer({[no_return,
                         no_match],
                        [g/0,

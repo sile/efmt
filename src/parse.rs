@@ -78,7 +78,7 @@ pub trait Parse: Sized {
     fn parse(ts: &mut TokenStream) -> Result<Self>;
 }
 
-impl<A: Parse> Parse for Box<A> {
+impl<T: Parse> Parse for Box<T> {
     fn parse(ts: &mut TokenStream) -> Result<Self> {
         ts.parse().map(Box::new)
     }
@@ -87,5 +87,18 @@ impl<A: Parse> Parse for Box<A> {
 impl<A: Parse, B: Parse> Parse for (A, B) {
     fn parse(ts: &mut TokenStream) -> Result<Self> {
         Ok((ts.parse()?, ts.parse()?))
+    }
+}
+
+pub trait ResumeParse<A>: Parse {
+    fn resume_parse(ts: &mut TokenStream, args: A) -> Result<Self>;
+}
+
+impl<T, A> ResumeParse<A> for Box<T>
+where
+    T: ResumeParse<A>,
+{
+    fn resume_parse(ts: &mut TokenStream, args: A) -> Result<Self> {
+        ts.resume_parse(args).map(Box::new)
     }
 }

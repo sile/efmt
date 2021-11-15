@@ -14,7 +14,7 @@ struct Opt {
     /// Where to search for include files.
     #[structopt(short = "I")]
     include_dirs: Vec<PathBuf>,
-    // TODO: --verbose, -c|--check
+    // TODO: --verbose, -c|--check, --write
     #[cfg(feature = "pprof")]
     #[structopt(long)]
     profile: bool,

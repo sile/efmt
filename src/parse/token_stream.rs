@@ -7,7 +7,7 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     StringToken, SymbolToken, Token, VariableToken, WhitespaceToken,
 };
-use crate::parse::{Parse, Result};
+use crate::parse::{Parse, Result, ResumeParse};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
@@ -61,6 +61,18 @@ impl TokenStream {
     pub fn parse<T: Parse>(&mut self) -> Result<T> {
         let index = self.current_token_index;
         let result = T::parse(self);
+        if result.is_err() {
+            self.current_token_index = index;
+        }
+        result
+    }
+
+    pub fn resume_parse<T, A>(&mut self, args: A) -> Result<T>
+    where
+        T: ResumeParse<A>,
+    {
+        let index = self.current_token_index;
+        let result = T::resume_parse(self, args);
         if result.is_err() {
             self.current_token_index = index;
         }
