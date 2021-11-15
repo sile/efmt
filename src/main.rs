@@ -5,16 +5,20 @@ use std::io::Read as _;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+// TODO: Provide `erlfmt` compatible options
 #[derive(Debug, StructOpt)]
 struct Opt {
     file: Option<PathBuf>,
     #[structopt(long, default_value = "120")]
-    max_columns: usize, // --print-width
+    max_columns: usize,
 
     /// Where to search for include files.
     #[structopt(short = "I")]
     include_dirs: Vec<PathBuf>,
-    // TODO: --verbose, -c|--check, --write
+
+    #[structopt(long)]
+    skip_validation: bool,
+
     #[cfg(feature = "pprof")]
     #[structopt(long)]
     profile: bool,
@@ -39,12 +43,16 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
-    let formatted_text = match opt.file {
-        Some(path) => format_options.format_file::<Module, _>(path)?,
+    let (text, formatted_text) = match opt.file {
+        Some(path) => {
+            let text = std::fs::read_to_string(&path)?;
+            (text, format_options.format_file::<Module, _>(path)?)
+        }
         None => {
             let mut text = String::new();
             std::io::stdin().lock().read_to_string(&mut text)?;
-            format_options.format_text::<Module>(&text)?
+            let formatted = format_options.format_text::<Module>(&text)?;
+            (text, formatted)
         }
     };
 
@@ -54,10 +62,20 @@ fn main() -> anyhow::Result<()> {
         report.flamegraph(file)?;
     };
 
-    // TODO: check before/after texts represent the same semantic meaning
-    //       (e.g., remove newlines and redundant spaces from those and compare the results)
+    if !opt.skip_validation {
+        validate_formatted_text(&text, &formatted_text)?;
+    }
 
     print!("{}", formatted_text);
 
+    Ok(())
+}
+
+fn validate_formatted_text(text: &str, formatted_text: &str) -> anyhow::Result<()> {
+    let tokens0 = erl_tokenize::Tokenizer::new(text);
+    let tokens1 = erl_tokenize::Tokenizer::new(formatted_text);
+    for (t0, t1) in tokens0.zip(tokens1) {
+        anyhow::ensure!(t0?.text() == t1?.text());
+    }
     Ok(())
 }
