@@ -12,11 +12,11 @@ use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Default, Clone)]
 pub struct TokenStreamOptions {
-    code_paths: Vec<PathBuf>,
+    include_dirs: Vec<PathBuf>,
 }
 
 impl TokenStreamOptions {
@@ -24,8 +24,8 @@ impl TokenStreamOptions {
         Self::default()
     }
 
-    pub fn code_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.code_paths.push(path.as_ref().to_path_buf());
+    pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
+        self.include_dirs = dirs;
         self
     }
 }
@@ -39,6 +39,7 @@ pub struct TokenStream {
     macros: BTreeMap<Position, Macro>,
     macro_defines: HashMap<String, DefineDirective>,
     missing_macros: HashSet<String>,
+    included: HashSet<String>,
     options: TokenStreamOptions,
 }
 
@@ -52,6 +53,7 @@ impl TokenStream {
             macros: BTreeMap::new(),
             macro_defines: HashMap::new(),
             missing_macros: HashSet::new(),
+            included: HashSet::new(),
             options,
         }
     }
@@ -248,7 +250,12 @@ impl TokenStream {
     }
 
     fn handle_include(&mut self, include: IncludeDirective) {
-        let path = if let Some(path) = include.get_include_path(&self.options.code_paths) {
+        if self.included.contains(include.path()) {
+            return;
+        }
+        self.included.insert(include.path().to_owned());
+
+        let path = if let Some(path) = include.get_include_path(&self.options.include_dirs) {
             path
         } else {
             log::warn!("Cannot find include file {:?}", include.path());

@@ -10,7 +10,10 @@ struct Opt {
     file: Option<PathBuf>,
     #[structopt(long, default_value = "120")]
     max_columns: usize,
-    // TODO: code_path option
+
+    /// Where to search for include files.
+    #[structopt(short = "I")]
+    include_dirs: Vec<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -18,7 +21,9 @@ fn main() -> anyhow::Result<()> {
 
     let opt = Opt::from_args();
 
-    let format_options = FormatOptions::new().max_columns(opt.max_columns);
+    let format_options = FormatOptions::new()
+        .max_columns(opt.max_columns)
+        .include_dirs(opt.include_dirs.clone());
     let formatted_text = match opt.file {
         Some(path) => format_options.format_file::<Module, _>(path)?,
         None => {

@@ -1,7 +1,7 @@
 use self::region::RegionConfig;
 use crate::parse::{Parse, TokenStream, TokenStreamOptions};
 use crate::span::Span;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub use self::formatter::Formatter;
 pub use efmt_derive::Format;
@@ -128,8 +128,8 @@ impl FormatOptions {
         self
     }
 
-    pub fn code_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.token_stream = self.token_stream.code_path(path);
+    pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
+        self.token_stream = self.token_stream.include_dirs(dirs);
         self
     }
 
