@@ -4,8 +4,10 @@ use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
 use crate::items::styles::{Child, RightSpace, Space};
 use crate::items::symbols::{self, ColonSymbol};
+use crate::items::tokens::Token;
 use crate::parse::{self, Parse};
 use crate::span::Span;
+use erl_tokenize::values::{Keyword, Symbol};
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionCallExpr {
@@ -87,21 +89,12 @@ impl BinaryOpCallExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Format)]
 pub enum BinaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
     Mul(symbols::MultiplySymbol),
     FloatDiv(symbols::SlashSymbol),
-    IntDiv(keywords::DivKeyword),
-    Rem(keywords::RemKeyword),
-    Bor(keywords::BorKeyword),
-    Bxor(keywords::BxorKeyword),
-    Band(keywords::BandKeyword),
-    Bsl(keywords::BslKeyword),
-    Bsr(keywords::BsrKeyword),
-    Or(keywords::OrKeyword),
-    Xor(keywords::XorKeyword),
     PlusPlus(symbols::PlusPlusSymbol),
     MinusMinus(symbols::MinusMinusSymbol),
     Match(symbols::MatchSymbol),
@@ -113,10 +106,64 @@ pub enum BinaryOp {
     LessEq(symbols::LessEqSymbol),
     Greater(symbols::GreaterSymbol),
     GreaterEq(symbols::GreaterEqSymbol),
+    Send(symbols::NotSymbol),
+    IntDiv(keywords::DivKeyword),
+    Rem(keywords::RemKeyword),
+    Bor(keywords::BorKeyword),
+    Bxor(keywords::BxorKeyword),
+    Band(keywords::BandKeyword),
+    Bsl(keywords::BslKeyword),
+    Bsr(keywords::BsrKeyword),
+    Or(keywords::OrKeyword),
+    Xor(keywords::XorKeyword),
     And(keywords::AndKeyword),
     Andalso(keywords::AndalsoKeyword),
     Orelse(keywords::OrelseKeyword),
-    Send(symbols::NotSymbol),
+}
+
+impl Parse for BinaryOp {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        match ts.peek::<Token>() {
+            Some(Token::Symbol(token)) => match token.value() {
+                Symbol::Plus => ts.parse().map(Self::Plus),
+                Symbol::Hyphen => ts.parse().map(Self::Minus),
+                Symbol::Multiply => ts.parse().map(Self::Mul),
+                Symbol::Slash => ts.parse().map(Self::FloatDiv),
+                Symbol::PlusPlus => ts.parse().map(Self::PlusPlus),
+                Symbol::MinusMinus => ts.parse().map(Self::MinusMinus),
+                Symbol::Match => ts.parse().map(Self::Match),
+                Symbol::Eq => ts.parse().map(Self::Eq),
+                Symbol::ExactEq => ts.parse().map(Self::ExactEq),
+                Symbol::NotEq => ts.parse().map(Self::NotEq),
+                Symbol::ExactNotEq => ts.parse().map(Self::ExactNotEq),
+                Symbol::Less => ts.parse().map(Self::Less),
+                Symbol::LessEq => ts.parse().map(Self::LessEq),
+                Symbol::Greater => ts.parse().map(Self::Greater),
+                Symbol::GreaterEq => ts.parse().map(Self::GreaterEq),
+                Symbol::Not => ts.parse().map(Self::Send),
+                _ => Err(parse::Error::unexpected_token(ts, token.into())),
+            },
+            Some(Token::Keyword(token)) => match token.value() {
+                Keyword::Div => ts.parse().map(Self::IntDiv),
+                Keyword::Rem => ts.parse().map(Self::Rem),
+                Keyword::Bor => ts.parse().map(Self::Bor),
+                Keyword::Bxor => ts.parse().map(Self::Bxor),
+                Keyword::Band => ts.parse().map(Self::Band),
+                Keyword::Bsl => ts.parse().map(Self::Bsl),
+                Keyword::Bsr => ts.parse().map(Self::Bsr),
+                Keyword::Or => ts.parse().map(Self::Or),
+                Keyword::Xor => ts.parse().map(Self::Xor),
+                Keyword::And => ts.parse().map(Self::And),
+                Keyword::Andalso => ts.parse().map(Self::Andalso),
+                Keyword::Orelse => ts.parse().map(Self::Orelse),
+                _ => Err(parse::Error::unexpected_token(ts, token.into())),
+            },
+            Some(token) => Err(parse::Error::unexpected_token(ts, token)),
+            None => Err(parse::Error::UnexpectedEof {
+                position: ts.current_position(),
+            }),
+        }
+    }
 }
 
 #[cfg(test)]
