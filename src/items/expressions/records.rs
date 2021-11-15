@@ -1,23 +1,28 @@
 use crate::format::Format;
-use crate::items::expressions::{BaseExpr, Expr};
+use crate::items::expressions::{BaseExpr, Either, Expr};
 use crate::items::generics::{Items, MaybeRepeat};
 use crate::items::styles::{ColumnIndent, Space};
 use crate::items::symbols::{
     CloseBraceSymbol, DotSymbol, MatchSymbol, OpenBraceSymbol, SharpSymbol,
 };
 use crate::items::tokens::AtomToken;
+use crate::items::variables::UnderscoreVariable;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum RecordExpr {
+pub enum RecordConstructOrIndexExpr {
     Construct(Box<RecordConstructExpr>),
     Index(Box<RecordIndexExpr>),
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub enum RecordAccessOrUpdateExpr {
     Access(Box<RecordAccessExpr>),
     Update(Box<RecordUpdateExpr>),
 }
 
-impl ResumeParse<BaseExpr> for RecordExpr {
+impl ResumeParse<BaseExpr> for RecordAccessOrUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: BaseExpr) -> parse::Result<Self> {
         if ts.peek::<(SharpSymbol, (AtomToken, DotSymbol))>().is_some() {
             ts.resume_parse(value).map(Self::Access)
@@ -84,7 +89,7 @@ impl ResumeParse<BaseExpr> for RecordUpdateExpr {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordField {
-    name: AtomToken,
+    name: Either<AtomToken, UnderscoreVariable>,
     delimiter: Space<MatchSymbol>,
     value: Expr,
 }
@@ -98,9 +103,12 @@ mod tests {
         let texts = [
             "#foo{}",
             indoc::indoc! {"
-                #foo{bar = 2,
-                     baz = {bar,
-                            baz}}"},
+            #foo{module = Mod,
+                 _ = '_'}"},
+            indoc::indoc! {"
+            #foo{bar = 2,
+                 baz = {bar,
+                        baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

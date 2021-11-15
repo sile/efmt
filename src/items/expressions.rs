@@ -25,8 +25,8 @@ pub use self::blocks::BlockExpr;
 pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::FunctionExpr;
 pub use self::lists::ListExpr;
-pub use self::maps::MapExpr;
-pub use self::records::RecordExpr;
+pub use self::maps::{MapConstructExpr, MapUpdateExpr};
+pub use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
@@ -62,8 +62,8 @@ impl Expr {
 pub enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
-    Map(Box<MapExpr>),
-    Record(Box<RecordExpr>),
+    Map(Box<MapConstructExpr>),
+    Record(Box<RecordConstructOrIndexExpr>),
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
     UnaryOpCall(Box<UnaryOpCallExpr>),
@@ -116,8 +116,8 @@ impl Parse for BaseExpr {
 pub enum NonLeftRecursiveExpr {
     Base(BaseExpr),
     FunctionCall(Box<FunctionCallExpr>),
-    Map(Box<MapExpr>),       // TODO: MapUpdate?
-    Record(Box<RecordExpr>), // TODO: RecordAccessOrUpdate?
+    Map(Box<MapUpdateExpr>),
+    Record(Box<RecordAccessOrUpdateExpr>),
 }
 
 impl NonLeftRecursiveExpr {

@@ -21,6 +21,7 @@ pub enum Type {
     NonLeftRecursive(NonLeftRecursiveType),
 }
 
+// TODO: optimize
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),

@@ -1,5 +1,5 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{BaseExpr, Expr, IntegerLikeExpr};
+use crate::items::expressions::{BaseExpr, Expr};
 use crate::items::generics::{Elements, Maybe, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
 use crate::items::styles::{ColumnIndent, RightSpace, Space};
@@ -56,7 +56,7 @@ impl Format for BitstringSegment {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringSegmentSize {
     colon: ColonSymbol,
-    size: IntegerLikeExpr,
+    size: BaseExpr,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -105,6 +105,9 @@ mod tests {
               6, 7, 8, 9>>"},
             "<<1, 2:16, 3>>",
             "<<<<\"foo\">>/binary>>",
+            indoc::indoc! {"
+            <<(3 bsr 30 + 2):0,
+              $k:[]/signed-integer>>"},
             indoc::indoc! {"
             <<1,
               (foo()):4/little-signed-integer-unit:8,

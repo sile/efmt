@@ -9,18 +9,6 @@ use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum MapExpr {
-    Construct(Box<MapConstructExpr>),
-    Update(Box<MapUpdateExpr>),
-}
-
-impl ResumeParse<BaseExpr> for MapExpr {
-    fn resume_parse(ts: &mut parse::TokenStream, value: BaseExpr) -> parse::Result<Self> {
-        ts.resume_parse(value).map(MapExpr::Update)
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     open: OpenBraceSymbol,
