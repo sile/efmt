@@ -4,7 +4,7 @@ use crate::items::generics::{Either, Items, Maybe, Parenthesized};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
-use crate::items::tokens::{AtomToken, Token, VariableToken};
+use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -55,16 +55,27 @@ impl Macro {
             HashMap::new()
         };
 
+        let mut do_stringify = false;
         let mut tokens = Vec::new();
         for token in replacement {
             match token {
+                Token::Variable(x) if do_stringify => {
+                    let dummy =
+                        StringToken::new("EFMT_DUMMY", x.start_position(), x.end_position());
+                    tokens.push(dummy.into());
+                }
                 Token::Variable(x) if args.contains_key(x.value()) => {
                     tokens.extend(args[x.value()].tokens().iter().cloned());
+                }
+                Token::Symbol(x) if x.value() == Symbol::DoubleQuestion => {
+                    do_stringify = true;
+                    continue;
                 }
                 token => {
                     tokens.push(token);
                 }
             }
+            do_stringify = false;
         }
         tokens.iter_mut().for_each(|token| token.set_span(self));
         tokens
@@ -358,6 +369,11 @@ mod tests {
 
             main() ->
                 ?baz(?bar(?foo)).
+            "},
+            indoc::indoc! {"
+            -define(Foo(A), ??A).
+            bar() ->
+                ?Foo(10).
             "},
         ];
         for text in texts {
