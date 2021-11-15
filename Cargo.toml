@@ -17,6 +17,7 @@ env_logger = "0.9"
 log = "0.4"
 structopt = "0.3"
 thiserror = "1"
+pprof = {version="0.4", features = ["flamegraph"], optional=true}
 
 [dev-dependencies]
 indoc = "1"

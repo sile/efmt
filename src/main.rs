@@ -9,21 +9,36 @@ use structopt::StructOpt;
 struct Opt {
     file: Option<PathBuf>,
     #[structopt(long, default_value = "120")]
-    max_columns: usize,
+    max_columns: usize, // --print-width
 
     /// Where to search for include files.
     #[structopt(short = "I")]
     include_dirs: Vec<PathBuf>,
+    // TODO: --verbose, -c|--check
+    #[cfg(feature = "pprof")]
+    #[structopt(long)]
+    profile: bool,
+
+    #[cfg(feature = "pprof")]
+    #[structopt(long, default_value = "flamegraph.svg")]
+    flamegraph_path: PathBuf,
 }
 
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     let opt = Opt::from_args();
-
     let format_options = FormatOptions::new()
         .max_columns(opt.max_columns)
         .include_dirs(opt.include_dirs.clone());
+
+    #[cfg(feature = "pprof")]
+    let guard = if opt.profile {
+        Some(pprof::ProfilerGuard::new(100)?)
+    } else {
+        None
+    };
+
     let formatted_text = match opt.file {
         Some(path) => format_options.format_file::<Module, _>(path)?,
         None => {
@@ -31,6 +46,12 @@ fn main() -> anyhow::Result<()> {
             std::io::stdin().lock().read_to_string(&mut text)?;
             format_options.format_text::<Module>(&text)?
         }
+    };
+
+    #[cfg(feature = "pprof")]
+    if let Some(report) = guard.map(|x| x.report().build()).transpose()? {
+        let file = std::fs::File::create(&opt.flamegraph_path)?;
+        report.flamegraph(file)?;
     };
 
     // TODO: check before/after texts represent the same semantic meaning
