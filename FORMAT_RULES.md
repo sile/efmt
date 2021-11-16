@@ -6,6 +6,8 @@ General
 
 ### Don't change the order of visible tokens
 
+That is, `efmt` only removes or inserts whitespace characters.
+
 TODO
 
 ### Max columns hint
@@ -57,6 +59,9 @@ foo() ->
     Body.
 ```
 
+
+Forms
+-----
 
 ### Records
 
@@ -159,3 +164,6 @@ foo(A)
        is_integer(A) ->
     bar.
 ```
+
+Types
+-----

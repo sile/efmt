@@ -12,16 +12,26 @@ use crate::items::symbols::{
     PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
-use crate::parse::Parse;
+use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Format)]
 pub enum Type {
     BinaryOp(Box<BinaryOpType>),
     NonLeftRecursive(NonLeftRecursiveType),
 }
 
-// TODO: optimize
+impl Parse for Type {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let expr: NonLeftRecursiveType = ts.parse()?;
+        if ts.peek::<BinaryOp>().is_some() {
+            ts.resume_parse(expr).map(Self::BinaryOp)
+        } else {
+            Ok(Self::NonLeftRecursive(expr))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
@@ -41,6 +51,19 @@ pub struct BinaryOpType {
     left: NonLeftRecursiveType,
     op: BinaryOp,
     right: Type,
+}
+
+impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
+    fn resume_parse(
+        ts: &mut parse::TokenStream,
+        left: NonLeftRecursiveType,
+    ) -> parse::Result<Self> {
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
 }
 
 impl Format for BinaryOpType {

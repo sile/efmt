@@ -28,3 +28,8 @@ foo(A) ->
       A},
      A].
 ```
+
+Limitations
+-----------
+
+TODO (e.g., broken forms in an unreachable `-if.` branch)

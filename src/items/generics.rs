@@ -412,7 +412,6 @@ impl<T: Format, D: Format> NonEmptyItems2<T, D> {
                 fmt.write_space()?;
             }
         }
-        dbg!(fmt.region_config());
         fmt.subregion()
             .check_trailing_columns(true)
             .enter(|fmt| self.0.items.last().expect("unreachable").format(fmt))?;
