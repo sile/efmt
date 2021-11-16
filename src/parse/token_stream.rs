@@ -12,6 +12,7 @@ use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 
 #[derive(Debug, Default, Clone)]
@@ -283,6 +284,7 @@ impl TokenStream {
             // TODO: improve error handling
             std::fs::File::open(cache_path)
                 .ok()
+                .map(BufReader::new)
                 .and_then(|file| serde_json::from_reader(file).ok())
         } else {
             None
@@ -301,24 +303,27 @@ impl TokenStream {
             .map(|x| x.join(include_path))
         {
             // TODO: error handling
-            let _ = tempfile::NamedTempFile::new().ok().map(|mut file| {
-                let saved = serde_json::to_writer(&mut file, macro_defines)
-                    .ok()
-                    .and_then(|_| {
-                        cache_path
-                            .parent()
-                            .and_then(|p| std::fs::create_dir_all(p).ok())
-                    })
-                    .is_some();
-                if saved {
-                    let _ = file.persist(&cache_path);
-                    log::debug!(
-                        "Saved a include cache for {:?} into {:?}",
-                        include_path,
-                        cache_path
-                    );
-                }
-            });
+            let _ = tempfile::NamedTempFile::new()
+                .ok()
+                .map(BufWriter::new)
+                .map(|mut file| {
+                    let saved = serde_json::to_writer(&mut file, macro_defines)
+                        .ok()
+                        .and_then(|_| {
+                            cache_path
+                                .parent()
+                                .and_then(|p| std::fs::create_dir_all(p).ok())
+                        })
+                        .is_some();
+                    if saved {
+                        let _ = file.into_inner().expect("TODO").persist(&cache_path);
+                        log::debug!(
+                            "Saved a include cache for {:?} into {:?}",
+                            include_path,
+                            cache_path
+                        );
+                    }
+                });
         }
     }
 
