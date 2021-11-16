@@ -10,6 +10,10 @@ use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
 
+/// `?` `$NAME` (`(` (`$ARG` `,`?)* `)`)?
+///
+/// - $NAME: [AtomToken] | [VariableToken]
+/// - $ARG: [Token]+
 #[derive(Debug, Clone, Span, Format)]
 pub struct Macro {
     question: QuestionSymbol,
@@ -18,7 +22,7 @@ pub struct Macro {
 }
 
 impl Macro {
-    pub fn parse(
+    pub(crate) fn parse(
         ts: &mut TokenStream,
         question: QuestionSymbol,
         name: MacroName,
@@ -79,7 +83,7 @@ impl Macro {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MacroName(Either<AtomToken, VariableToken>);
+pub(crate) struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
     pub fn value(&self) -> &str {
@@ -91,7 +95,7 @@ impl MacroName {
 }
 
 #[derive(Debug, Clone)]
-pub struct MacroReplacement {
+pub(crate) struct MacroReplacement {
     tokens: Vec<Token>,
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
     start_position: Position,
@@ -146,7 +150,7 @@ impl Format for MacroReplacement {
 }
 
 #[derive(Debug, Clone)]
-pub struct MacroArg {
+struct MacroArg {
     tokens: Vec<Token>,
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
 }

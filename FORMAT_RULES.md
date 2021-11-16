@@ -101,7 +101,7 @@ Record fields are treated like a tuple.
 ```
 
 Note that if the replacement part of a macro is not a valid expression,
-`efmt` outputs the original text as is.
+`efmt` outputs the original text as is. Otherwise, TODO
 
 ### Type declaration
 
@@ -235,3 +235,20 @@ fun ((foo(), bar()) ->
 ### Union
 
 ### Annotated
+
+Macros
+------
+
+```erlang
+?FOO
+
+?FOO(10,
+     begin
+         1,
+         2,
+         3
+     end)
+
+%% A valid macro (but cannot format the args)
+?FOO(10 20 30, 30)
+```

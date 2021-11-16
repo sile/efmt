@@ -280,12 +280,6 @@ impl<T: Format> Format for Elements<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Clauses<T>(NonEmptyItems<T, Newline<SemicolonSymbol>>);
 
-impl<T> Clauses<T> {
-    pub fn get(&self) -> &[T] {
-        self.0.get()
-    }
-}
-
 impl<T: Format> Format for Clauses<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion()
@@ -441,12 +435,6 @@ impl<T: Format, D: Format> Format for NonEmptyItems2<T, D> {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Clauses2<T, const N: usize>(NonEmptyItems2<T, Newline<SemicolonSymbol>>);
-
-impl<T, const N: usize> Clauses2<T, N> {
-    pub fn get(&self) -> &[T] {
-        self.0.get()
-    }
-}
 
 impl<T: Format, const N: usize> Format for Clauses2<T, N> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {

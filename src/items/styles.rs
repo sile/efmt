@@ -26,12 +26,6 @@ impl<T: Format> Format for ColumnIndent<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Block<T>(T);
 
-impl<T> Block<T> {
-    pub fn get(&self) -> &T {
-        &self.0
-    }
-}
-
 impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion().indent_offset(4).enter(|fmt| {

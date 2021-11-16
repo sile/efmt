@@ -1,13 +1,14 @@
-pub mod atoms;
 pub mod expressions;
 pub mod forms;
-pub mod generics;
-pub mod keywords;
 pub mod macros;
 pub mod module;
-pub mod qualifiers;
-pub mod styles;
-pub mod symbols;
 pub mod tokens;
 pub mod types;
-pub mod variables;
+
+pub(crate) mod atoms;
+pub(crate) mod generics;
+pub(crate) mod keywords;
+pub(crate) mod qualifiers;
+pub(crate) mod styles;
+pub(crate) mod symbols;
+pub(crate) mod variables;
