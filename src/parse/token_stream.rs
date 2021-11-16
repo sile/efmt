@@ -17,6 +17,7 @@ use std::path::PathBuf;
 #[derive(Debug, Default, Clone)]
 pub struct TokenStreamOptions {
     include_dirs: Vec<PathBuf>,
+    include_cache_dir: Option<PathBuf>,
 }
 
 impl TokenStreamOptions {
@@ -28,6 +29,11 @@ impl TokenStreamOptions {
         self.include_dirs = dirs;
         self
     }
+
+    pub fn include_cache_dir(mut self, dir: PathBuf) -> Self {
+        self.include_cache_dir = Some(dir);
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -37,7 +43,7 @@ pub struct TokenStream {
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
     macros: BTreeMap<Position, Macro>,
-    macro_defines: HashMap<String, DefineDirective>,
+    macro_defines: HashMap<String, MacroDefine>,
     missing_macros: HashSet<String>,
     included: HashSet<String>,
     options: TokenStreamOptions,
@@ -217,8 +223,8 @@ impl TokenStream {
         let (variables, replacement) =
             if let Some(define) = self.macro_defines.get(macro_name.value()) {
                 (
-                    define.variables().map(|x| x.to_owned()),
-                    define.replacement().to_owned(),
+                    define.variables.as_ref().map(|x| x.to_owned()),
+                    define.replacement.clone(),
                 )
             } else if let Some(replacement) = get_predefined_macro(macro_name.value()) {
                 (None, replacement)
@@ -251,7 +257,8 @@ impl TokenStream {
         let result: Result<Either<DefineDirective, IncludeDirective>> = self.parse();
         match result {
             Ok(Either::A(x)) => {
-                self.macro_defines.insert(x.macro_name().to_owned(), x);
+                self.macro_defines
+                    .insert(x.macro_name().to_owned(), x.into());
             }
             Ok(Either::B(x)) => {
                 self.handle_include(x);
@@ -261,11 +268,74 @@ impl TokenStream {
         Ok(())
     }
 
+    fn try_load_macro_defines_from_cache(
+        &self,
+        include_path: &str,
+    ) -> Option<HashMap<String, MacroDefine>> {
+        if let Some(cache_path) = self
+            .options
+            .include_cache_dir
+            .as_ref()
+            .map(|x| x.join(include_path))
+        {
+            // TODO: improve error handling
+            std::fs::File::open(cache_path)
+                .ok()
+                .and_then(|file| serde_json::from_reader(file).ok())
+        } else {
+            None
+        }
+    }
+
+    fn try_save_macro_defines_into_cache(
+        &self,
+        include_path: &str,
+        macro_defines: &HashMap<String, MacroDefine>,
+    ) {
+        if let Some(cache_path) = self
+            .options
+            .include_cache_dir
+            .as_ref()
+            .map(|x| x.join(include_path))
+        {
+            // TODO: error handling
+            let _ = tempfile::NamedTempFile::new().ok().map(|mut file| {
+                let saved = serde_json::to_writer(&mut file, macro_defines)
+                    .ok()
+                    .and_then(|_| {
+                        cache_path
+                            .parent()
+                            .and_then(|p| std::fs::create_dir_all(p).ok())
+                    })
+                    .is_some();
+                if saved {
+                    let _ = file.persist(&cache_path);
+                    log::debug!(
+                        "Saved a include cache for {:?} into {:?}",
+                        include_path,
+                        cache_path
+                    );
+                }
+            });
+        }
+    }
+
     fn handle_include(&mut self, include: IncludeDirective) {
         if self.included.contains(include.path()) {
             return;
         }
         self.included.insert(include.path().to_owned());
+
+        if let Some(macro_defines) = self.try_load_macro_defines_from_cache(include.path()) {
+            log::debug!(
+                "Found {} macro definitions in {:?} (cached)",
+                macro_defines.len(),
+                include.path()
+            );
+
+            self.macro_defines.extend(macro_defines);
+            return;
+        }
 
         let path = if let Some(path) = include.get_include_path(&self.options.include_dirs) {
             path
@@ -292,6 +362,9 @@ impl TokenStream {
                     ts.macro_defines.len(),
                     path
                 );
+
+                self.try_save_macro_defines_into_cache(include.path(), &ts.macro_defines);
+
                 self.macro_defines.extend(ts.macro_defines);
             }
             Err(e) => {
@@ -329,4 +402,21 @@ fn dummy_integer() -> IntegerToken {
 
 fn dummy_string() -> StringToken {
     StringToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct MacroDefine {
+    variables: Option<Vec<String>>,
+    replacement: Vec<Token>,
+}
+
+impl From<DefineDirective> for MacroDefine {
+    fn from(x: DefineDirective) -> Self {
+        Self {
+            variables: x
+                .variables()
+                .map(|v| v.iter().map(|v| v.value().to_owned()).collect()),
+            replacement: x.replacement().to_owned(),
+        }
+    }
 }

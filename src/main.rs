@@ -1,5 +1,6 @@
 use efmt::format::FormatOptions;
 use efmt::items::module::Module;
+use efmt::parse::TokenStreamOptions;
 use env_logger::Env;
 use std::io::Read as _;
 use std::path::PathBuf;
@@ -15,6 +16,12 @@ struct Opt {
     /// Where to search for include files.
     #[structopt(short = "I")]
     include_dirs: Vec<PathBuf>,
+
+    #[structopt(long, default_value = ".efmt/cache")]
+    include_cache_dir: PathBuf,
+
+    #[structopt(long)]
+    disable_include_cache: bool,
 
     #[structopt(long)]
     skip_validation: bool,
@@ -32,9 +39,14 @@ fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     let opt = Opt::from_args();
+    let mut ts_options = TokenStreamOptions::new().include_dirs(opt.include_dirs.clone());
+    if !opt.disable_include_cache {
+        ts_options = ts_options.include_cache_dir(opt.include_cache_dir.clone());
+    }
+
     let format_options = FormatOptions::new()
         .max_columns(opt.max_columns)
-        .include_dirs(opt.include_dirs.clone());
+        .token_stream(ts_options);
 
     #[cfg(feature = "pprof")]
     let guard = if opt.profile {
@@ -72,10 +84,20 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn validate_formatted_text(text: &str, formatted_text: &str) -> anyhow::Result<()> {
-    let tokens0 = erl_tokenize::Tokenizer::new(text);
-    let tokens1 = erl_tokenize::Tokenizer::new(formatted_text);
+    use erl_tokenize::PositionRange as _;
+
+    let tokens0 = erl_tokenize::Lexer::new(text);
+    let tokens1 = erl_tokenize::Lexer::new(formatted_text);
     for (t0, t1) in tokens0.zip(tokens1) {
-        anyhow::ensure!(t0?.text() == t1?.text());
+        let t0 = t0?;
+        let t1 = t1?;
+        anyhow::ensure!(
+            t0.text() == t1.text(),
+            "actual={:?}, expected={:?} (position={:?})",
+            t0.text(),
+            t1.text(),
+            t0.start_position()
+        );
     }
     Ok(())
 }

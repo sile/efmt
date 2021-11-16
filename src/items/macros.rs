@@ -39,16 +39,12 @@ impl Macro {
         }
     }
 
-    pub fn expand(
-        &self,
-        variables: Option<Vec<VariableToken>>,
-        replacement: Vec<Token>,
-    ) -> Vec<Token> {
+    pub fn expand(&self, variables: Option<Vec<String>>, replacement: Vec<Token>) -> Vec<Token> {
         let args = if let (Some(vars), Some(vals)) =
             (&variables, self.args.get().map(|x| x.get().get()))
         {
             vars.iter()
-                .map(|x| x.value())
+                .map(|x| &x[..])
                 .zip(vals.iter())
                 .collect::<HashMap<_, _>>()
         } else {

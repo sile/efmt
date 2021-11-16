@@ -4,7 +4,7 @@ use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, serde::Serialize, serde::Deserialize)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -83,7 +83,7 @@ macro_rules! impl_traits {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AtomToken {
     value: String,
     start: Position,
@@ -106,7 +106,7 @@ impl AtomToken {
 
 impl_traits!(AtomToken, Atom, true);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CharToken {
     start: Position,
     end: Position,
@@ -120,7 +120,7 @@ impl CharToken {
 
 impl_traits!(CharToken, Char, true);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FloatToken {
     start: Position,
     end: Position,
@@ -134,7 +134,7 @@ impl FloatToken {
 
 impl_traits!(FloatToken, Float, true);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IntegerToken {
     start: Position,
     end: Position,
@@ -148,7 +148,7 @@ impl IntegerToken {
 
 impl_traits!(IntegerToken, Integer, true);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct KeywordToken {
     value: Keyword,
     start: Position,
@@ -167,7 +167,7 @@ impl KeywordToken {
 
 impl_traits!(KeywordToken, Keyword, false);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StringToken {
     value: String,
     start: Position,
@@ -190,7 +190,7 @@ impl StringToken {
 
 impl_traits!(StringToken, String, true);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SymbolToken {
     value: Symbol,
     start: Position,
@@ -209,7 +209,7 @@ impl SymbolToken {
 
 impl_traits!(SymbolToken, Symbol, false);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VariableToken {
     value: String,
     start: Position,
@@ -232,13 +232,13 @@ impl VariableToken {
 
 impl_traits!(VariableToken, Variable, true);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CommentKind {
     Post,
     Trailing,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CommentToken {
     start: Position,
     end: Position,

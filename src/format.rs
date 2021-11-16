@@ -128,6 +128,12 @@ impl FormatOptions {
         self
     }
 
+    pub fn token_stream(mut self, options: TokenStreamOptions) -> Self {
+        self.token_stream = options;
+        self
+    }
+
+    // TODO: delete
     pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
         self.token_stream = self.token_stream.include_dirs(dirs);
         self

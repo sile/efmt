@@ -151,7 +151,7 @@ impl Parse for NonLeftRecursiveExpr {
                     }
                 }
                 Symbol::Colon => {
-                    if let Some(x) = ts.resume_parse((expr.clone(), true)).ok() {
+                    if let Ok(x) = ts.resume_parse((expr.clone(), true)) {
                         Ok(Self::FunctionCall(x))
                     } else {
                         Ok(Self::Base(expr))
