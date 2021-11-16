@@ -272,6 +272,7 @@ impl TokenStream {
         &self,
         include_path: &str,
     ) -> Option<HashMap<String, MacroDefine>> {
+        // TODO: check file mtime
         if let Some(cache_path) = self
             .options
             .include_cache_dir

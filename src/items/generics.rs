@@ -5,7 +5,7 @@ use crate::items::symbols::{
     SemicolonSymbol,
 };
 use crate::items::tokens::WhitespaceToken;
-use crate::parse::{self, Parse, TokenStream};
+use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
 #[derive(Debug, Clone)]
@@ -141,6 +141,9 @@ impl<T> Params<T> {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Args<T>(Parenthesized<Items<T>>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Args2<T>(Parenthesized2<Items2<T>>);
 
 #[derive(Debug, Clone)]
 pub struct NonEmptyItems<T, D = CommaSymbol> {
@@ -377,7 +380,7 @@ impl<T: Format, const N: usize> Format for TupleElements<T, N> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion()
             .current_column_as_indent()
-            .trailing_columns(N) // TODO
+            .trailing_columns(N) // TODO: remove (may always be 1?)
             .enter(|fmt| {
                 let packed = self.0.get().iter().all(|x| x.should_be_packed());
                 if packed {
@@ -462,5 +465,74 @@ impl<T, D> Items2<T, D> {
         } else {
             &[]
         }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct UnaryOpLike<O, T> {
+    op: O,
+    item: T,
+}
+
+impl<O: Format, T: Format> Format for UnaryOpLike<O, T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.op.format(fmt)?;
+        self.item.format(fmt)?;
+        Ok(())
+    }
+
+    fn should_be_packed(&self) -> bool {
+        self.item.should_be_packed()
+    }
+}
+
+// TODO: rename
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpLike<T0, O, T1, const I: usize> {
+    left: T0,
+    op: O,
+    right: T1,
+}
+
+impl<T0: Parse, O: Parse, T1: Parse, const I: usize> ResumeParse<T0>
+    for BinaryOpLike<T0, O, T1, I>
+{
+    fn resume_parse(ts: &mut parse::TokenStream, left: T0) -> parse::Result<Self> {
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
+}
+
+impl<T0: Format, O: Format, T1: Format, const I: usize> Format for BinaryOpLike<T0, O, T1, I> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().current_column_as_indent().enter(|fmt| {
+            fmt.subregion()
+                .reset_trailing_columns(self.op.len())
+                .enter(|fmt| self.left.format(fmt))?;
+            self.op.format(fmt)?;
+
+            if fmt.current_relative_column() <= I {
+                // Inserting a newline cannot shorten the line length.
+                self.right.format(fmt)?
+            } else {
+                if fmt
+                    .subregion()
+                    .forbid_too_long_line()
+                    .forbid_multi_line()
+                    .check_trailing_columns(true)
+                    .enter(|fmt| self.right.format(fmt))
+                    .is_err()
+                {
+                    fmt.subregion().indent_offset(I).enter(|fmt| {
+                        fmt.write_newline()?;
+                        self.right.format(fmt)
+                    })?;
+                }
+            }
+            Ok(())
+        })
     }
 }

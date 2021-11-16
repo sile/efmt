@@ -167,3 +167,69 @@ foo(A)
 
 Types
 -----
+
+### Lists
+
+```erlang
+[]
+[atom()]
+[atom(), ...]
+
+%% If newlines are needed.
+[atom(),
+ ...]
+```
+
+### Tuples
+
+The almost same rules as the tuple expression (TODO: link).
+
+```erlang
+{}
+
+{foo, bar}
+
+%% If newlines are needed (never packed).
+{foo(),
+ [atom()],
+ bar:qux()}
+```
+
+### Maps
+
+The same rules as the map expression (TODO: link).
+
+### `module:type(args)`
+
+The same rules as the function call expression (TODO: link).
+
+### Records
+
+```erlang
+#foo{}
+
+#foo{bar :: integer()}
+
+#foo{bar :: b,
+     baz :: 2}
+```
+
+### Bitstrings
+
+TODO
+
+### Functions
+
+
+```erlang
+fun ()
+
+fun ((...) -> foo())
+
+fun ((foo(), bar()) ->
+             baz()).  % 8 spaces
+```
+
+### Binary op
+
+### Union

@@ -1,27 +1,35 @@
+//! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
-use crate::items::generics::{Either, Elements, Items, Maybe, Parenthesized};
+use crate::items::generics::{
+    Args2, BinaryOpLike, Either, Maybe, NonEmptyItems2, Params, Parenthesized, Parenthesized2,
+    Tuple, UnaryOpLike,
+};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     FunKeyword, RemKeyword,
 };
-use crate::items::styles::{RightSpace, Space};
+use crate::items::styles::{RightSpace, Space, TrailingColumns};
 use crate::items::symbols::{
-    CloseBraceSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DoubleColonSymbol,
-    DoubleDotSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleRightArrowSymbol,
-    HyphenSymbol, MapMatchSymbol, MatchSymbol, MultiplySymbol, OpenBraceSymbol, OpenSquareSymbol,
-    PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
+    CloseSquareSymbol, ColonSymbol, CommaSymbol, DoubleColonSymbol, DoubleDotSymbol,
+    DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleRightArrowSymbol, HyphenSymbol,
+    MapMatchSymbol, MultiplySymbol, OpenSquareSymbol, PlusSymbol, RightArrowSymbol, SharpSymbol,
+    TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
+/// An Erlang type.
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Type(UnionType);
+
 #[derive(Debug, Clone, Span, Format)]
-pub enum Type {
+enum NonUnionType {
     BinaryOp(Box<BinaryOpType>),
     NonLeftRecursive(NonLeftRecursiveType),
 }
 
-impl Parse for Type {
+impl Parse for NonUnionType {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
         let expr: NonLeftRecursiveType = ts.parse()?;
         if ts.peek::<BinaryOp>().is_some() {
@@ -32,8 +40,12 @@ impl Parse for Type {
     }
 }
 
+/// [Type] `|` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum NonLeftRecursiveType {
+pub struct UnionType(NonEmptyItems2<NonUnionType, Space<VerticalBarSymbol>>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
     Tuple(Box<TupleType>),
@@ -46,61 +58,44 @@ pub enum NonLeftRecursiveType {
     Literal(LiteralType),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpType {
-    left: NonLeftRecursiveType,
-    op: BinaryOp,
-    right: Type,
-}
+/// [Type] `$OP` [Type]
+///
+/// - $OP: [BinaryOp]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type, 0>);
 
 impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
     fn resume_parse(
         ts: &mut parse::TokenStream,
         left: NonLeftRecursiveType,
     ) -> parse::Result<Self> {
-        Ok(Self {
-            left,
-            op: ts.parse()?,
-            right: ts.parse()?,
-        })
+        ts.resume_parse(left).map(Self)
     }
 }
 
-impl Format for BinaryOpType {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.left.format(fmt)?;
-        self.op.format(fmt)?;
-        if fmt.is_multi_line_allowed() && matches!(self.op, BinaryOp::Union(_)) {
-            fmt.write_newline()?;
-        }
-        self.right.format(fmt)?;
-        Ok(())
-    }
-}
-
+/// `*` | `+` | `-` | `div` | `rem` | `band` | `bor` | `bxor` | `bsl` | `bsr` | `..`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BinaryOp {
     Mul(Space<MultiplySymbol>),
+    Plus(Space<PlusSymbol>),
+    Minus(Space<HyphenSymbol>),
     Div(Space<DivKeyword>),
     Rem(Space<RemKeyword>),
     Band(Space<BandKeyword>),
-    Plus(Space<PlusSymbol>),
-    Minus(Space<HyphenSymbol>),
     Bor(Space<BorKeyword>),
     Bxor(Space<BxorKeyword>),
     Bsl(Space<BslKeyword>),
     Bsr(Space<BsrKeyword>),
-    Union(Space<VerticalBarSymbol>),
-    Annotation(Space<DoubleColonSymbol>),
     Range(DoubleDotSymbol),
 }
 
+/// `$OP` [Type]
+///
+/// - $OP: [UnaryOp]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpType {
-    op: UnaryOp,
-    r#type: NonLeftRecursiveType,
-}
+pub struct UnaryOpType(UnaryOpLike<UnaryOp, NonLeftRecursiveType>);
 
+/// `+` | `-` | `bnot`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum UnaryOp {
     Plus(PlusSymbol),
@@ -108,20 +103,25 @@ pub enum UnaryOp {
     Bnot(Space<BnotKeyword>),
 }
 
-pub type FunctionParamsAndReturn = (FunctionParams, (Space<RightArrowSymbol>, Type));
-
+/// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`
+///
+/// - $PARAMS: `(` `...` `)` | `(` ([Type] `,`?)* `)`
+/// - $RETURN: [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionType {
     fun: Space<FunKeyword>,
-    params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
+    params_and_return: Parenthesized2<Maybe<FunctionParamsAndReturn>>,
 }
+
+type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, Space<RightArrowSymbol>, Type, 8>;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum FunctionParams {
-    Any(Parenthesized<TripleDotSymbol>),
-    Params(Parenthesized<Elements<Type>>),
+enum FunctionParams {
+    Any(Parenthesized2<TripleDotSymbol>),
+    Params(Params<Type>),
 }
 
+/// [AtomToken] | [CharToken] | [IntegerToken] | [VariableToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum LiteralType {
     Atom(AtomToken),
@@ -130,79 +130,129 @@ pub enum LiteralType {
     Variable(VariableToken),
 }
 
+/// (`$MODULE` `:`)? `$NAME` `(` (`$ARG` `,`)* `)`
+///
+/// - $MODULE: [AtomToken]
+/// - $NAME: [AtomToken]
+/// - $ARG: [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MfargsType {
     module: Maybe<(AtomToken, ColonSymbol)>,
     name: AtomToken,
-    args: Parenthesized<Items<Type, CommaSymbol>>,
+    args: Args2<Type>,
 }
 
-pub type ListItem = (Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>);
+type ListItem = (Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>);
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+/// `[]` | `[` [Type] (`,` `...`)? `]`
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ListType {
     open: OpenSquareSymbol,
     item: Maybe<ListItem>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleType {
-    open: OpenBraceSymbol,
-    items: Elements<Type>,
-    close: CloseBraceSymbol,
+impl ListType {
+    fn format_item(
+        &self,
+        fmt: &mut format::Formatter,
+        ty: &Type,
+        rest: Option<&(RightSpace<CommaSymbol>, TripleDotSymbol)>,
+    ) -> format::Result<()> {
+        if let Some((comma, triple_dot)) = rest {
+            fmt.subregion()
+                .reset_trailing_columns(1)
+                .enter(|fmt| ty.format(fmt))?;
+            if fmt
+                .subregion()
+                .forbid_too_long_line()
+                .check_trailing_columns(true)
+                .enter(|fmt| {
+                    comma.format(fmt)?;
+                    triple_dot.format(fmt)
+                })
+                .is_err()
+            {
+                comma.format(fmt)?;
+                fmt.write_newline()?;
+                triple_dot.format(fmt)?;
+            }
+        } else {
+            ty.format(fmt)?;
+        }
+        Ok(())
+    }
 }
 
-pub type MapItem = (
-    Type,
-    (Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Type),
-);
+impl Format for ListType {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.open.format(fmt)?;
+        if let Some((ty, rest)) = self.item.get() {
+            fmt.subregion()
+                .current_column_as_indent()
+                .trailing_columns2(1) // "," or "]"
+                .enter(|fmt| self.format_item(fmt, ty, rest.get()))?;
+        }
+        self.close.format(fmt)?;
+        Ok(())
+    }
+}
 
+/// `{` ([Type] `,`)* `}`
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct TupleType(Tuple<Type, 1>);
+
+/// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType {
     sharp: SharpSymbol,
-    open: OpenBraceSymbol,
-    items: Elements<MapItem>,
-    close: CloseBraceSymbol,
+    items: Tuple<MapItem, 1>,
 }
 
+type MapItem = BinaryOpLike<Type, Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Type, 4>;
+
+/// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
+///
+/// - $NAME: [AtomToken]
+/// - $FIELD: [AtomToken] `::` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
-    open: OpenBraceSymbol,
-    fields: Elements<(AtomToken, (Space<MatchSymbol>, Type))>,
-    close: CloseBraceSymbol,
+    fields: Tuple<RecordItem, 1>,
 }
 
+type RecordItem = BinaryOpLike<AtomToken, Space<DoubleColonSymbol>, Type, 4>;
+
+/// `<<` `$BITS_SIZE`? `,`? `$UNIT_SIZE`? `>>`
+///
+/// - $BITS_SIZE: `_` `:` [Type]
+/// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringType {
     open: DoubleLeftAngleSymbol,
-    size: Maybe<BitstringSize>,
+    size: Maybe<TrailingColumns<BitstringSize, 2>>, // trailing: ">>"
     close: DoubleRightAngleSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum BitstringSize {
-    BinaryAndUnit(
-        Box<(
-            BitstringBinarySize,
-            (RightSpace<CommaSymbol>, BitstringUnitSize),
-        )>,
+enum BitstringSize {
+    BitsAndUnit(
+        Box<BinaryOpLike<BitstringBitsSize, RightSpace<CommaSymbol>, BitstringUnitSize, 0>>,
     ),
     Unit(Box<BitstringUnitSize>),
-    Binary(Box<BitstringBinarySize>),
+    Bits(Box<BitstringBitsSize>),
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringBinarySize {
+struct BitstringBitsSize {
     underscore: VariableToken,
     colon: ColonSymbol,
     size: Type,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringUnitSize {
+struct BitstringUnitSize {
     underscore0: VariableToken,
     colon: ColonSymbol,
     underscore1: VariableToken,
@@ -215,23 +265,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_mfargs_works() {
-        let texts = ["foo()", "foo:bar(A, 1)"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn format_mfargs_works() {
+    fn mfargs_works() {
         let texts = [
             "foo()",
             "foo:bar(A, 1)",
             indoc::indoc! {"
-                foo:bar(A,
-                        1,
-                        baz(),
-                        qux())"},
+            foo:bar(A,
+                    1,
+                    baz(),
+                    qux())"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -239,34 +281,27 @@ mod tests {
     }
 
     #[test]
-    fn parse_list_works() {
-        let texts = ["[]", "[foo()]", "[10, ...]"];
+    fn list_works() {
+        let texts = [
+            "[]",
+            "[foo()]",
+            "[10, ...]",
+            indoc::indoc! {"
+            %---10---|%---20---|
+            [fooooooooooo(),
+             ...]"},
+        ];
         for text in texts {
             crate::assert_format!(text, Type);
         }
     }
 
     #[test]
-    fn format_list_works() {
-        let texts = ["[]", "[foo()]", "[10, ...]"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn parse_tuple_works() {
-        let texts = ["{}", "{foo()}", "{atom, 1}"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn format_tuple_works() {
+    fn tuple_works() {
         let texts = [
             "{}",
             "{foo()}",
+            "{atom, 1}",
             indoc::indoc! {"
                 {foo(),
                  bar(),
@@ -278,26 +313,24 @@ mod tests {
     }
 
     #[test]
-    fn parse_map_works() {
-        let texts = ["#{}", "#{atom() := integer()}", "#{a => b, 1 := 2}"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn format_map_works() {
+    fn map_works() {
         let expected = [
             "#{}",
-            "#{atom() := integer()}",
+            "#{a => b, 1 := 2}",
             indoc::indoc! {"
-                #{atom() := {aaa,
-                             bbb,
-                             ccc}}"},
+            %---10---|%---20---|
+            #{atom() :=
+                  integer()}"},
             indoc::indoc! {"
-                #{a => b,
-                  1 := 2,
-                  atom() := atom()}"},
+            %---10---|%---20---|
+            #{atom() :=
+                  {aaa,
+                   bbb,
+                   ccc}}"},
+            indoc::indoc! {"
+            #{a => b,
+              1 := 2,
+              atom() := atom()}"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
@@ -305,13 +338,17 @@ mod tests {
     }
 
     #[test]
-    fn parse_record_works() {
+    fn record_works() {
         let texts = [
             "#foo{}",
-            "#foo{bar = integer()}",
+            "#foo{bar :: atom()}",
             indoc::indoc! {"
-                #foo{bar = b,
-                     baz = 2}"},
+            %---10---|%---20---|
+            #foo{bar ::
+                     integer()}"},
+            indoc::indoc! {"
+            #foo{bar :: b,
+                 baz :: 2}"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -319,43 +356,25 @@ mod tests {
     }
 
     #[test]
-    fn format_record_works() {
-        let texts = [
-            "#foo{}",
-            "#foo{bar = integer()}",
-            indoc::indoc! {"
-                #foo{bar = b,
-                     baz = 2}"},
-        ];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn parse_function_works() {
+    fn function_works() {
         let texts = [
             "fun ()",
-            "fun ((...) -> atom())",
-            "fun (() -> integer())",
-            "fun ((A, b, $c) -> tuple())",
-        ];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn format_function_works() {
-        let texts = [
-            "fun ()",
-            "fun ((...) -> atom())",
             "fun (() -> integer())",
             indoc::indoc! {"
-                fun ((A,
-                      b,
-                      $c,
-                      {foo()}) -> tuple())"},
+            %---10---|%---20---|
+            fun ((...) ->
+                         atom())"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            fun ((A, b, $c) ->
+                         tuple())"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            fun ((A,
+                  b,
+                  $c,
+                  {foo()}) ->
+                         tuple())"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -363,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unary_op_works() {
+    fn unary_op_works() {
         let texts = ["-10", "+10", "bnot 100"];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -371,22 +390,14 @@ mod tests {
     }
 
     #[test]
-    fn format_unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn parse_binary_op_works() {
+    fn binary_op_works() {
         let texts = [
             "-10 + 20 rem 3",
             indoc::indoc! {"
-                foo |
-                (3 + 10) |
-                -1..+20"},
-            "A :: atom()",
+            %---10---|%---20---|
+            foo |
+            (3 + 10) |
+            -1..+20"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -394,31 +405,17 @@ mod tests {
     }
 
     #[test]
-    fn format_binary_op_works() {
+    fn bitstring_works() {
         let texts = [
-            "-10 + 20 rem 3",
+            "<<>>",
+            "<<_:10>>",
+            "<<_:_*8>>",
+            "<<_:8, _:_*4>>",
             indoc::indoc! {"
-                foo |
-                (3 + 10) |
-                -1..+20"},
-            "A :: atom()",
+            %---10---|%---20---|
+            <<_:(1 + 3 + 4),
+              _:_*4>>"},
         ];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn parse_bitstring_works() {
-        let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
-        for text in texts {
-            crate::assert_format!(text, Type);
-        }
-    }
-
-    #[test]
-    fn format_bitstring_works() {
-        let texts = ["<<>>", "<<_:10>>", "<<_:_*8>>", "<<_:8, _:_*4>>"];
         for text in texts {
             crate::assert_format!(text, Type);
         }

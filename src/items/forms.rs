@@ -200,6 +200,7 @@ impl Format for SpecClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct Constraint {
     when: Space<WhenKeyword>,
+    // TODO: binary-op-like
     constraints: NonEmptyItems<(VariableToken, (Space<DoubleColonSymbol>, Type)), CommaSymbol>,
 }
 
@@ -539,8 +540,7 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -type foo() ::
-                    barr |
-                    bazz."}, // TODO: Should not be newlined
+                    barr | bazz."},
             indoc::indoc! {"
             -type height() ::
                     pos_integer()."},
