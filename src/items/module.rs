@@ -1,67 +1,34 @@
-use crate::format::{self, Format, Formatter};
+use crate::format::{self, Format};
 use crate::items::forms::Form;
+use crate::items::styles::Newline;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 
-#[derive(Debug, Clone)]
+/// [Form]*
+#[derive(Debug, Clone, Span)]
 pub struct Module {
-    forms: Vec<Form>,
-    eof: Eof,
-}
-
-impl Span for Module {
-    fn start_position(&self) -> Position {
-        Position::new(0, 1, 1)
-    }
-
-    fn end_position(&self) -> Position {
-        self.eof.position
-    }
+    sof: Position,
+    forms: Vec<Newline<Form>>,
+    eof: Position,
 }
 
 impl Parse for Module {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        let sof = ts.current_whitespace_token()?.start_position();
         let mut forms = Vec::new();
         while !ts.is_eof()? {
             forms.push(ts.parse()?);
         }
-        let position = ts.current_whitespace_token()?.end_position();
-        Ok(Self {
-            forms,
-            eof: Eof { position },
-        })
+        let eof = ts.current_whitespace_token()?.end_position();
+        Ok(Self { sof, forms, eof })
     }
 }
 
 impl Format for Module {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         for form in &self.forms {
             form.format(fmt)?;
-            fmt.write_newline()?;
         }
-        self.eof.format(fmt)?; // For comments and empty macros
-        Ok(())
-    }
-}
-
-// TODO: delete?
-#[derive(Debug, Clone)]
-pub struct Eof {
-    pub position: Position,
-}
-
-impl Span for Eof {
-    fn start_position(&self) -> Position {
-        self.position
-    }
-
-    fn end_position(&self) -> Position {
-        self.position
-    }
-}
-
-impl Format for Eof {
-    fn format(&self, _fmt: &mut Formatter) -> format::Result<()> {
         Ok(())
     }
 }

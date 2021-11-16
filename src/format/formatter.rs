@@ -31,9 +31,7 @@ impl Formatter {
     }
 
     pub fn finish(mut self) -> Result<String> {
-        let eof = crate::items::module::Eof {
-            position: Position::new(usize::MAX, usize::MAX, usize::MAX),
-        };
+        let eof = Position::new(usize::MAX, usize::MAX, usize::MAX);
         self.write_comments_and_macros(&eof, None)?;
         Ok(self.writer.formatted_text().to_owned())
     }

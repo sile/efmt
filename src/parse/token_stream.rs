@@ -119,6 +119,7 @@ impl TokenStream {
         self.tokenizer.next_position().into()
     }
 
+    // TODO: rename (because this span may include comments and empty macros)
     pub fn current_whitespace_token(&mut self) -> Result<WhitespaceToken> {
         Ok(WhitespaceToken::new(
             self.prev_token_end_position(),

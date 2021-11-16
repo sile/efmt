@@ -40,6 +40,16 @@ impl<T: Span> Span for Box<T> {
     }
 }
 
+impl Span for Position {
+    fn start_position(&self) -> Position {
+        *self
+    }
+
+    fn end_position(&self) -> Position {
+        *self
+    }
+}
+
 impl<A: Span, B: Span> Span for (A, B) {
     fn start_position(&self) -> Position {
         self.0.start_position()
