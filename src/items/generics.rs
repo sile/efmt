@@ -424,16 +424,18 @@ impl<T: Format, D: Format> NonEmptyItems2<T, D> {
 
 impl<T: Format, D: Format> Format for NonEmptyItems2<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        if fmt
-            .subregion()
-            .forbid_multi_line()
-            .forbid_too_long_line()
-            .enter(|fmt| self.format_items(fmt, false))
-            .is_err()
-        {
-            self.format_items(fmt, true)?;
-        }
-        Ok(())
+        fmt.subregion().current_column_as_indent().enter(|fmt| {
+            if fmt
+                .subregion()
+                .forbid_multi_line()
+                .forbid_too_long_line()
+                .enter(|fmt| self.format_items(fmt, false))
+                .is_err()
+            {
+                self.format_items(fmt, true)?;
+            }
+            Ok(())
+        })
     }
 }
 
@@ -517,20 +519,18 @@ impl<T0: Format, O: Format, T1: Format, const I: usize> Format for BinaryOpLike<
             if fmt.current_relative_column() <= I {
                 // Inserting a newline cannot shorten the line length.
                 self.right.format(fmt)?
-            } else {
-                if fmt
-                    .subregion()
-                    .forbid_too_long_line()
-                    .forbid_multi_line()
-                    .check_trailing_columns(true)
-                    .enter(|fmt| self.right.format(fmt))
-                    .is_err()
-                {
-                    fmt.subregion().indent_offset(I).enter(|fmt| {
-                        fmt.write_newline()?;
-                        self.right.format(fmt)
-                    })?;
-                }
+            } else if fmt
+                .subregion()
+                .forbid_too_long_line()
+                .forbid_multi_line()
+                .check_trailing_columns(true)
+                .enter(|fmt| self.right.format(fmt))
+                .is_err()
+            {
+                fmt.subregion().indent_offset(I).enter(|fmt| {
+                    fmt.write_newline()?;
+                    self.right.format(fmt)
+                })?;
             }
             Ok(())
         })

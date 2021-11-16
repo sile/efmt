@@ -233,3 +233,5 @@ fun ((foo(), bar()) ->
 ### Binary op
 
 ### Union
+
+### Annotated

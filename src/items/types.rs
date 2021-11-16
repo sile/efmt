@@ -55,7 +55,16 @@ enum NonLeftRecursiveType {
     Function(Box<FunctionType>),
     UnaryOp(Box<UnaryOpType>),
     Parenthesized(Box<Parenthesized<Type>>),
+    Annotated(Box<AnnotatedVariableType>),
     Literal(LiteralType),
+}
+
+/// [VariableToken] `::` [Type]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct AnnotatedVariableType {
+    variable: VariableToken,
+    colon: Space<DoubleColonSymbol>,
+    ty: Type,
 }
 
 /// [Type] `$OP` [Type]
@@ -163,20 +172,18 @@ impl ListType {
             fmt.subregion()
                 .reset_trailing_columns(1)
                 .enter(|fmt| ty.format(fmt))?;
-            if fmt
-                .subregion()
+            fmt.subregion()
                 .forbid_too_long_line()
                 .check_trailing_columns(true)
                 .enter(|fmt| {
                     comma.format(fmt)?;
                     triple_dot.format(fmt)
                 })
-                .is_err()
-            {
-                comma.format(fmt)?;
-                fmt.write_newline()?;
-                triple_dot.format(fmt)?;
-            }
+                .or_else(|_| {
+                    comma.format(fmt)?;
+                    fmt.write_newline()?;
+                    triple_dot.format(fmt)
+                })?;
         } else {
             ty.format(fmt)?;
         }
@@ -415,6 +422,24 @@ mod tests {
             %---10---|%---20---|
             <<_:(1 + 3 + 4),
               _:_*4>>"},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Type);
+        }
+    }
+
+    #[test]
+    fn annotated_variable_works() {
+        let texts = [
+            "Foo :: atom()",
+            indoc::indoc! {"
+            %---10---|%---20---|
+            Foo :: [bar:baz(qux)]"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            Foo :: atom() |
+                   integer() |
+                   bar"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
