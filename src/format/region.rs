@@ -6,6 +6,7 @@ use crate::span::{Position, Span};
 pub struct RegionConfig {
     pub indent: usize,
     pub max_columns: usize,
+    pub trailing_columns: usize,
     pub allow_multi_line: bool,
     pub allow_too_long_line: bool,
 }
@@ -15,6 +16,7 @@ impl RegionConfig {
         Self {
             indent: 0,
             max_columns,
+            trailing_columns: 0,
             allow_multi_line: true,
             allow_too_long_line: true,
         }
@@ -89,6 +91,19 @@ impl RegionWriter {
 
     pub fn config(&self) -> &RegionConfig {
         &self.config
+    }
+
+    pub fn parent_indent(&self) -> usize {
+        let current = self.config.indent;
+        if let Some(parent) = &self.parent {
+            if parent.config().indent != current {
+                parent.config().indent
+            } else {
+                parent.parent_indent()
+            }
+        } else {
+            current
+        }
     }
 
     pub fn next_position(&self) -> Position {

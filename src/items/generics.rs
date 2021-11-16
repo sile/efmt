@@ -1,6 +1,9 @@
 use crate::format::{self, Format, Formatter};
-use crate::items::styles::Newline;
-use crate::items::symbols::{CloseParenSymbol, CommaSymbol, OpenParenSymbol, SemicolonSymbol};
+use crate::items::styles::{Newline, TrailingColumns};
+use crate::items::symbols::{
+    CloseBraceSymbol, CloseParenSymbol, CommaSymbol, OpenBraceSymbol, OpenParenSymbol,
+    SemicolonSymbol,
+};
 use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
@@ -9,6 +12,10 @@ use crate::span::{Position, Span};
 pub struct Maybe<T>(Either<T, WhitespaceToken>);
 
 impl<T> Maybe<T> {
+    pub fn is_none(&self) -> bool {
+        matches!(self.0, Either::B(_))
+    }
+
     pub fn from_item(item: T) -> Self {
         Self(Either::A(item))
     }
@@ -99,7 +106,39 @@ impl<T: Format> Format for Parenthesized<T> {
     }
 }
 
-// TODO: remove?
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Parenthesized2<T> {
+    open: OpenParenSymbol,
+    item: TrailingColumns<T, 1>, // trailing: ")"
+    close: CloseParenSymbol,
+}
+
+impl<T> Parenthesized2<T> {
+    pub fn get(&self) -> &T {
+        self.item.get()
+    }
+}
+
+impl<T: Format> Format for Parenthesized2<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        self.open.format(fmt)?;
+        fmt.subregion()
+            .current_column_as_indent()
+            .enter(|fmt| self.item.format(fmt))?;
+        self.close.format(fmt)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Params<T>(Parenthesized2<Items2<T>>);
+
+impl<T> Params<T> {
+    pub fn get(&self) -> &[T] {
+        self.0.get().get()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Args<T>(Parenthesized<Items<T>>);
 
@@ -287,5 +326,142 @@ impl<T: Format> Format for MaybeRepeat<T> {
             item.format(fmt)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Tuple<T, const N: usize> {
+    open: OpenBraceSymbol,
+    items: TupleElements<T, N>,
+    close: CloseBraceSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct TupleElements<T, const N: usize>(Items<T>);
+
+impl<T: Format, const N: usize> TupleElements<T, N> {
+    fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
+        let (items, delimiters) =
+            if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters)) {
+                (items, delimiters)
+            } else {
+                return Ok(());
+            };
+
+        let max_columns = fmt.region_config().max_columns;
+        fn is_head(fmt: &Formatter) -> bool {
+            fmt.current_column() == fmt.region_config().indent
+        }
+
+        for (item, delimiter) in items.iter().zip(delimiters.iter()) {
+            if !is_head(fmt) && fmt.current_column() + item.len() + delimiter.len() > max_columns {
+                fmt.write_newline()?;
+            }
+
+            item.format(fmt)?;
+            delimiter.format(fmt)?;
+            fmt.write_space()?;
+        }
+
+        let item = items.last().expect("unreachable");
+        if !is_head(fmt) && fmt.current_column() + item.len() > max_columns {
+            fmt.write_newline()?;
+        }
+        item.format(fmt)?;
+
+        Ok(())
+    }
+}
+
+impl<T: Format, const N: usize> Format for TupleElements<T, N> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .current_column_as_indent()
+            .trailing_columns(N) // TODO
+            .enter(|fmt| {
+                let packed = self.0.get().iter().all(|x| x.should_be_packed());
+                if packed {
+                    self.format_packed_items(fmt)
+                } else {
+                    self.0.format(fmt)
+                }
+            })
+    }
+}
+
+// TODO: refactor
+#[derive(Debug, Clone, Span, Parse)]
+pub struct NonEmptyItems2<T, D>(NonEmptyItems<T, D>);
+
+impl<T, D> NonEmptyItems2<T, D> {
+    pub fn get(&self) -> &[T] {
+        self.0.get()
+    }
+}
+
+impl<T: Format, D: Format> NonEmptyItems2<T, D> {
+    fn format_items(&self, fmt: &mut Formatter, multi_line: bool) -> format::Result<()> {
+        for (item, delimiter) in self.0.items.iter().zip(self.0.delimiters.iter()) {
+            fmt.subregion()
+                .reset_trailing_columns(delimiter.len())
+                .enter(|fmt| item.format(fmt))?;
+            delimiter.format(fmt)?;
+            if multi_line {
+                fmt.write_newline()?;
+            } else {
+                fmt.write_space()?;
+            }
+        }
+        dbg!(fmt.region_config());
+        fmt.subregion()
+            .check_trailing_columns(true)
+            .enter(|fmt| self.0.items.last().expect("unreachable").format(fmt))?;
+        Ok(())
+    }
+}
+
+impl<T: Format, D: Format> Format for NonEmptyItems2<T, D> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        if fmt
+            .subregion()
+            .forbid_multi_line()
+            .forbid_too_long_line()
+            .enter(|fmt| self.format_items(fmt, false))
+            .is_err()
+        {
+            self.format_items(fmt, true)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Clauses2<T, const N: usize>(NonEmptyItems2<T, Newline<SemicolonSymbol>>);
+
+impl<T, const N: usize> Clauses2<T, N> {
+    pub fn get(&self) -> &[T] {
+        self.0.get()
+    }
+}
+
+impl<T: Format, const N: usize> Format for Clauses2<T, N> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .current_column_as_indent()
+            .trailing_columns2(N)
+            .enter(|fmt| self.0.format(fmt))
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Items2<T, D = CommaSymbol>(Maybe<NonEmptyItems2<T, D>>);
+
+impl<T, D> Items2<T, D> {
+    pub fn get(&self) -> &[T] {
+        if let Some(x) = self.0.get() {
+            x.get()
+        } else {
+            &[]
+        }
     }
 }

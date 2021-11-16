@@ -41,7 +41,7 @@ impl<T: Format> Format for Block<T> {
     }
 }
 
-// TODO: s/Space/Blank/
+// TODO: implement Span::len method?
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Space<T>(T);
 
@@ -79,5 +79,23 @@ impl<T: Format> Format for Newline<T> {
         self.0.format(fmt)?;
         fmt.write_newline()?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct TrailingColumns<T, const N: usize>(T);
+
+impl<T, const N: usize> TrailingColumns<T, N> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Format, const N: usize> Format for TrailingColumns<T, N> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .trailing_columns2(N)
+            .check_trailing_columns(true) // TODO: delete
+            .enter(|fmt| self.0.format(fmt))
     }
 }

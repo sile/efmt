@@ -2,7 +2,8 @@
 -module(long_spec).
 
 -spec foo(#bar{}, #baz{}) ->
-          {ok, #quz{}} | {error, term()}.
+          {ok, #quz{}} |
+          {error, term()}.
 
 -spec bar(#bar{}, #baz{}) ->
           {ok, #quz{}} |

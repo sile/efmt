@@ -1,7 +1,7 @@
 use self::region::RegionConfig;
 use crate::parse::{Parse, TokenStream, TokenStreamOptions};
 use crate::span::Span;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub use self::formatter::Formatter;
 pub use efmt_derive::Format;
@@ -50,12 +50,27 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct RegionOptions<'a> {
     fmt: &'a mut Formatter,
     config: RegionConfig,
+    check_trailing_columns: bool,
 }
 
 impl<'a> RegionOptions<'a> {
     pub fn new(fmt: &'a mut Formatter) -> Self {
         let config = fmt.region_config().clone();
-        Self { fmt, config }
+        Self {
+            fmt,
+            config,
+            check_trailing_columns: false,
+        }
+    }
+
+    pub fn check_trailing_columns(mut self, b: bool) -> Self {
+        self.check_trailing_columns = b;
+        self
+    }
+
+    pub fn parent_indent(mut self) -> Self {
+        self.config.indent = self.fmt.parent_indent();
+        self
     }
 
     pub fn indent_offset(mut self, offset: usize) -> Self {
@@ -68,8 +83,26 @@ impl<'a> RegionOptions<'a> {
         self
     }
 
+    // TODO: delete
     pub fn trailing_columns(mut self, n: usize) -> Self {
         self.config.max_columns = self.config.max_columns.saturating_sub(n);
+        self
+    }
+
+    pub fn reset_trailing_columns(mut self, n: usize) -> Self {
+        self.config.trailing_columns = n;
+        self
+    }
+
+    pub fn clear_trailing_columns(mut self, b: bool) -> Self {
+        if b {
+            self.config.trailing_columns = 0;
+        }
+        self
+    }
+
+    pub fn trailing_columns2(mut self, n: usize) -> Self {
+        self.config.trailing_columns += n;
         self
     }
 
@@ -87,7 +120,13 @@ impl<'a> RegionOptions<'a> {
     where
         F: FnOnce(&mut Formatter) -> Result<()>,
     {
-        self.fmt.with_subregion(self.config, f)
+        self.fmt.with_subregion(self.config, |fmt| {
+            f(fmt)?;
+            if self.check_trailing_columns {
+                fmt.check_trailing_columns()?;
+            }
+            Ok(())
+        })
     }
 
     pub fn enter_with_newline<F>(self, f: F) -> Result<()>
@@ -96,7 +135,11 @@ impl<'a> RegionOptions<'a> {
     {
         self.fmt.with_subregion(self.config, |fmt| {
             fmt.write_newline()?;
-            f(fmt)
+            f(fmt)?;
+            if self.check_trailing_columns {
+                fmt.check_trailing_columns()?;
+            }
+            Ok(())
         })
     }
 }
@@ -130,12 +173,6 @@ impl FormatOptions {
 
     pub fn token_stream(mut self, options: TokenStreamOptions) -> Self {
         self.token_stream = options;
-        self
-    }
-
-    // TODO: delete
-    pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
-        self.token_stream = self.token_stream.include_dirs(dirs);
         self
     }
 

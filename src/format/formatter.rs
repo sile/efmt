@@ -38,6 +38,15 @@ impl Formatter {
         Ok(self.writer.formatted_text().to_owned())
     }
 
+    pub fn check_trailing_columns(&self) -> Result<()> {
+        let too_long = self.current_column() + self.region_config().trailing_columns
+            > self.region_config().max_columns;
+        if too_long && !self.region_config().allow_too_long_line {
+            return Err(Error::LineTooLong);
+        }
+        Ok(())
+    }
+
     pub fn current_column(&self) -> usize {
         if self.writer.last_char() == '\n' {
             self.writer.config().indent
@@ -48,6 +57,10 @@ impl Formatter {
 
     pub fn current_relative_column(&self) -> usize {
         self.current_column() - self.writer.config().indent
+    }
+
+    pub fn parent_indent(&self) -> usize {
+        self.writer.parent_indent()
     }
 
     pub fn region_config(&self) -> &RegionConfig {

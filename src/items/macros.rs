@@ -307,8 +307,10 @@ mod tests {
                 ?INC A.
             "},
             indoc::indoc! {"
-            -define(FOO_OPEN, foo().
-            -define(FOO_CLOSE, )).
+            -define(FOO_OPEN,
+                    foo().
+            -define(FOO_CLOSE,
+                    )).
             foo(A) ->
                 ?FOO_OPEN A ?FOO_CLOSE.
             "},
@@ -327,17 +329,18 @@ mod tests {
     #[test]
     fn macro_with_args_works() {
         let texts = [
-            // TODO: Should have a newline after ',' if the line is too long.
             indoc::indoc! {"
-            -define(FOO(Bar), {Bar,
-                               Baz}).
+            %---10---|%---20---|
+            -define(FOO(Bar),
+                    {Bar, Baz}).
             qux() ->
                 ?FOO(quux).
             "},
             indoc::indoc! {"
+            %---10---|%---20---|
             -define(FOO(Bar,
-                        Baz), {Bar,
-                               Baz}).
+                        Baz),
+                    {Bar, Baz}).
             qux() ->
                 ?FOO(begin
                          foo,
@@ -347,7 +350,7 @@ mod tests {
                      hello).
             "},
             indoc::indoc! {"
-            -define(FOO(Bar), Bar).
+            -define(FOO(A), A).
 
             qux() ->
                 [?FOO(begin
@@ -367,7 +370,8 @@ mod tests {
                 ?baz(?bar(?foo)).
             "},
             indoc::indoc! {"
-            -define(Foo(A), ??A).
+            -define(Foo(A),
+                    ??A).
             bar() ->
                 ?Foo(10).
             "},
@@ -395,7 +399,8 @@ mod tests {
                 ?bar(?foo) [c].
             "},
             indoc::indoc! {"
-            -define(a, [1, 2, 3], [).
+            -define(a,
+                    [1, 2, 3], [).
             -define(b(A), A).
 
             main() ->
