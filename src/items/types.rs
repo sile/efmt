@@ -1,3 +1,5 @@
+//! Erlang types.
+//!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
 use crate::items::generics::{
@@ -16,12 +18,9 @@ use crate::items::symbols::{
     TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
+use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
-
-/// An Erlang type.
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Type(UnionType);
 
 #[derive(Debug, Clone, Span, Format)]
 enum NonUnionType {

@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
-use crate::items::forms::Form;
 use crate::items::styles::Newline;
+use crate::items::Form;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 

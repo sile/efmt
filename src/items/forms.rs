@@ -1,3 +1,4 @@
+//! Erlang toplevel components such attributes, directives or declarations.
 use crate::format::{self, Format};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
@@ -14,13 +15,13 @@ use crate::items::symbols::{
     OpenParenSymbol, RightArrowSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
-use crate::items::types::Type;
+use crate::items::Type;
 use crate::parse::Parse;
 use crate::span::Span;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum Form {
+pub(super) enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
     FunSpec(FunSpec),

@@ -1,12 +1,12 @@
 use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::generics::Either;
 use crate::items::macros::{Macro, MacroName};
-use crate::items::module::Module;
 use crate::items::symbols::QuestionSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     StringToken, SymbolToken, Token, VariableToken, WhitespaceToken,
 };
+use crate::items::Module;
 use crate::parse::{Parse, Result, ResumeParse};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;

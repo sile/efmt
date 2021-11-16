@@ -1,5 +1,5 @@
 use efmt::format::FormatOptions;
-use efmt::items::module::Module;
+use efmt::items::Module;
 use efmt::parse::TokenStreamOptions;
 use env_logger::Env;
 use std::io::Read as _;
