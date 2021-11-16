@@ -127,7 +127,7 @@ impl RegionWriter {
 
     pub fn write_newline(&mut self) -> Result<()> {
         if self.last_char() != '\n' {
-            if self.last_char() == ' ' {
+            if self.last_char() == ' ' && self.next_last_char() != '$' {
                 self.pop_last_char();
             }
             self.write("\n")?;
@@ -140,7 +140,9 @@ impl RegionWriter {
         // an item's start and end positions could be smaller than `next_position`.
         let start = std::cmp::max(item.start_position(), self.state.next_position);
         let end = std::cmp::max(item.end_position(), start);
-        let text = text[start.offset()..end.offset()].trim();
+
+        // `trim_start()` is sometimes needed for macros such as `?a(?b c)`.
+        let text = text[start.offset()..end.offset()].trim_start();
 
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;
@@ -194,7 +196,7 @@ impl RegionWriter {
                     return Err(Error::MultiLine);
                 }
                 self.state.current_column = 0;
-            } else if c != ' ' {
+            } else if self.last_char() == '$' || c != ' ' {
                 if self.state.current_column >= self.config.max_columns
                     && !self.config.allow_too_long_line
                 {
@@ -227,9 +229,23 @@ impl RegionWriter {
         }
     }
 
+    fn next_last_char(&self) -> char {
+        let mut cs = self.state.formatted_text.chars().rev();
+        if cs.next().is_none() {
+            '\n'
+        } else if let Some(c) = cs.next() {
+            c
+        } else if let Some(parent) = &self.parent {
+            parent.last_char()
+        } else {
+            '\n'
+        }
+    }
+
     fn pop_last_char(&mut self) {
         if self.state.formatted_text.pop().is_none() {
             if let Some(x) = &mut self.parent {
+                // TODO: could violate a parent transaction
                 x.pop_last_char();
             }
         }

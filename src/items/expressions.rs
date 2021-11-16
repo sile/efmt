@@ -286,4 +286,14 @@ mod tests {
             crate::assert_format!(text, Form);
         }
     }
+
+    #[test]
+    fn space_char_works() {
+        let texts = [indoc::indoc! {"
+            foo($ , $ ) ->
+                $ ."}];
+        for text in texts {
+            crate::assert_format!(text, Form);
+        }
+    }
 }

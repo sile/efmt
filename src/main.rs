@@ -93,7 +93,7 @@ fn validate_formatted_text(text: &str, formatted_text: &str) -> anyhow::Result<(
         let t1 = t1?;
         anyhow::ensure!(
             t0.text() == t1.text(),
-            "actual={:?}, expected={:?} (position={:?})",
+            "original={:?}, formatted={:?} (position={:?})",
             t0.text(),
             t1.text(),
             t0.start_position()
