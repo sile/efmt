@@ -47,6 +47,8 @@ pub struct TokenStream {
     macro_defines: BTreeMap<MacroDefineKey, MacroDefine>,
     missing_macros: HashSet<String>,
     included: HashSet<String>,
+    parsing_macro_replacement: bool,
+    parsing_macro_arg: bool,
     options: TokenStreamOptions,
 }
 
@@ -61,6 +63,8 @@ impl TokenStream {
             macro_defines: BTreeMap::new(),
             missing_macros: HashSet::new(),
             included: HashSet::new(),
+            parsing_macro_replacement: false,
+            parsing_macro_arg: false,
             options,
         }
     }
@@ -116,6 +120,7 @@ impl TokenStream {
         Ok(eof)
     }
 
+    // TODO: delete or rename (should only be used for EOF)
     pub fn current_position(&self) -> Position {
         self.tokenizer.next_position().into()
     }
@@ -126,6 +131,26 @@ impl TokenStream {
             self.prev_token_end_position(),
             self.next_token_start_position()?,
         ))
+    }
+
+    pub fn enter_macro_replacement<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.parsing_macro_replacement = true;
+        let result = f(self);
+        self.parsing_macro_replacement = false;
+        result
+    }
+
+    fn enter_macro_arg<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.parsing_macro_arg = true;
+        let result = f(self);
+        self.parsing_macro_arg = false;
+        result
     }
 
     fn prev_token_end_position(&mut self) -> Position {
@@ -148,6 +173,20 @@ impl TokenStream {
     fn read_token(&mut self) -> Result<Option<Token>> {
         if let Some(token) = self.tokens.get(self.current_token_index).cloned() {
             self.current_token_index += 1;
+
+            if !self.parsing_macro_replacement {
+                // TODO: note comment
+                match &token {
+                    Token::Symbol(x) if x.value() == Symbol::Question => {
+                        if !self.parsing_macro_arg {
+                            self.expand_macro()?;
+                            return self.read_token();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
             return Ok(Some(token));
         }
 
@@ -201,8 +240,10 @@ impl TokenStream {
 
             match &token {
                 Token::Symbol(x) if x.value() == Symbol::Question => {
-                    self.expand_macro()?;
-                    return self.read_token();
+                    if !self.parsing_macro_arg {
+                        self.expand_macro()?;
+                        return self.read_token();
+                    }
                 }
                 Token::Symbol(x) if x.value() == Symbol::Hyphen => {
                     let index = self.current_token_index;
@@ -262,7 +303,8 @@ impl TokenStream {
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
 
-        let r#macro = Macro::parse(self, question, macro_name.clone(), true)?;
+        let r#macro =
+            self.enter_macro_arg(|ts| Macro::parse(ts, question, macro_name.clone(), true))?;
         let arity = r#macro.arity();
         assert!(arity.is_some());
 
@@ -297,6 +339,12 @@ impl TokenStream {
     fn expand_unknown_macro(&mut self, macro_name: MacroName) -> Result<()> {
         if let Some(replacement) = get_predefined_macro(macro_name.value()) {
             self.expand_macro_without_args(macro_name, replacement)
+        } else if self.parsing_macro_replacement {
+            log::debug!(
+                "Found an undefined macro {:?} in a macro replacement.",
+                macro_name.value()
+            );
+            Ok(())
         } else {
             if !self.missing_macros.contains(macro_name.value()) {
                 // TODO: consider arity
@@ -463,15 +511,24 @@ impl TokenStream {
         let mut tokenizer = Tokenizer::new(text);
         tokenizer.set_filepath(&path);
         let mut ts = TokenStream::new(tokenizer, self.options.clone());
+        ts.macro_defines = self.macro_defines.clone();
         match ts.parse::<Module>() {
             Ok(_) => {
+                // TODO: Check replacement before filtering
+                let new_macro_defines = ts
+                    .macro_defines
+                    .iter()
+                    .filter(|(k, _)| !self.macro_defines.contains_key(k))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<BTreeMap<_, _>>();
+
                 log::debug!(
                     "Found {} macro definitions in {:?}",
-                    ts.macro_defines.len(),
+                    new_macro_defines.len(),
                     path
                 );
 
-                self.try_save_macro_defines_into_cache(include.path(), &ts.macro_defines);
+                self.try_save_macro_defines_into_cache(include.path(), &new_macro_defines);
 
                 self.macro_defines.extend(ts.macro_defines);
             }
@@ -492,9 +549,9 @@ impl Iterator for TokenStream {
 
 fn get_predefined_macro(name: &str) -> Option<Vec<Token>> {
     let token: Token = match name {
-        "MODULE" => dummy_atom().into(),
+        "MODULE" | "FUNCTION_NAME" => dummy_atom().into(),
         "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer().into(),
-        "MODULE_STRING" | "FILE" | "MACHINE" | "FUNCTION_NAME" => dummy_string().into(),
+        "MODULE_STRING" | "FILE" | "MACHINE" => dummy_string().into(),
         _ => return None,
     };
     Some(vec![token])

@@ -18,6 +18,8 @@ struct Opt {
     #[structopt(short = "I")]
     include_dirs: Vec<PathBuf>,
 
+    // `-disable-include`
+    // `-disable-include-cache`
     #[structopt(long, default_value = ".efmt/cache")]
     include_cache_dir: PathBuf,
 

@@ -127,18 +127,20 @@ impl Span for MacroReplacement {
 
 impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        let start_position = ts.current_whitespace_token()?.end_position();
-        let expr = ts
-            .peek::<(Expr, (CloseParenSymbol, DotSymbol))>()
-            .map(|(expr, _)| expr);
-        let mut tokens = Vec::new();
-        while ts.peek::<(CloseParenSymbol, DotSymbol)>().is_none() {
-            tokens.push(ts.parse()?);
-        }
-        Ok(Self {
-            tokens,
-            expr,
-            start_position,
+        ts.enter_macro_replacement(|ts| {
+            let start_position = ts.current_whitespace_token()?.end_position();
+            let expr = ts
+                .peek::<(Expr, (CloseParenSymbol, DotSymbol))>()
+                .map(|(expr, _)| expr);
+            let mut tokens = Vec::new();
+            while ts.peek::<(CloseParenSymbol, DotSymbol)>().is_none() {
+                tokens.push(ts.parse()?);
+            }
+            Ok(Self {
+                tokens,
+                expr,
+                start_position,
+            })
         })
     }
 }
@@ -239,19 +241,9 @@ impl Parse for MacroArg {
         let mut level = Level::default();
         while tokens.is_empty()
             || !level.is_toplevel()
-            || ts
-                .peek::<Either<CommaSymbol, CloseParenSymbol>>()
-                .filter(|t| !ts.macros().contains_key(&t.start_position()))
-                .is_none()
+            || ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_none()
         {
             let token: Token = ts.parse()?;
-
-            let is_macro_expanded = ts.macros().contains_key(&token.start_position());
-            if is_macro_expanded {
-                tokens.push(token);
-                continue;
-            }
-
             match &token {
                 Token::Symbol(x) => match x.value() {
                     Symbol::OpenParen => {
@@ -515,6 +507,32 @@ mod tests {
                         ?FOO
                 %% comment
                 end.
+            "},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+
+    #[test]
+    fn macro_lazy_expand_works() {
+        let texts = [
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(BAR,
+                    ?FOO 1 end).
+            -define(FOO, begin).
+            baz() ->
+                ?BAR.
+            "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO,
+                    ?BAR(1)).
+            -define(BAR(X), X).
+
+            foo() ->
+                [?FOO].
             "},
         ];
         for text in texts {
