@@ -65,6 +65,20 @@ impl<T: Format> Format for RightSpace<T> {
     }
 }
 
+// TODO: delete?
+#[derive(Debug, Clone, Span, Parse)]
+pub struct SpaceIfDigit<T>(pub T);
+
+impl<T: Format> Format for SpaceIfDigit<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        self.0.format(fmt)?;
+        if fmt.last_char().is_digit(10) {
+            fmt.write_space()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Newline<T>(T);
 

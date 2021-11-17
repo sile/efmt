@@ -50,6 +50,16 @@ impl Span for Position {
     }
 }
 
+impl Span for std::ops::Range<Position> {
+    fn start_position(&self) -> Position {
+        self.start
+    }
+
+    fn end_position(&self) -> Position {
+        self.end
+    }
+}
+
 impl<A: Span, B: Span> Span for (A, B) {
     fn start_position(&self) -> Position {
         self.0.start_position()

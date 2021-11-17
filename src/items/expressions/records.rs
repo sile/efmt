@@ -1,10 +1,8 @@
-use crate::format::Format;
-use crate::items::expressions::{BaseExpr, Either, Expr};
-use crate::items::generics::{Items, MaybeRepeat};
-use crate::items::styles::{ColumnIndent, Space};
-use crate::items::symbols::{
-    CloseBraceSymbol, DotSymbol, MatchSymbol, OpenBraceSymbol, SharpSymbol,
-};
+use crate::format::{self, Format};
+use crate::items::expressions::{Either, Expr};
+use crate::items::generics::Tuple;
+use crate::items::styles::Space;
+use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
 use crate::parse::{self, Parse, ResumeParse};
@@ -22,8 +20,8 @@ pub enum RecordAccessOrUpdateExpr {
     Update(Box<RecordUpdateExpr>),
 }
 
-impl ResumeParse<BaseExpr> for RecordAccessOrUpdateExpr {
-    fn resume_parse(ts: &mut parse::TokenStream, value: BaseExpr) -> parse::Result<Self> {
+impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
+    fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
         if ts.peek::<(SharpSymbol, (AtomToken, DotSymbol))>().is_some() {
             ts.resume_parse(value).map(Self::Access)
         } else {
@@ -36,23 +34,32 @@ impl ResumeParse<BaseExpr> for RecordAccessOrUpdateExpr {
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
-    open: OpenBraceSymbol,
-    fields: ColumnIndent<Items<RecordField>>,
-    close: CloseBraceSymbol,
+    fields: Tuple<RecordField, 1>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct RecordAccessExpr {
-    value: BaseExpr,
-    index: MaybeRepeat<RecordIndexExpr>,
+    value: Expr,
+    index: RecordIndexExpr,
 }
 
-impl ResumeParse<BaseExpr> for RecordAccessExpr {
-    fn resume_parse(ts: &mut parse::TokenStream, value: BaseExpr) -> parse::Result<Self> {
+impl ResumeParse<Expr> for RecordAccessExpr {
+    fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
         Ok(Self {
             value,
             index: ts.parse()?,
         })
+    }
+}
+
+impl Format for RecordAccessExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.value.format(fmt)?;
+        if self.value.is_integer_token() {
+            fmt.write_space()?;
+        }
+        self.index.format(fmt)?;
+        Ok(())
     }
 }
 
@@ -64,26 +71,35 @@ pub struct RecordIndexExpr {
     field: AtomToken,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct RecordUpdateExpr {
-    value: BaseExpr,
+    value: Expr,
     sharp: SharpSymbol,
     name: AtomToken,
-    open: OpenBraceSymbol,
-    fields: ColumnIndent<Items<RecordField>>,
-    close: CloseBraceSymbol,
+    fields: Tuple<RecordField, 1>,
 }
 
-impl ResumeParse<BaseExpr> for RecordUpdateExpr {
-    fn resume_parse(ts: &mut parse::TokenStream, value: BaseExpr) -> parse::Result<Self> {
+impl ResumeParse<Expr> for RecordUpdateExpr {
+    fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
         Ok(Self {
             value,
             sharp: ts.parse()?,
             name: ts.parse()?,
-            open: ts.parse()?,
             fields: ts.parse()?,
-            close: ts.parse()?,
         })
+    }
+}
+
+impl Format for RecordUpdateExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.value.format(fmt)?;
+        if self.value.is_integer_token() {
+            fmt.write_space()?;
+        }
+        self.sharp.format(fmt)?;
+        self.name.format(fmt)?;
+        self.fields.format(fmt)?;
+        Ok(())
     }
 }
 
@@ -129,6 +145,7 @@ mod tests {
             "X#foo.bar",
             "(foo())#foo.bar",
             "N2#nrec2.nrec1#nrec1.nrec0#nrec0.name",
+            "0 #foo.bar",
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -139,6 +156,9 @@ mod tests {
     fn record_update_works() {
         let texts = [
             "M#foo{}",
+            "88 #foo{}",
+            "M#foo.bar#baz{qux = 1}",
+            "M#baz{qux = 1}#foo.bar",
             indoc::indoc! {"
                 (foo())#foo{bar = 2,
                             baz = {bar,

@@ -24,6 +24,7 @@ TODO
 
 ### Accepts invalid Erlang expressions/patterns/types/etc if ...
 
+### Don't accept broken codes
 
 Lists/Tuples/Bitstrings
 -----------------------

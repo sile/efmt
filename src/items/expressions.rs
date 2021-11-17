@@ -30,61 +30,28 @@ pub use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
-#[derive(Debug, Clone, Span, Format)]
-pub enum Expr {
-    BinaryOpCall(Box<BinaryOpCallExpr>),
-    NonLeftRecursive(NonLeftRecursiveExpr),
-}
-
-impl Parse for Expr {
-    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        let expr: NonLeftRecursiveExpr = ts.parse()?;
-        if ts.peek::<BinaryOp>().is_some() {
-            ts.resume_parse(expr).map(Self::BinaryOpCall)
-        } else {
-            Ok(Self::NonLeftRecursive(expr))
-        }
-    }
-}
-
-impl Expr {
-    pub fn is_integer_token(&self) -> bool {
-        if let Self::NonLeftRecursive(x) = self {
-            x.is_integer_token()
-        } else {
-            false
-        }
-    }
-}
-
-// TODO: rename
+// TODO: refactor
 #[derive(Debug, Clone, Span, Format)]
 pub enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
-    Map(Box<MapConstructExpr>),
-    Record(Box<RecordConstructOrIndexExpr>),
+    MapConstruct(Box<MapConstructExpr>),
+    RecordConstructOrIndex(Box<RecordConstructOrIndexExpr>),
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
     UnaryOpCall(Box<UnaryOpCallExpr>),
     Parenthesized(Box<Parenthesized<Expr>>),
     Literal(LiteralExpr),
     Block(Box<BlockExpr>),
-}
 
-impl BaseExpr {
-    pub fn is_atom_token(&self) -> bool {
-        matches!(self, Self::Literal(LiteralExpr::Atom(_)))
-    }
-
-    pub fn is_integer_token(&self) -> bool {
-        matches!(self, Self::Literal(LiteralExpr::Integer(_)))
-    }
+    // Left recursive.
+    MapUpdate(Box<MapUpdateExpr>),
+    RecordAccessOrUpdate(Box<RecordAccessOrUpdateExpr>),
 }
 
 impl Parse for BaseExpr {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        match ts.peek::<Token>() {
+        let expr = match ts.peek::<Token>() {
             Some(Token::Symbol(token)) => match token.value() {
                 Symbol::OpenSquare => ts.parse().map(Self::List),
                 Symbol::OpenBrace => ts.parse().map(Self::Tuple),
@@ -92,9 +59,9 @@ impl Parse for BaseExpr {
                 Symbol::OpenParen => ts.parse().map(Self::Parenthesized),
                 Symbol::Sharp => {
                     if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
-                        ts.parse().map(Self::Map)
+                        ts.parse().map(Self::MapConstruct)
                     } else {
-                        ts.parse().map(Self::Record)
+                        ts.parse().map(Self::RecordConstructOrIndex)
                     }
                 }
                 _ => ts.parse().map(Self::UnaryOpCall),
@@ -108,60 +75,78 @@ impl Parse for BaseExpr {
             None => Err(parse::Error::UnexpectedEof {
                 position: ts.current_position(),
             }),
+        }?;
+
+        let mut expr = expr;
+        loop {
+            match ts.peek::<SymbolToken>() {
+                Some(token) => match token.value() {
+                    Symbol::Sharp => {
+                        if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
+                            expr = ts.resume_parse(Expr::Base(expr)).map(Self::MapUpdate)?;
+                        } else {
+                            expr = ts
+                                .resume_parse(Expr::Base(expr))
+                                .map(Self::RecordAccessOrUpdate)?;
+                        }
+                    }
+                    _ => return Ok(expr),
+                },
+                None => return Ok(expr),
+            }
         }
+    }
+}
+
+impl BaseExpr {
+    pub fn is_atom_token(&self) -> bool {
+        matches!(self, Self::Literal(LiteralExpr::Atom(_)))
+    }
+
+    pub fn is_integer_token(&self) -> bool {
+        matches!(self, Self::Literal(LiteralExpr::Integer(_)))
     }
 }
 
 #[derive(Debug, Clone, Span, Format)]
-pub enum NonLeftRecursiveExpr {
+pub enum Expr {
     Base(BaseExpr),
     FunctionCall(Box<FunctionCallExpr>),
-    Map(Box<MapUpdateExpr>),
-    Record(Box<RecordAccessOrUpdateExpr>),
+    BinaryOpCall(Box<BinaryOpCallExpr>),
 }
 
-impl NonLeftRecursiveExpr {
-    pub fn is_atom_token(&self) -> bool {
-        if let Self::Base(x) = self {
-            x.is_atom_token()
+impl Parse for Expr {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let expr: BaseExpr = ts.parse()?;
+
+        let expr = if let Some(token) = ts.peek::<SymbolToken>() {
+            match token.value() {
+                Symbol::Colon => ts
+                    .resume_parse((expr.clone(), true))
+                    .map(Self::FunctionCall)
+                    .unwrap_or_else(|_| Self::Base(expr)),
+                Symbol::OpenParen => ts.resume_parse((expr, false)).map(Self::FunctionCall)?,
+                _ => Self::Base(expr),
+            }
         } else {
-            false
+            Self::Base(expr)
+        };
+
+        if ts.peek::<BinaryOp>().is_some() {
+            ts.resume_parse(expr).map(Self::BinaryOpCall)
+        } else {
+            Ok(expr)
         }
+    }
+}
+
+impl Expr {
+    pub fn is_atom_token(&self) -> bool {
+        matches!(self, Self::Base(BaseExpr::Literal(LiteralExpr::Atom(_))))
     }
 
     pub fn is_integer_token(&self) -> bool {
-        if let Self::Base(x) = self {
-            x.is_integer_token()
-        } else {
-            false
-        }
-    }
-}
-
-impl Parse for NonLeftRecursiveExpr {
-    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        let expr: BaseExpr = ts.parse()?;
-        match ts.peek::<SymbolToken>() {
-            Some(token) => match token.value() {
-                Symbol::Sharp => {
-                    if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
-                        ts.resume_parse(expr).map(Self::Map)
-                    } else {
-                        ts.resume_parse(expr).map(Self::Record)
-                    }
-                }
-                Symbol::Colon => {
-                    if let Ok(x) = ts.resume_parse((expr.clone(), true)) {
-                        Ok(Self::FunctionCall(x))
-                    } else {
-                        Ok(Self::Base(expr))
-                    }
-                }
-                Symbol::OpenParen => ts.resume_parse((expr, false)).map(Self::FunctionCall),
-                _ => Ok(Self::Base(expr)),
-            },
-            None => Ok(Self::Base(expr)),
-        }
+        matches!(self, Self::Base(BaseExpr::Literal(LiteralExpr::Integer(_))))
     }
 }
 
@@ -181,6 +166,16 @@ pub enum AtomLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
+}
+
+impl From<AtomLikeExpr> for BaseExpr {
+    fn from(x: AtomLikeExpr) -> Self {
+        match x {
+            AtomLikeExpr::Atom(x) => Self::Literal(LiteralExpr::Atom(x)),
+            AtomLikeExpr::Variable(x) => Self::Literal(LiteralExpr::VariableToken(x)),
+            AtomLikeExpr::Expr(x) => Self::Parenthesized(Box::new(x)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

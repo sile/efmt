@@ -6,13 +6,13 @@ use crate::items::atoms::{
 };
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Args, Clauses2, Either, Maybe, NonEmptyItems, Params, Tuple};
+use crate::items::generics::{Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Tuple};
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::styles::{RightSpace, Space, TrailingColumns};
 use crate::items::symbols::{
-    CloseParenSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol, MatchSymbol,
-    OpenParenSymbol, RightArrowSymbol,
+    CloseParenSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
+    MatchSymbol, OpenParenSymbol, RightArrowSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::items::Type;
@@ -124,13 +124,14 @@ impl Format for TypeDecl {
 
 /// `-` (`spec` | `callback`) `$NAME` (`(` (`$PARAM` `,`?)* `)` `->` `$RETURN` `;`?)+ `.`
 ///
-/// - $NAME: [AtomToken]
+/// - $NAME: ([AtomToken] `:`)? [AtomToken]
 /// - $PARAM: [Type]
 /// - $RETURN: [Type]
 #[derive(Debug, Clone, Span, Parse)]
 pub struct FunSpec {
     hyphen: HyphenSymbol,
     kind: RightSpace<Either<SpecAtom, CallbackAtom>>,
+    module_name: Maybe<(AtomToken, ColonSymbol)>,
     function_name: AtomToken,
     clauses: Clauses2<SpecClause, 1>, // trailing: "."
     dot: DotSymbol,
@@ -141,6 +142,7 @@ impl Format for FunSpec {
         self.hyphen.format(fmt)?;
         self.kind.format(fmt)?;
         fmt.subregion().current_column_as_indent().enter(|fmt| {
+            self.module_name.format(fmt)?;
             self.function_name.format(fmt)?;
             self.clauses.format(fmt)
         })?;
@@ -201,8 +203,7 @@ impl Format for SpecClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct Constraint {
     when: Space<WhenKeyword>,
-    // TODO: binary-op-like
-    constraints: NonEmptyItems<(VariableToken, (Space<DoubleColonSymbol>, Type)), CommaSymbol>,
+    constraints: NonEmptyItems2<Type, CommaSymbol>,
 }
 
 /// (`$NAME` `(` (`$PARAM` `,`?)* `)` (`when` `$GUARD`)? `->` `$BODY` `;`?)+ `.`
@@ -513,6 +514,11 @@ mod tests {
             -spec id(X) -> X
                           when X :: tuple()."},
             indoc::indoc! {"
+            -spec id(X) -> X
+                          when is_subtype(X,
+                                          atom()),
+                               X :: atom()."},
+            indoc::indoc! {"
             -callback foobar(atom()) ->
                           {atom(),
                            atom()}."},
@@ -524,6 +530,9 @@ mod tests {
                           when A :: atom();
                         (a) ->
                       b."},
+            indoc::indoc! {"
+            -spec foo:bar() ->
+                      baz()."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);

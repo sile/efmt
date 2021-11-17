@@ -49,3 +49,8 @@ impl_parse!(CallbackAtom, "callback");
 #[derive(Debug, Clone, Span, Format)]
 pub struct RecordAtom(AtomToken);
 impl_parse!(RecordAtom, "record");
+
+// TODO
+// #[derive(Debug, Clone, Span, Format)]
+// pub struct InfinityAtom(AtomToken);
+// impl_parse!(InfinityAtom, "infinity");

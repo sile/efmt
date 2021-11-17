@@ -1,5 +1,5 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{BaseExpr, Expr, NonLeftRecursiveExpr};
+use crate::items::expressions::{BaseExpr, Expr};
 use crate::items::generics::{Args, Maybe};
 use crate::items::keywords;
 use crate::items::styles::{Child, RightSpace, Space};
@@ -40,7 +40,7 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpCallExpr {
     op: UnaryOp,
-    expr: Expr,
+    expr: BaseExpr,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -53,16 +53,13 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpCallExpr {
-    left: Child<NonLeftRecursiveExpr>,
+    left: Child<Expr>,
     op: Space<BinaryOp>,
     right: Expr,
 }
 
-impl ResumeParse<NonLeftRecursiveExpr> for BinaryOpCallExpr {
-    fn resume_parse(
-        ts: &mut parse::TokenStream,
-        left: NonLeftRecursiveExpr,
-    ) -> parse::Result<Self> {
+impl ResumeParse<Expr> for BinaryOpCallExpr {
+    fn resume_parse(ts: &mut parse::TokenStream, left: Expr) -> parse::Result<Self> {
         Ok(Self {
             left: Child(left),
             op: ts.parse()?,
@@ -213,6 +210,8 @@ mod tests {
                        b,
                        c())"},
             "foo:bar(baz)",
+            "[]:bar(baz)",
+            "foo:[](baz)",
             indoc::indoc! {"
             foo(A *
                 10 * B / 1_0.0)"},

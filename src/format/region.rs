@@ -148,6 +148,13 @@ impl RegionWriter {
             self.write("\n")?;
         }
 
+        if !text.is_empty() && self.last_char() == '\n' {
+            for _ in 0..self.config.indent {
+                self.state.formatted_text.push(' ');
+            }
+            self.state.current_column = self.config.indent;
+        }
+
         self.write(text)?;
         self.state.next_position = end;
         Ok(())
@@ -196,19 +203,11 @@ impl RegionWriter {
                     return Err(Error::MultiLine);
                 }
                 self.state.current_column = 0;
-            } else if self.last_char() == '$' || c != ' ' {
-                if self.state.current_column >= self.config.max_columns
-                    && !self.config.allow_too_long_line
-                {
-                    return Err(Error::LineTooLong);
-                }
-
-                if self.state.current_column < self.config.indent {
-                    for _ in self.state.current_column..self.config.indent {
-                        self.state.formatted_text.push(' ');
-                    }
-                    self.state.current_column = self.config.indent;
-                }
+            } else if (self.last_char() == '$' || c != ' ')
+                && self.state.current_column >= self.config.max_columns
+                && !self.config.allow_too_long_line
+            {
+                return Err(Error::LineTooLong);
             }
 
             self.state.formatted_text.push(c);

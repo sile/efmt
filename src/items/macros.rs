@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, Items, Maybe, Parenthesized};
+use crate::items::generics::{Args2, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
@@ -18,7 +18,7 @@ use std::collections::HashMap;
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
-    args: Maybe<Parenthesized<Items<MacroArg>>>,
+    args: Maybe<MacroArgs>,
 }
 
 impl Macro {
@@ -28,24 +28,27 @@ impl Macro {
         name: MacroName,
         arity: Option<usize>,
     ) -> parse::Result<Self> {
-        if let Some(_arity) = arity {
-            Ok(Self {
-                question,
-                name,
-                args: ts.parse()?,
-            })
-        } else {
-            Ok(Self {
+        match arity {
+            None => Ok(Self {
                 question,
                 name,
                 args: Maybe::none(ts)?,
-            })
+            }),
+            Some(0) => Ok(Self {
+                question,
+                name,
+                args: Maybe::from_item(ts.parse().map(MacroArgs::Empty)?),
+            }),
+            Some(_) => Ok(Self {
+                question,
+                name,
+                args: Maybe::from_item(ts.parse().map(MacroArgs::Args)?),
+            }),
         }
     }
 
     pub fn expand(&self, variables: Option<Vec<String>>, replacement: Vec<Token>) -> Vec<Token> {
-        let args = if let (Some(vars), Some(vals)) =
-            (&variables, self.args.get().map(|x| x.get().get()))
+        let args = if let (Some(vars), Some(vals)) = (&variables, self.args.get().map(|x| x.get()))
         {
             vars.iter()
                 .map(|x| &x[..])
@@ -150,6 +153,47 @@ impl Format for MacroReplacement {
 }
 
 #[derive(Debug, Clone)]
+struct Empty;
+
+impl Span for Empty {
+    fn start_position(&self) -> Position {
+        unreachable!()
+    }
+
+    fn end_position(&self) -> Position {
+        unreachable!()
+    }
+}
+
+impl Parse for Empty {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let token = ts.parse()?;
+        Err(parse::Error::unexpected_token(ts, token))
+    }
+}
+
+impl Format for Empty {
+    fn format(&self, _: &mut format::Formatter) -> format::Result<()> {
+        unreachable!()
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+enum MacroArgs {
+    Empty(Args2<Empty>),
+    Args(Args2<MacroArg>),
+}
+
+impl MacroArgs {
+    fn get(&self) -> &[MacroArg] {
+        match self {
+            Self::Empty(_) => &[],
+            Self::Args(x) => x.get(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 struct MacroArg {
     tokens: Vec<Token>,
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
@@ -214,7 +258,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseParen => {
                         if level.paren == 0 {
-                            todo!()
+                            todo!("{:?}", ts.current_position());
                         }
                         level.paren -= 1;
                     }
@@ -223,7 +267,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseBrace => {
                         if level.brace == 0 {
-                            todo!();
+                            todo!("{:?}", ts.current_position());
                         }
                         level.brace -= 1;
                     }
@@ -232,7 +276,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseSquare => {
                         if level.square == 0 {
-                            todo!();
+                            todo!("{:?}", ts.current_position());
                         }
 
                         level.square -= 1;
@@ -242,14 +286,18 @@ impl Parse for MacroArg {
                     }
                     Symbol::DoubleRightAngle => {
                         if level.bits == 0 {
-                            todo!();
+                            todo!("{:?}", ts.current_position());
                         }
                         level.bits -= 1;
                     }
                     _ => {}
                 },
                 Token::Keyword(x) => match x.value() {
-                    Keyword::Begin | Keyword::Try | Keyword::Case | Keyword::If => {
+                    Keyword::Begin
+                    | Keyword::Try
+                    | Keyword::Case
+                    | Keyword::If
+                    | Keyword::Receive => {
                         level.block += 1;
                     }
                     Keyword::Fun => {
@@ -261,7 +309,7 @@ impl Parse for MacroArg {
                     }
                     Keyword::End => {
                         if level.block == 0 {
-                            todo!();
+                            todo!("{:?}", ts.current_position());
                         }
                         level.block -= 1;
                     }
@@ -333,6 +381,12 @@ mod tests {
     #[test]
     fn macro_with_args_works() {
         let texts = [
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO(), foo).
+            foo() ->
+                ?FOO().
+            "},
             indoc::indoc! {"
             %---10---|%---20---|
             -define(FOO(Bar),
@@ -411,6 +465,21 @@ mod tests {
                 ?b(?a a), c].
             "},
         ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+
+    #[test]
+    fn macro_and_comment_works() {
+        let texts = [indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO(A), A).
+            qux() ->
+                ?FOO(\"aaa\"
+                     \"bbb\"  % comment
+                     \"ccc\").
+            "}];
         for text in texts {
             crate::assert_format!(text, Module);
         }

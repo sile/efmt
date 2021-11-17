@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::expressions::{Body, Expr, Guard, GuardCondition, IntegerLikeExpr};
+use crate::items::expressions::{Body, Expr, Guard, GuardCondition};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
@@ -75,7 +75,7 @@ pub struct ReceiveTimeout {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveTimeoutClause {
-    millis: IntegerLikeExpr,
+    timeout: Expr,
     arrow: Space<RightArrowSymbol>,
     body: Body,
 }
@@ -190,6 +190,12 @@ mod tests {
                 receive
                 after
                     N ->
+                        timeout
+                end"},
+            indoc::indoc! {"
+                receive
+                after
+                    infinity ->
                         timeout
                 end"},
         ];

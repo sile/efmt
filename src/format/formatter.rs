@@ -65,6 +65,10 @@ impl Formatter {
         self.writer.config()
     }
 
+    pub fn last_char(&self) -> char {
+        self.writer.last_char()
+    }
+
     pub fn is_multi_line_allowed(&self) -> bool {
         self.writer.config().allow_multi_line
     }
@@ -101,7 +105,6 @@ impl Formatter {
     }
 
     fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
-        assert_eq!(self.macro_state, MacroState::None);
         self.writer.write_comment(&self.text, item)?;
         Ok(())
     }

@@ -1,5 +1,5 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{BaseExpr, Expr};
+use crate::items::expressions::BaseExpr;
 use crate::items::generics::{Elements, Maybe, NonEmptyItems};
 use crate::items::qualifiers::Qualifier;
 use crate::items::styles::{ColumnIndent, RightSpace, Space};
@@ -27,7 +27,7 @@ pub struct BitstringConstructExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr {
     open: RightSpace<DoubleLeftAngleSymbol>,
-    item: Expr,
+    item: BaseExpr,
     bar: Space<DoubleVerticalBarSymbol>,
     qualifiers: ColumnIndent<NonEmptyItems<Qualifier>>,
     close: DoubleRightAngleSymbol,
@@ -94,7 +94,7 @@ pub struct BitstringSegmentTypeSpecifier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::items::expressions::Expr;
 
     #[test]
     fn bitstring_construct_works() {
@@ -126,15 +126,15 @@ mod tests {
                               2,
                               3]>>"},
             indoc::indoc! {"
-            << foo(X,
-                   Y,
-                   Z,
-                   bar(),
-                   baz()) || X <- [1,
-                                   2,
-                                   3],
-                             Y <= Z,
-                             false>>"},
+            << (foo(X,
+                    Y,
+                    Z,
+                    bar(),
+                    baz())) || X <- [1,
+                                     2,
+                                     3],
+                               Y <= Z,
+                               false>>"},
             indoc::indoc! {"
             << <<if
                      X < 10 ->

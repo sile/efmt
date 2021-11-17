@@ -1,5 +1,6 @@
+use anyhow::Context;
 use efmt::format::FormatOptions;
-use efmt::items::Module;
+use efmt::items::{LooseModule, Module};
 use efmt::parse::TokenStreamOptions;
 use env_logger::Env;
 use std::io::Read as _;
@@ -22,6 +23,9 @@ struct Opt {
 
     #[structopt(long)]
     disable_include_cache: bool,
+
+    #[structopt(long)]
+    ignore_malformed_forms: bool,
 
     #[structopt(long)]
     skip_validation: bool,
@@ -58,12 +62,21 @@ fn main() -> anyhow::Result<()> {
     let (text, formatted_text) = match opt.file {
         Some(path) => {
             let text = std::fs::read_to_string(&path)?;
-            (text, format_options.format_file::<Module, _>(path)?)
+            let formatted = if opt.ignore_malformed_forms {
+                format_options.format_file::<LooseModule, _>(path)?
+            } else {
+                format_options.format_file::<Module, _>(path)?
+            };
+            (text, formatted)
         }
         None => {
             let mut text = String::new();
             std::io::stdin().lock().read_to_string(&mut text)?;
-            let formatted = format_options.format_text::<Module>(&text)?;
+            let formatted = if opt.ignore_malformed_forms {
+                format_options.format_text::<LooseModule>(&text)?
+            } else {
+                format_options.format_text::<Module>(&text)?
+            };
             (text, formatted)
         }
     };
@@ -75,7 +88,8 @@ fn main() -> anyhow::Result<()> {
     };
 
     if !opt.skip_validation {
-        validate_formatted_text(&text, &formatted_text)?;
+        validate_formatted_text(&text, &formatted_text)
+            .with_context(|| "formatted code validation error")?;
     }
 
     print!("{}", formatted_text);

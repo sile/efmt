@@ -21,6 +21,7 @@ pub enum Error {
 
 impl Error {
     pub fn unexpected_token(ts: &TokenStream, token: Token) -> Self {
+        // TODO: Optimize (lazily generate the message)
         let message = Self::generate_unexpected_token_place(ts.text(), ts.filepath(), &token);
         Self::UnexpectedToken {
             position: token.start_position(),

@@ -145,6 +145,12 @@ pub struct Args<T>(Parenthesized<Items<T>>);
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Args2<T>(Parenthesized2<Items2<T>>);
 
+impl<T> Args2<T> {
+    pub fn get(&self) -> &[T] {
+        self.0.get().get()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NonEmptyItems<T, D = CommaSymbol> {
     // TODO: private
@@ -326,6 +332,7 @@ impl<T: Format> Format for MaybeRepeat<T> {
     }
 }
 
+// TODO: TupleLike
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Tuple<T, const N: usize> {
     open: OpenBraceSymbol,
