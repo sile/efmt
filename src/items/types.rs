@@ -4,7 +4,7 @@
 use crate::format::{self, Format};
 use crate::items::generics::{
     Args2, BinaryOpLike, Either, Maybe, NeedsBeforeSpace, NonEmptyItems2, Params, Parenthesized,
-    Parenthesized2, Tuple, UnaryOpLike,
+    Parenthesized2, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -215,13 +215,13 @@ impl Format for ListType {
 
 /// `{` ([Type] `,`)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleType(Tuple<Type, 1>);
+pub struct TupleType(TupleLike<Type>);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType {
     sharp: SharpSymbol,
-    items: Tuple<MapItem, 1>,
+    items: TupleLike<MapItem>,
 }
 
 type MapItem = BinaryOpLike<Type, Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Type, 4>;
@@ -234,7 +234,7 @@ type MapItem = BinaryOpLike<Type, Space<Either<DoubleRightArrowSymbol, MapMatchS
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: Tuple<RecordItem, 1>,
+    fields: TupleLike<RecordItem>,
 }
 
 type RecordItem = BinaryOpLike<AtomToken, Space<DoubleColonSymbol>, Type, 4>;

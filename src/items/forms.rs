@@ -7,7 +7,7 @@ use crate::items::atoms::{
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{
-    Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Parenthesized2, Tuple,
+    Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Parenthesized2, TupleLike,
 };
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
@@ -44,7 +44,7 @@ pub struct RecordDecl {
     open: OpenParenSymbol,
     name: AtomToken,
     comma: RightSpace<CommaSymbol>,
-    fields: Tuple<RecordField, 3>, // "})."
+    fields: TrailingColumns<TupleLike<RecordField>, 2>, // ")."
     close: CloseParenSymbol,
     dot: DotSymbol,
 }

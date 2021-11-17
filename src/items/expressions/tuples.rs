@@ -1,16 +1,12 @@
 use crate::format::Format;
 use crate::items::expressions::Expr;
-use crate::items::generics::Elements;
-use crate::items::symbols::{CloseBraceSymbol, OpenBraceSymbol};
+use crate::items::generics::TupleLike;
 use crate::parse::Parse;
 use crate::span::Span;
 
+/// `{` ([Expr] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleExpr {
-    open: OpenBraceSymbol,
-    items: Elements<Expr>,
-    close: CloseBraceSymbol,
-}
+pub struct TupleExpr(TupleLike<Expr>);
 
 #[cfg(test)]
 mod tests {

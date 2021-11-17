@@ -1,3 +1,4 @@
+/// Erlang expressions.
 use crate::format::{self, Format};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
@@ -18,7 +19,8 @@ pub mod lists;
 pub mod maps;
 pub mod records;
 pub mod strings;
-pub mod tuples;
+
+mod tuples;
 
 pub use self::bitstrings::BitstringExpr;
 pub use self::blocks::BlockExpr;

@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{Either, Expr};
-use crate::items::generics::Tuple;
+use crate::items::generics::TupleLike;
 use crate::items::styles::Space;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
@@ -34,7 +34,7 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: Tuple<RecordField, 1>,
+    fields: TupleLike<RecordField>,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -76,7 +76,7 @@ pub struct RecordUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: Tuple<RecordField, 1>,
+    fields: TupleLike<RecordField>,
 }
 
 impl ResumeParse<Expr> for RecordUpdateExpr {

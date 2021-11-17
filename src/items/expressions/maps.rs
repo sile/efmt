@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, Tuple};
+use crate::items::generics::{Either, TupleLike};
 use crate::items::styles::Space;
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
 use crate::parse::{self, Parse, ResumeParse};
@@ -9,14 +9,14 @@ use crate::span::Span;
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
-    items: Tuple<MapItem, 1>,
+    items: TupleLike<MapItem>,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct MapUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
-    items: Tuple<MapItem, 1>,
+    items: TupleLike<MapItem>,
 }
 
 impl ResumeParse<Expr> for MapUpdateExpr {
@@ -60,8 +60,7 @@ mod tests {
             %---10---|%---20---|
             #{1 => 2,
               333 => {444, 55},
-              foo => {bar,
-                      baz}}"},
+              foo => {bar, baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

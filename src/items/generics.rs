@@ -332,18 +332,17 @@ impl<T: Format> Format for MaybeRepeat<T> {
     }
 }
 
-// TODO: TupleLike
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Tuple<T, const N: usize> {
+pub struct TupleLike<T> {
     open: OpenBraceSymbol,
-    items: TupleElements<T, N>,
+    items: MaybePackedItems<T>,
     close: CloseBraceSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct TupleElements<T, const N: usize>(Items<T>);
+struct MaybePackedItems<T>(Items<T>);
 
-impl<T: Format, const N: usize> TupleElements<T, N> {
+impl<T: Format> MaybePackedItems<T> {
     fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
         let (items, delimiters) =
             if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters)) {
@@ -377,11 +376,11 @@ impl<T: Format, const N: usize> TupleElements<T, N> {
     }
 }
 
-impl<T: Format, const N: usize> Format for TupleElements<T, N> {
+impl<T: Format> Format for MaybePackedItems<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion()
             .current_column_as_indent()
-            .trailing_columns(N) // TODO: remove (may always be 1?)
+            .trailing_columns(1) // "}"
             .enter(|fmt| {
                 let packed = self.0.get().iter().all(|x| x.should_be_packed());
                 if packed {
