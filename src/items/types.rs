@@ -3,8 +3,8 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
 use crate::items::generics::{
-    Args2, BinaryOpLike, Either, Maybe, NonEmptyItems2, Params, Parenthesized, Parenthesized2,
-    Tuple, UnaryOpLike,
+    Args2, BinaryOpLike, Either, Maybe, NeedsBeforeSpace, NonEmptyItems2, Params, Parenthesized,
+    Parenthesized2, Tuple, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -109,6 +109,15 @@ pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
     Bnot(Space<BnotKeyword>),
+}
+
+impl NeedsBeforeSpace for UnaryOp {
+    fn needs_before_space(&self, fmt: &format::Formatter) -> bool {
+        matches!(
+            (fmt.last_char(), self),
+            ('-', UnaryOp::Minus(_)) | ('+', UnaryOp::Plus(_))
+        )
+    }
 }
 
 /// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`
@@ -389,7 +398,7 @@ mod tests {
 
     #[test]
     fn unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100"];
+        let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
         for text in texts {
             crate::assert_format!(text, Type);
         }

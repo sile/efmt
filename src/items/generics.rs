@@ -465,14 +465,21 @@ impl<T, D> Items2<T, D> {
     }
 }
 
+pub trait NeedsBeforeSpace {
+    fn needs_before_space(&self, fmt: &format::Formatter) -> bool;
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
 }
 
-impl<O: Format, T: Format> Format for UnaryOpLike<O, T> {
+impl<O: Format + NeedsBeforeSpace, T: Format> Format for UnaryOpLike<O, T> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if self.op.needs_before_space(fmt) {
+            fmt.write_space()?;
+        }
         self.op.format(fmt)?;
         self.item.format(fmt)?;
         Ok(())

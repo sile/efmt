@@ -37,10 +37,24 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct UnaryOpCallExpr {
     op: UnaryOp,
     expr: BaseExpr,
+}
+
+impl Format for UnaryOpCallExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        match (fmt.last_char(), &self.op) {
+            ('-', UnaryOp::Minus(_)) | ('+', UnaryOp::Plus(_)) => {
+                fmt.write_space()?;
+            }
+            _ => {}
+        }
+        self.op.format(fmt)?;
+        self.expr.format(fmt)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -223,7 +237,7 @@ mod tests {
 
     #[test]
     fn unary_op_call_works() {
-        let texts = ["-1", "bnot Foo(1, +2, 3)"];
+        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ +-3"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }

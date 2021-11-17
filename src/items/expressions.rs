@@ -106,6 +106,10 @@ impl BaseExpr {
     pub fn is_integer_token(&self) -> bool {
         matches!(self, Self::Literal(LiteralExpr::Integer(_)))
     }
+
+    pub fn is_unary_op_call_expr(&self) -> bool {
+        matches!(self, Self::UnaryOpCall(_))
+    }
 }
 
 #[derive(Debug, Clone, Span, Format)]
