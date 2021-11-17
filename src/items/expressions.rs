@@ -15,11 +15,11 @@ pub mod bitstrings;
 pub mod blocks;
 pub mod calls;
 pub mod functions;
-pub mod maps;
-pub mod records;
-pub mod strings;
 
 mod lists;
+mod maps;
+mod records;
+mod strings;
 mod tuples;
 
 pub use self::bitstrings::BitstringExpr;
@@ -28,7 +28,10 @@ pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallE
 pub use self::functions::FunctionExpr;
 pub use self::lists::{ListComprehensionExpr, ListConstructExpr, ListExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
-pub use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
+pub use self::records::{
+    RecordAccessExpr, RecordAccessOrUpdateExpr, RecordConstructExpr, RecordConstructOrIndexExpr,
+    RecordIndexExpr, RecordUpdateExpr,
+};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 

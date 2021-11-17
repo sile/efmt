@@ -1,17 +1,24 @@
 use crate::format::{self, Format};
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, TupleLike};
+use crate::items::generics::{Either, MatchLike, TupleLike};
 use crate::items::styles::Space;
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
+/// `#` `{` (`$ENTRY`, `,`?)* `}`
+///
+/// - $ENTRY: `Expr` `=>` `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     items: TupleLike<MapItem>,
 }
 
+/// `$VALUE` `#` `{` (`$ENTRY`, `,`?)* `}`
+///
+/// - $VALUE: `Expr`
+/// - $ENTRY: `Expr` (`:=` | `=>`) `Expr`
 #[derive(Debug, Clone, Span, Parse)]
 pub struct MapUpdateExpr {
     value: Expr,
@@ -42,11 +49,7 @@ impl Format for MapUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapItem {
-    key: Expr,
-    delimiter: Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>,
-    value: Expr,
-}
+struct MapItem(MatchLike<Expr, Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Expr>);
 
 #[cfg(test)]
 mod tests {
@@ -76,8 +79,9 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             (foo())#{1 => 2,
-                     foo := {bar,
-                             baz}}"},
+                     foo :=
+                         {bar,
+                          baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

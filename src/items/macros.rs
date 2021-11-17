@@ -200,6 +200,8 @@ impl MacroArgs {
 #[derive(Debug, Clone)]
 struct MacroArg {
     tokens: Vec<Token>,
+
+    // TODO: Support macros in a macro arg
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
 }
 

@@ -4,6 +4,7 @@ use crate::items::tokens::StringToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
+/// [StringToken]+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct StringExpr(MaybeRepeat<StringToken>);
 
@@ -30,13 +31,13 @@ mod tests {
         let texts = [
             "\"foo\"",
             indoc::indoc! {r#"
-                "foo"
-                "bar"
-                "baz""#},
+            "foo"
+            "bar"
+            "baz""#},
             indoc::indoc! {r#"
-                foo("bar"
-                    "baz",
-                    qux)"#},
+            foo("bar"
+                "baz",
+                qux)"#},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

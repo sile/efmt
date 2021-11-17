@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{Either, Expr};
-use crate::items::generics::TupleLike;
+use crate::items::generics::{MatchLike, TupleLike};
 use crate::items::styles::Space;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
@@ -30,6 +30,10 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
     }
 }
 
+/// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
+///
+/// - $NAME: [AtomToken]
+/// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
@@ -37,6 +41,11 @@ pub struct RecordConstructExpr {
     fields: TupleLike<RecordField>,
 }
 
+/// `$VALUE` `#` `$NAME` `.` `$FIELD`
+///
+/// - $VALUE: [Expr]
+/// - $NAME: [AtomToken]
+/// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RecordAccessExpr {
     value: Expr,
@@ -63,6 +72,10 @@ impl Format for RecordAccessExpr {
     }
 }
 
+/// `#` `$NAME` `.` `$FIELD`
+///
+/// - $NAME: [AtomToken]
+/// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordIndexExpr {
     sharp: SharpSymbol,
@@ -71,6 +84,11 @@ pub struct RecordIndexExpr {
     field: AtomToken,
 }
 
+/// `$VALUE` `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
+///
+/// - $VALUE: [Expr]
+/// - $NAME: [AtomToken]
+/// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RecordUpdateExpr {
     value: Expr,
@@ -104,11 +122,7 @@ impl Format for RecordUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct RecordField {
-    name: Either<AtomToken, UnderscoreVariable>,
-    delimiter: Space<MatchSymbol>,
-    value: Expr,
-}
+struct RecordField(MatchLike<Either<AtomToken, UnderscoreVariable>, Space<MatchSymbol>, Expr>);
 
 #[cfg(test)]
 mod tests {
@@ -122,9 +136,10 @@ mod tests {
             #foo{module = Mod,
                  _ = '_'}"},
             indoc::indoc! {"
+            %---10---|%---20---|
             #foo{bar = 2,
-                 baz = {bar,
-                        baz}}"},
+                 baz =
+                     {bar, baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -157,12 +172,17 @@ mod tests {
         let texts = [
             "M#foo{}",
             "88 #foo{}",
-            "M#foo.bar#baz{qux = 1}",
             "M#baz{qux = 1}#foo.bar",
             indoc::indoc! {"
-                (foo())#foo{bar = 2,
-                            baz = {bar,
-                                   baz}}"},
+            %---10---|%---20---|
+            M#foo.bar#baz{qux =
+                              1}"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            (foo())#foo{bar = 2,
+                        baz =
+                            {bar,
+                             baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

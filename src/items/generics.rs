@@ -544,3 +544,38 @@ impl<T0: Format, O: Format, T1: Format, const I: usize> Format for BinaryOpLike<
         })
     }
 }
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct MatchLike<L, D, R> {
+    left: L,
+    delimiter: D,
+    right: R,
+}
+
+impl<L: Format, D: Format, R: Format> Format for MatchLike<L, D, R> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().current_column_as_indent().enter(|fmt| {
+            fmt.subregion()
+                .trailing_columns2(self.delimiter.len())
+                .enter(|fmt| self.left.format(fmt))?;
+            self.delimiter.format(fmt)?;
+
+            fmt.subregion()
+                .forbid_multi_line()
+                .forbid_too_long_line()
+                .enter(|fmt| self.right.format(fmt))
+                .or_else(|_| {
+                    if fmt.current_relative_column() <= 4 {
+                        self.right.format(fmt)
+                    } else {
+                        fmt.subregion().indent_offset(4).enter(|fmt| {
+                            fmt.write_newline()?;
+                            self.right.format(fmt)
+                        })
+                    }
+                })?;
+
+            Ok(())
+        })
+    }
+}
