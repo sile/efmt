@@ -6,7 +6,9 @@ use crate::items::atoms::{
 };
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Tuple};
+use crate::items::generics::{
+    Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Parenthesized2, Tuple,
+};
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::styles::{RightSpace, Space, TrailingColumns};
@@ -85,21 +87,30 @@ struct RecordField {
 /// - $NAME: [AtomToken]
 /// - $PARAM: [VariableToken]
 /// - $TYPE: [Type]
-#[derive(Debug, Clone, Span, Parse)]
+///
+/// Note that the parenthesized notation like `-type(foo() :: bar()).` is also acceptable
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TypeDecl {
     hyphen: HyphenSymbol,
-    kind: RightSpace<Either<TypeAtom, OpaqueAtom>>,
+    kind: Either<TypeAtom, OpaqueAtom>,
+    item: Either<TypeDeclItem, Parenthesized2<TypeDeclItem>>,
+    dot: DotSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct TypeDeclItem {
     name: AtomToken,
     params: TrailingColumns<Params<VariableToken>, 3>, // " ::"
     delimiter: Space<DoubleColonSymbol>,
     r#type: TrailingColumns<Type, 1>, // "."
-    dot: DotSymbol,
 }
 
-impl Format for TypeDecl {
+impl Format for TypeDeclItem {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.kind.format(fmt)?;
+        if fmt.last_char() != '(' {
+            fmt.write_space()?;
+        }
+
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             self.name.format(fmt)?;
             self.params.format(fmt)?;
@@ -117,7 +128,6 @@ impl Format for TypeDecl {
             }
             Ok(())
         })?;
-        self.dot.format(fmt)?;
         Ok(())
     }
 }
@@ -127,26 +137,34 @@ impl Format for TypeDecl {
 /// - $NAME: ([AtomToken] `:`)? [AtomToken]
 /// - $PARAM: [Type]
 /// - $RETURN: [Type]
-#[derive(Debug, Clone, Span, Parse)]
+///
+/// Note that the parenthesized notation like `-spec(foo() -> bar()).` is also acceptable
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunSpec {
     hyphen: HyphenSymbol,
-    kind: RightSpace<Either<SpecAtom, CallbackAtom>>,
-    module_name: Maybe<(AtomToken, ColonSymbol)>,
-    function_name: AtomToken,
-    clauses: Clauses2<SpecClause, 1>, // trailing: "."
+    kind: Either<SpecAtom, CallbackAtom>,
+    item: Either<FunSpecItem, Parenthesized2<FunSpecItem>>,
     dot: DotSymbol,
 }
 
-impl Format for FunSpec {
+#[derive(Debug, Clone, Span, Parse)]
+struct FunSpecItem {
+    module_name: Maybe<(AtomToken, ColonSymbol)>,
+    function_name: AtomToken,
+    clauses: Clauses2<SpecClause, 1>, // trailing: "."
+}
+
+impl Format for FunSpecItem {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.kind.format(fmt)?;
+        if fmt.last_char() != '(' {
+            fmt.write_space()?;
+        }
+
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             self.module_name.format(fmt)?;
             self.function_name.format(fmt)?;
             self.clauses.format(fmt)
         })?;
-        self.dot.format(fmt)?;
         Ok(())
     }
 }
@@ -533,6 +551,9 @@ mod tests {
             indoc::indoc! {"
             -spec foo:bar() ->
                       baz()."},
+            indoc::indoc! {"
+            -spec(foo:bar() ->
+                      baz())."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
@@ -543,6 +564,7 @@ mod tests {
     fn type_decl_works() {
         let texts = [
             "-type foo() :: a.",
+            "-type(foo() :: a).",
             indoc::indoc! {"
             %---10---|%---20---|
             -type foo() :: bar |
