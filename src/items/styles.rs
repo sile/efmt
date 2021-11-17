@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::parse::Parse;
-use crate::span::Span;
+use crate::span::{Position, Span};
 
 // TODO: delete or rename
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -35,13 +35,30 @@ impl<T: Format> Format for Block<T> {
     }
 }
 
-// TODO: implement Span::len method?
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Parse)]
 pub struct Space<T>(T);
 
 impl<T> Space<T> {
     pub fn get(&self) -> &T {
         &self.0
+    }
+}
+
+impl<T: Span> Span for Space<T> {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.0.end_position()
+    }
+
+    fn len(&self) -> usize {
+        if self.0.is_empty() {
+            0
+        } else {
+            self.0.len() + 1
+        }
     }
 }
 

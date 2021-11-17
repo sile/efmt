@@ -333,30 +333,31 @@ impl<T: Format> Format for MaybeRepeat<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListLike<T> {
+pub struct ListLike<T, D = CommaSymbol> {
     open: OpenSquareSymbol,
-    items: MaybePackedItems<T>,
+    items: TrailingColumns<MaybePackedItems<T, D>, 1>, // "]"
     close: CloseSquareSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T> {
     open: OpenBraceSymbol,
-    items: MaybePackedItems<T>,
+    items: TrailingColumns<MaybePackedItems<T>, 1>, // "}"
     close: CloseBraceSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
+pub struct MaybePackedItems<T, D = CommaSymbol>(Items2<T, D>);
 
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
-        let (items, delimiters) =
-            if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters)) {
-                (items, delimiters)
-            } else {
-                return Ok(());
-            };
+        let (items, delimiters) = if let Some((items, delimiters)) =
+            self.0 .0.get().map(|x| (&x.0.items, &x.0.delimiters))
+        {
+            (items, delimiters)
+        } else {
+            return Ok(());
+        };
 
         let max_columns = fmt.region_config().max_columns;
         fn is_head(fmt: &Formatter) -> bool {
@@ -373,6 +374,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
             fmt.write_space()?;
         }
 
+        // TODO: check trailing columns
         let item = items.last().expect("unreachable");
         if !is_head(fmt) && fmt.current_column() + item.len() > max_columns {
             fmt.write_newline()?;
@@ -385,23 +387,20 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
 
 impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .current_column_as_indent()
-            .trailing_columns(1) // "}"
-            .enter(|fmt| {
-                let packed = self.0.get().iter().all(|x| x.should_be_packed());
-                if packed {
-                    self.format_packed_items(fmt)
-                } else {
-                    self.0.format(fmt)
-                }
-            })
+        fmt.subregion().current_column_as_indent().enter(|fmt| {
+            let packed = self.0.get().iter().all(|x| x.should_be_packed());
+            if packed {
+                self.format_packed_items(fmt)
+            } else {
+                self.0.format(fmt)
+            }
+        })
     }
 }
 
 // TODO: refactor
 #[derive(Debug, Clone, Span, Parse)]
-pub struct NonEmptyItems2<T, D = CommaSymbol>(NonEmptyItems<T, D>);
+pub struct NonEmptyItems2<T, D = CommaSymbol>(pub NonEmptyItems<T, D>); // TODO: pub
 
 impl<T, D> NonEmptyItems2<T, D> {
     pub fn get(&self) -> &[T] {
@@ -554,28 +553,30 @@ pub struct MatchLike<L, D, R> {
 
 impl<L: Format, D: Format, R: Format> Format for MatchLike<L, D, R> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            fmt.subregion()
-                .trailing_columns2(self.delimiter.len())
-                .enter(|fmt| self.left.format(fmt))?;
-            self.delimiter.format(fmt)?;
+        fmt.subregion()
+            .current_column_as_indent()
+            .trailing_columns2(self.delimiter.len())
+            .enter(|fmt| self.left.format(fmt))?;
+        self.delimiter.format(fmt)?;
 
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .enter(|fmt| self.right.format(fmt))
-                .or_else(|_| {
-                    if fmt.current_relative_column() <= 4 {
+        fmt.subregion()
+            .forbid_multi_line()
+            .forbid_too_long_line()
+            .check_trailing_columns(true)
+            .enter(|fmt| self.right.format(fmt))
+            .or_else(|_| {
+                if fmt.current_relative_column() <= 4 {
+                    self.right.format(fmt)
+                } else {
+                    fmt.subregion().indent_offset(4).enter(|fmt| {
+                        fmt.write_newline()?;
                         self.right.format(fmt)
-                    } else {
-                        fmt.subregion().indent_offset(4).enter(|fmt| {
-                            fmt.write_newline()?;
-                            self.right.format(fmt)
-                        })
-                    }
-                })?;
+                    })
+                }
+            })?;
 
-            Ok(())
-        })
+        Ok(())
     }
 }
+
+pub type UnbalancedBinaryOpLike<L, D, R> = MatchLike<L, D, R>;

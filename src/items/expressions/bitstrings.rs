@@ -1,8 +1,8 @@
 use crate::format::{self, Format};
-use crate::items::expressions::BaseExpr;
-use crate::items::generics::{Elements, Maybe, NonEmptyItems};
+use crate::items::expressions::{BaseExpr, Expr};
+use crate::items::generics::{Maybe, MaybePackedItems, NonEmptyItems2, UnbalancedBinaryOpLike};
 use crate::items::qualifiers::Qualifier;
-use crate::items::styles::{ColumnIndent, RightSpace, Space};
+use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
     HyphenSymbol, SlashSymbol,
@@ -17,24 +17,31 @@ pub enum BitstringExpr {
     Comprehension(BitstringComprehensionExpr),
 }
 
+/// `<<` (`$SEGMENT` `,`?)* `>>`
+///
+/// - $SEGMENT: [Expr] `$SIZE`? `$TYPE`?
+/// - $SIZE: `:` [Expr]
+/// - $TYPE: `/` ([AtomToken] `-`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr {
     open: DoubleLeftAngleSymbol,
-    segments: Elements<BitstringSegment>,
+    segments: TrailingColumns<MaybePackedItems<BitstringSegment>, 2>, // ">>"
     close: DoubleRightAngleSymbol,
 }
 
+/// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr {
-    open: RightSpace<DoubleLeftAngleSymbol>,
-    item: BaseExpr,
-    bar: Space<DoubleVerticalBarSymbol>,
-    qualifiers: ColumnIndent<NonEmptyItems<Qualifier>>,
+    open: DoubleLeftAngleSymbol,
+    body: TrailingColumns<ComprehensionBody, 2>, // ">>",
     close: DoubleRightAngleSymbol,
 }
 
+type ComprehensionBody =
+    UnbalancedBinaryOpLike<Expr, Space<DoubleVerticalBarSymbol>, NonEmptyItems2<Qualifier>>;
+
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BitstringSegment {
+struct BitstringSegment {
     value: BaseExpr,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
@@ -54,15 +61,15 @@ impl Format for BitstringSegment {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringSegmentSize {
+struct BitstringSegmentSize {
     colon: ColonSymbol,
     size: BaseExpr,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BitstringSegmentType {
+struct BitstringSegmentType {
     slash: SlashSymbol,
-    specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
+    specifiers: NonEmptyItems2<BitstringSegmentTypeSpecifier, HyphenSymbol>,
 }
 
 impl Format for BitstringSegmentType {
@@ -70,14 +77,15 @@ impl Format for BitstringSegmentType {
         self.slash.format(fmt)?;
         for (item, delimiter) in self
             .specifiers
-            .items
+            .get()
             .iter()
-            .zip(self.specifiers.delimiters.iter())
+            .zip(self.specifiers.0.delimiters.iter())
         {
             item.format(fmt)?;
             delimiter.format(fmt)?;
         }
         self.specifiers
+            .0
             .items
             .last()
             .expect("unreachable")
@@ -87,7 +95,7 @@ impl Format for BitstringSegmentType {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringSegmentTypeSpecifier {
+struct BitstringSegmentTypeSpecifier {
     name: AtomToken,
     value: Maybe<(ColonSymbol, IntegerToken)>,
 }
@@ -101,8 +109,9 @@ mod tests {
         let texts = [
             "<<>>",
             indoc::indoc! {"
-            <<1, 2, 3, 4, 5,
-              6, 7, 8, 9>>"},
+            %---10---|%---20---|
+            <<1, 2, 3, 4, 5, 6,
+              7, 8, 9>>"},
             "<<1, 2:16, 3>>",
             "<<<<\"foo\">>/binary>>",
             indoc::indoc! {"
@@ -122,29 +131,30 @@ mod tests {
     fn bitstring_comprehension_works() {
         let texts = [
             indoc::indoc! {"
-            << <<X>> || X <- [1,
-                              2,
-                              3]>>"},
+            %---10---|%---20---|
+            <<<<X>> ||
+                X <- [1, 2, 3]>>"},
             indoc::indoc! {"
-            << (foo(X,
-                    Y,
-                    Z,
-                    bar(),
-                    baz())) || X <- [1,
-                                     2,
-                                     3],
-                               Y <= Z,
-                               false>>"},
+            %---10---|%---20---|
+            <<(foo(X,
+                   Y,
+                   Z,
+                   bar(),
+                   baz())) ||
+                X <- [1, 2, 3,
+                      4, 5],
+                Y <= Z,
+                false>>"},
             indoc::indoc! {"
-            << <<if
-                     X < 10 ->
-                         X +
-                         $0;
-                     true ->
-                         X -
-                         10 +
-                         $A
-                 end>> || <<X:4>> <= B>>"},
+            %---10---|%---20---|
+            <<<<if
+                    X < 10 ->
+                        X + $0;
+                    true ->
+                        X -
+                        10 + $A
+                end>> ||
+                <<X:4>> <= B>>"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

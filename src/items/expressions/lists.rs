@@ -1,8 +1,8 @@
-use crate::format::{self, Format};
+use crate::format::Format;
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, MaybePackedItems, NonEmptyItems2};
+use crate::items::generics::{Either, ListLike, NonEmptyItems2, UnbalancedBinaryOpLike};
 use crate::items::qualifiers::Qualifier;
-use crate::items::styles::{ColumnIndent, Space, TrailingColumns};
+use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
@@ -18,47 +18,20 @@ pub enum ListExpr {
 
 /// `[` ([Expr] (`,` | `|`)?)* `]`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListConstructExpr {
-    open: OpenSquareSymbol,
-    items: TrailingColumns<MaybePackedItems<Expr, ListItemDelimiter>, 1>, // "]"
-    close: CloseSquareSymbol,
-}
+pub struct ListConstructExpr(ListLike<Expr, ListItemDelimiter>);
 
 type ListItemDelimiter = Either<CommaSymbol, Space<VerticalBarSymbol>>;
 
-/// `[` [Expr] `||` ([Qualifier] `,`?)* `]`
-#[derive(Debug, Clone, Span, Parse)]
+/// `[` [Expr] `||` ([Qualifier] `,`?)+ `]`
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
-    item: ColumnIndent<TrailingColumns<Expr, 3>>, // " ||"
-    bar: Space<DoubleVerticalBarSymbol>,
-    qualifiers: TrailingColumns<NonEmptyItems2<Qualifier>, 1>, // "]"
+    body: TrailingColumns<ListComprehensionBody, 1>, // "]"
     close: CloseSquareSymbol,
 }
 
-impl Format for ListComprehensionExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.open.format(fmt)?;
-            self.item.format(fmt)?;
-            self.bar.format(fmt)?;
-
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .enter(|fmt| self.qualifiers.format(fmt))
-                .or_else(|_| {
-                    fmt.subregion().indent_offset(4).enter(|fmt| {
-                        fmt.write_newline()?;
-                        self.qualifiers.format(fmt)
-                    })
-                })?;
-
-            self.close.format(fmt)?;
-            Ok(())
-        })
-    }
-}
+type ListComprehensionBody =
+    UnbalancedBinaryOpLike<Expr, Space<DoubleVerticalBarSymbol>, NonEmptyItems2<Qualifier>>;
 
 #[cfg(test)]
 mod tests {

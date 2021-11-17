@@ -11,18 +11,18 @@ use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
-pub mod bitstrings;
 pub mod blocks;
 pub mod calls;
 pub mod functions;
 
+mod bitstrings;
 mod lists;
 mod maps;
 mod records;
 mod strings;
 mod tuples;
 
-pub use self::bitstrings::BitstringExpr;
+pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr, BitstringExpr};
 pub use self::blocks::BlockExpr;
 pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::FunctionExpr;
