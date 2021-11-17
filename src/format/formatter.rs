@@ -3,7 +3,7 @@ use crate::format::{Error, Format as _, RegionOptions, Result};
 use crate::items::macros::Macro;
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug)]
 pub struct Formatter {
@@ -11,7 +11,7 @@ pub struct Formatter {
     text: String,
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
-    macro_state: MacroState,
+    formatting_macros: HashSet<Position>,
 }
 
 impl Formatter {
@@ -26,7 +26,7 @@ impl Formatter {
             text,
             macros,
             comments,
-            macro_state: MacroState::None,
+            formatting_macros: HashSet::new(),
         }
     }
 
@@ -78,16 +78,12 @@ impl Formatter {
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        if !matches!(self.macro_state, MacroState::Written(_)) {
-            self.writer.write_newline()?;
-        }
+        self.writer.write_newline()?;
         Ok(())
     }
 
     pub fn write_space(&mut self) -> Result<()> {
-        if !matches!(self.macro_state, MacroState::Written(_)) {
-            self.writer.write_space()?;
-        }
+        self.writer.write_space()?;
         Ok(())
     }
 
@@ -95,12 +91,6 @@ impl Formatter {
         self.write_comments_and_macros(item, Some(CommentKind::Trailing))?;
         self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.writer.write_item(&self.text, item)?;
-        match self.macro_state {
-            MacroState::Written(end) if end < item.end_position() => {
-                self.macro_state = MacroState::None;
-            }
-            _ => {}
-        }
         Ok(())
     }
 
@@ -136,7 +126,9 @@ impl Formatter {
     }
 
     fn write_macro(&mut self, item: &Macro) -> Result<()> {
-        self.macro_state = MacroState::Writing(item.start_position());
+        assert!(!self.formatting_macros.contains(&item.start_position()));
+
+        self.formatting_macros.insert(item.start_position());
         let result = (|| {
             let start_offset = item.start_position().offset();
             if matches!(
@@ -154,11 +146,7 @@ impl Formatter {
             }
             Ok(())
         })();
-        if result.is_err() {
-            self.macro_state = MacroState::None;
-        } else {
-            self.macro_state = MacroState::Written(item.end_position());
-        }
+        self.formatting_macros.remove(&item.start_position());
         result
     }
 
@@ -185,9 +173,6 @@ impl Formatter {
                     break;
                 }
             } else {
-                if self.macro_state == MacroState::Writing(macro_start.expect("unreachable")) {
-                    break;
-                }
                 let macro_call = self.macros[&macro_start.unwrap()].clone();
                 self.write_macro(&macro_call)?;
             }
@@ -207,6 +192,7 @@ impl Formatter {
         self.macros
             .range(self.next_position()..)
             .map(|x| x.0)
+            .filter(|x| !self.formatting_macros.contains(x))
             .copied()
             .next()
     }
@@ -214,11 +200,4 @@ impl Formatter {
     fn next_position(&self) -> Position {
         self.writer.next_position()
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MacroState {
-    None,
-    Writing(Position),
-    Written(Position),
 }
