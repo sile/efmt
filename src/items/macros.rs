@@ -456,7 +456,7 @@ mod tests {
             -define(FOO,
                     foo foo).
             foo() ->
-                ?FOO().
+                ?FOO() + 10.
             "},
         ];
         for text in texts {
@@ -497,14 +497,26 @@ mod tests {
 
     #[test]
     fn macro_and_comment_works() {
-        let texts = [indoc::indoc! {"
+        let texts = [
+            indoc::indoc! {"
             %---10---|%---20---|
             -define(FOO(A), A).
             qux() ->
                 ?FOO(\"aaa\"
                      \"bbb\"  % comment
                      \"ccc\").
-            "}];
+            "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO, foo).
+            qux(A) ->
+                case A of
+                    a ->
+                        ?FOO
+                %% comment
+                end.
+            "},
+        ];
         for text in texts {
             crate::assert_format!(text, Module);
         }

@@ -144,6 +144,7 @@ impl Formatter {
             if matches!(self.text.as_bytes().get(end_offset), Some(b' ' | b'\n')) {
                 self.write_space()?;
             }
+            self.writer.skip_whitespace_until(item.end_position());
             Ok(())
         })();
         self.formatting_macros.remove(&item.start_position());
