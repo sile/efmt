@@ -22,29 +22,30 @@ pub struct Macro {
 }
 
 impl Macro {
+    // TODO: resume_parse
     pub(crate) fn parse(
         ts: &mut TokenStream,
         question: QuestionSymbol,
         name: MacroName,
-        arity: Option<usize>,
+        has_args: bool,
     ) -> parse::Result<Self> {
-        match arity {
-            None => Ok(Self {
+        if has_args {
+            Ok(Self {
+                question,
+                name,
+                args: Maybe::from_item(ts.parse()?),
+            })
+        } else {
+            Ok(Self {
                 question,
                 name,
                 args: Maybe::none(ts)?,
-            }),
-            Some(0) => Ok(Self {
-                question,
-                name,
-                args: Maybe::from_item(ts.parse().map(MacroArgs::Empty)?),
-            }),
-            Some(_) => Ok(Self {
-                question,
-                name,
-                args: Maybe::from_item(ts.parse().map(MacroArgs::Args)?),
-            }),
+            })
         }
+    }
+
+    pub fn arity(&self) -> Option<usize> {
+        self.args.get().map(|x| x.get().len())
     }
 
     pub fn expand(&self, variables: Option<Vec<String>>, replacement: Vec<Token>) -> Vec<Token> {
@@ -354,6 +355,22 @@ mod tests {
                 ?FOO.
             "},
             indoc::indoc! {"
+            -define(FOO, bar).
+            baz() ->
+                ?FOO().
+            "},
+            indoc::indoc! {"
+            -define(FOO, bar).
+            -define(FOO(),
+                    bar bar).
+            baz() ->
+                ?FOO.
+            "},
+            indoc::indoc! {"
+            baz() ->
+                ?UNKNOWN.
+            "},
+            indoc::indoc! {"
             -define(INC, 1 +).
             inc(A) ->
                 ?INC A.
@@ -432,6 +449,14 @@ mod tests {
                     ??A).
             bar() ->
                 ?Foo(10).
+            "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO(), foo).
+            -define(FOO,
+                    foo foo).
+            foo() ->
+                ?FOO().
             "},
         ];
         for text in texts {

@@ -1,7 +1,7 @@
 use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::generics::Either;
 use crate::items::macros::{Macro, MacroName};
-use crate::items::symbols::QuestionSymbol;
+use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     StringToken, SymbolToken, Token, VariableToken, WhitespaceToken,
@@ -11,7 +11,7 @@ use crate::parse::{Parse, Result, ResumeParse};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 
@@ -44,7 +44,7 @@ pub struct TokenStream {
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
     macros: BTreeMap<Position, Macro>,
-    macro_defines: HashMap<String, MacroDefine>,
+    macro_defines: BTreeMap<MacroDefineKey, MacroDefine>,
     missing_macros: HashSet<String>,
     included: HashSet<String>,
     options: TokenStreamOptions,
@@ -58,7 +58,7 @@ impl TokenStream {
             current_token_index: 0,
             comments: BTreeMap::new(),
             macros: BTreeMap::new(),
-            macro_defines: HashMap::new(),
+            macro_defines: BTreeMap::new(),
             missing_macros: HashSet::new(),
             included: HashSet::new(),
             options,
@@ -218,40 +218,104 @@ impl TokenStream {
         Ok(None)
     }
 
-    fn expand_macro(&mut self) -> Result<()> {
-        let start_index = self.current_token_index - 1;
-        let start_position = self.tokens[start_index].start_position();
-        let macro_name: MacroName = self.parse()?;
-        let (variables, replacement) =
-            if let Some(define) = self.macro_defines.get(macro_name.value()) {
-                (
-                    define.variables.as_ref().map(|x| x.to_owned()),
-                    define.replacement.clone(),
-                )
-            } else if let Some(replacement) = get_predefined_macro(macro_name.value()) {
-                (None, replacement)
+    fn is_macro_defined(&self, name: &str) -> (bool, bool) {
+        let key = MacroDefineKey::new(name.to_owned(), None);
+        let mut without_args = false;
+        let mut with_args = false;
+        for (x, _) in self.macro_defines.range(key..) {
+            if x.name != name {
+                break;
+            }
+            if x.arity.is_none() {
+                without_args = true;
             } else {
-                if !self.missing_macros.contains(macro_name.value()) {
-                    log::warn!(
-                        "The macro {:?} is not defined. 'EFMT_DUMMY' atom is used instead.",
-                        macro_name.value()
-                    );
-                    self.missing_macros.insert(macro_name.value().to_owned());
-                }
-                (None, vec![Token::from(dummy_atom())])
-            };
-        let arity = variables.as_ref().map(|x| x.len());
-        let question = QuestionSymbol::new(start_position);
-        let r#macro = Macro::parse(self, question, macro_name, arity)?;
-        let replacement = r#macro.expand(variables, replacement);
+                with_args = true;
+            }
+        }
+        (without_args, with_args)
+    }
 
+    fn expand_macro(&mut self) -> Result<()> {
+        let macro_name: MacroName = self.parse()?;
+        match self.is_macro_defined(macro_name.value()) {
+            (false, false) => self.expand_unknown_macro(macro_name),
+            (true, false) => {
+                let key = MacroDefineKey::new(macro_name.value().to_owned(), None);
+                self.expand_macro_without_args(
+                    macro_name,
+                    self.macro_defines[&key].replacement.clone(),
+                )
+            }
+            (true, true) if self.peek::<OpenParenSymbol>().is_none() => {
+                let key = MacroDefineKey::new(macro_name.value().to_owned(), None);
+                self.expand_macro_without_args(
+                    macro_name,
+                    self.macro_defines[&key].replacement.clone(),
+                )
+            }
+            (_, _) => self.expand_macro_with_args(macro_name),
+        }
+    }
+
+    fn expand_macro_with_args(&mut self, macro_name: MacroName) -> Result<()> {
+        let start_index = self.current_token_index - 2;
+        let start_position = self.tokens[start_index].start_position();
+        let question = QuestionSymbol::new(start_position);
+
+        let r#macro = Macro::parse(self, question, macro_name.clone(), true)?;
+        let arity = r#macro.arity();
+        assert!(arity.is_some());
+
+        let key = MacroDefineKey::new(macro_name.value().to_owned(), arity);
+        if let Some(define) = self.macro_defines.get(&key).cloned() {
+            let variables = define.variables.as_ref().map(|x| x.to_owned());
+            let replacement = r#macro.expand(variables, define.replacement);
+            self.replace_tokens(start_index, replacement);
+            self.macros.insert(start_position, r#macro);
+        } else {
+            self.expand_unknown_macro(macro_name)?;
+        }
+
+        Ok(())
+    }
+
+    fn expand_macro_without_args(
+        &mut self,
+        macro_name: MacroName,
+        replacement: Vec<Token>,
+    ) -> Result<()> {
+        let start_index = self.current_token_index - 2;
+        let start_position = self.tokens[start_index].start_position();
+        let question = QuestionSymbol::new(start_position);
+        let r#macro = Macro::parse(self, question, macro_name, false)?;
+        let replacement = r#macro.expand(None, replacement);
+        self.replace_tokens(start_index, replacement);
+        self.macros.insert(start_position, r#macro);
+        Ok(())
+    }
+
+    fn expand_unknown_macro(&mut self, macro_name: MacroName) -> Result<()> {
+        if let Some(replacement) = get_predefined_macro(macro_name.value()) {
+            self.expand_macro_without_args(macro_name, replacement)
+        } else {
+            if !self.missing_macros.contains(macro_name.value()) {
+                // TODO: consider arity
+                log::warn!(
+                    "The macro {:?} is not defined. 'EFMT_DUMMY' atom is used instead.",
+                    macro_name.value()
+                );
+                self.missing_macros.insert(macro_name.value().to_owned());
+            }
+            self.expand_macro_without_args(macro_name, vec![Token::from(dummy_atom())])
+        }
+    }
+
+    fn replace_tokens(&mut self, start_index: usize, replacement: Vec<Token>) {
         let unread_tokens = self.tokens.split_off(self.current_token_index);
         self.tokens.truncate(start_index);
         self.tokens.extend(replacement);
         self.tokens.extend(unread_tokens);
         self.current_token_index = start_index;
-        self.macros.insert(start_position, r#macro);
-        Ok(())
     }
 
     fn try_handle_directives(&mut self) -> Result<()> {
@@ -259,8 +323,10 @@ impl TokenStream {
         let result: Result<Either<DefineDirective, IncludeDirective>> = self.parse();
         match result {
             Ok(Either::A(x)) => {
-                self.macro_defines
-                    .insert(x.macro_name().to_owned(), x.into());
+                let name = x.macro_name().to_owned();
+                let define: MacroDefine = x.into();
+                let key = MacroDefineKey::new(name, define.arity());
+                self.macro_defines.insert(key, define);
             }
             Ok(Either::B(x)) => {
                 self.handle_include(x);
@@ -273,7 +339,7 @@ impl TokenStream {
     fn try_load_macro_defines_from_cache(
         &self,
         include_path: &str,
-    ) -> Option<HashMap<String, MacroDefine>> {
+    ) -> Option<BTreeMap<MacroDefineKey, MacroDefine>> {
         // TODO: check file mtime
         if let Some(cache_path) = self
             .options
@@ -294,7 +360,7 @@ impl TokenStream {
     fn try_save_macro_defines_into_cache(
         &self,
         include_path: &str,
-        macro_defines: &HashMap<String, MacroDefine>,
+        macro_defines: &BTreeMap<MacroDefineKey, MacroDefine>,
     ) {
         if let Some(cache_path) = self
             .options
@@ -411,6 +477,18 @@ fn dummy_string() -> StringToken {
     StringToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+struct MacroDefineKey {
+    name: String,
+    arity: Option<usize>,
+}
+
+impl MacroDefineKey {
+    fn new(name: String, arity: Option<usize>) -> Self {
+        Self { name, arity }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct MacroDefine {
     variables: Option<Vec<String>>,
@@ -425,5 +503,11 @@ impl From<DefineDirective> for MacroDefine {
                 .map(|v| v.iter().map(|v| v.value().to_owned()).collect()),
             replacement: x.replacement().to_owned(),
         }
+    }
+}
+
+impl MacroDefine {
+    fn arity(&self) -> Option<usize> {
+        self.variables.as_ref().map(|x| x.len())
     }
 }
