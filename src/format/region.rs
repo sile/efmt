@@ -28,6 +28,7 @@ struct RegionState {
     next_position: Position,
     current_column: usize,
     formatted_text: String,
+    popped_parent_chars: usize,
 }
 
 #[derive(Debug)]
@@ -45,6 +46,7 @@ impl RegionWriter {
                 next_position: Position::new(0, 0, 0),
                 current_column: 0,
                 formatted_text: String::new(),
+                popped_parent_chars: 0,
             },
             parent: None,
         }
@@ -62,6 +64,7 @@ impl RegionWriter {
             next_position: self.state.next_position,
             current_column: self.state.current_column,
             formatted_text: String::new(),
+            popped_parent_chars: 0,
         };
         let parent = std::mem::replace(
             self,
@@ -79,6 +82,9 @@ impl RegionWriter {
         let commited = std::mem::replace(self, parent);
         self.state.next_position = commited.state.next_position;
         self.state.current_column = commited.state.current_column;
+        for _ in 0..commited.state.popped_parent_chars {
+            self.pop_last_char();
+        }
         self.state
             .formatted_text
             .push_str(&commited.state.formatted_text);
@@ -219,23 +225,19 @@ impl RegionWriter {
     }
 
     pub fn last_char(&self) -> char {
-        if let Some(c) = self.state.formatted_text.chars().last() {
-            c
-        } else if let Some(parent) = &self.parent {
-            parent.last_char()
-        } else {
-            '\n'
-        }
+        self.n_last_char(0)
     }
 
     fn next_last_char(&self) -> char {
-        let mut cs = self.state.formatted_text.chars().rev();
-        if cs.next().is_none() {
-            '\n'
-        } else if let Some(c) = cs.next() {
+        self.n_last_char(1)
+    }
+
+    fn n_last_char(&self, n: usize) -> char {
+        if let Some(c) = self.state.formatted_text.chars().rev().nth(n) {
             c
         } else if let Some(parent) = &self.parent {
-            parent.last_char()
+            let m = self.state.formatted_text.chars().count();
+            parent.n_last_char(self.state.popped_parent_chars + (n - m))
         } else {
             '\n'
         }
@@ -243,10 +245,7 @@ impl RegionWriter {
 
     fn pop_last_char(&mut self) {
         if self.state.formatted_text.pop().is_none() {
-            if let Some(x) = &mut self.parent {
-                // TODO: could violate a parent transaction
-                x.pop_last_char();
-            }
+            self.state.popped_parent_chars += 1;
         }
     }
 }
