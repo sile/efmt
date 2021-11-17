@@ -19,7 +19,7 @@ pub(crate) mod variables;
 mod module;
 
 pub use self::macros::Macro;
-pub use self::module::{LooseModule, Module};
+pub use self::module::Module;
 
 /// One of [forms].
 #[derive(Debug, Clone, Span, Parse, Format)]
