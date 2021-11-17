@@ -14,6 +14,7 @@ use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashSet};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Debug, Default, Clone)]
 pub struct TokenStreamOptions {
@@ -51,10 +52,17 @@ pub struct TokenStream {
     parsing_macro_replacement: bool,
     parsing_macro_arg: bool,
     options: TokenStreamOptions,
+    text: Arc<String>,
+    path: Option<Arc<PathBuf>>,
 }
 
 impl TokenStream {
     pub fn new(tokenizer: Tokenizer<String>, options: TokenStreamOptions) -> Self {
+        let text = Arc::new(tokenizer.text().to_owned());
+        let path = tokenizer
+            .next_position()
+            .filepath()
+            .map(|p| Arc::new(p.to_owned()));
         Self {
             tokenizer,
             tokens: Vec::new(),
@@ -68,6 +76,8 @@ impl TokenStream {
             parsing_macro_replacement: false,
             parsing_macro_arg: false,
             options,
+            text,
+            path,
         }
     }
 
@@ -97,6 +107,14 @@ impl TokenStream {
         let result = self.parse::<T>().ok();
         self.current_token_index = index;
         result
+    }
+
+    pub fn shared_text(&self) -> Arc<String> {
+        Arc::clone(&self.text)
+    }
+
+    pub fn shared_path(&self) -> Option<Arc<PathBuf>> {
+        self.path.clone()
     }
 
     pub fn filepath(&self) -> Option<PathBuf> {
