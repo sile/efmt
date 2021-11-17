@@ -81,6 +81,7 @@ impl Macro {
             }
             do_stringify = false;
         }
+        // TODO: delete(?)
         tokens.iter_mut().for_each(|token| token.set_span(self));
         tokens
     }
@@ -508,6 +509,12 @@ mod tests {
                 %% comment
                 end.
             "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(a(X), X X).
+            foo() ->
+                1 ?a(?a(+1)).
+            "},
         ];
         for text in texts {
             crate::assert_format!(text, Module);
@@ -535,6 +542,20 @@ mod tests {
                 [?FOO].
             "},
         ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
+
+    #[test]
+    fn circular_macro_works() {
+        let texts = [indoc::indoc! {"
+            %---10---|%---20---|
+            -define(a, ?b).
+            -define(b, ?a).
+            foo() ->
+                ?a == ?b.
+            "}];
         for text in texts {
             crate::assert_format!(text, Module);
         }

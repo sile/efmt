@@ -46,6 +46,7 @@ pub struct TokenStream {
     macros: BTreeMap<Position, Macro>,
     macro_defines: BTreeMap<MacroDefineKey, MacroDefine>,
     missing_macros: HashSet<String>,
+    known_replacement: HashSet<(usize, Vec<Token>)>,
     included: HashSet<String>,
     parsing_macro_replacement: bool,
     parsing_macro_arg: bool,
@@ -62,6 +63,7 @@ impl TokenStream {
             macros: BTreeMap::new(),
             macro_defines: BTreeMap::new(),
             missing_macros: HashSet::new(),
+            known_replacement: HashSet::new(),
             included: HashSet::new(),
             parsing_macro_replacement: false,
             parsing_macro_arg: false,
@@ -179,8 +181,7 @@ impl TokenStream {
                 match &token {
                     Token::Symbol(x) if x.value() == Symbol::Question => {
                         if !self.parsing_macro_arg {
-                            self.expand_macro()?;
-                            return self.read_token();
+                            return self.expand_macro_and_read_token();
                         }
                     }
                     _ => {}
@@ -241,8 +242,7 @@ impl TokenStream {
             match &token {
                 Token::Symbol(x) if x.value() == Symbol::Question => {
                     if !self.parsing_macro_arg {
-                        self.expand_macro()?;
-                        return self.read_token();
+                        return self.expand_macro_and_read_token();
                     }
                 }
                 Token::Symbol(x) if x.value() == Symbol::Hyphen => {
@@ -276,8 +276,13 @@ impl TokenStream {
         (without_args, with_args)
     }
 
-    fn expand_macro(&mut self) -> Result<()> {
+    fn expand_macro_and_read_token(&mut self) -> Result<Option<Token>> {
         let macro_name: MacroName = self.parse()?;
+        self.expand_macro(macro_name)?;
+        self.read_token()
+    }
+
+    fn expand_macro(&mut self, macro_name: MacroName) -> Result<()> {
         match self.is_macro_defined(macro_name.value()) {
             (false, false) => self.expand_unknown_macro(macro_name),
             (true, false) => {
@@ -311,9 +316,10 @@ impl TokenStream {
         let key = MacroDefineKey::new(macro_name.value().to_owned(), arity);
         if let Some(define) = self.macro_defines.get(&key).cloned() {
             let variables = define.variables.as_ref().map(|x| x.to_owned());
+
             let replacement = r#macro.expand(variables, define.replacement);
             self.replace_tokens(start_index, replacement);
-            self.macros.insert(start_position, r#macro);
+            self.macros.entry(start_position).or_insert(r#macro);
         } else {
             self.expand_unknown_macro(macro_name)?;
         }
@@ -330,14 +336,19 @@ impl TokenStream {
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
         let r#macro = Macro::parse(self, question, macro_name, false)?;
+
         let replacement = r#macro.expand(None, replacement);
         self.replace_tokens(start_index, replacement);
-        self.macros.insert(start_position, r#macro);
+        self.macros.entry(start_position).or_insert(r#macro);
+
         Ok(())
     }
 
     fn expand_unknown_macro(&mut self, macro_name: MacroName) -> Result<()> {
-        if let Some(replacement) = get_predefined_macro(macro_name.value()) {
+        let start_index = self.current_token_index - 2;
+        let start_position = self.tokens[start_index].start_position();
+
+        if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
             self.expand_macro_without_args(macro_name, replacement)
         } else if self.parsing_macro_replacement {
             log::debug!(
@@ -354,11 +365,26 @@ impl TokenStream {
                 );
                 self.missing_macros.insert(macro_name.value().to_owned());
             }
-            self.expand_macro_without_args(macro_name, vec![Token::from(dummy_atom())])
+            self.expand_macro_without_args(
+                macro_name,
+                vec![Token::from(dummy_atom(start_position))],
+            )
         }
     }
 
-    fn replace_tokens(&mut self, start_index: usize, replacement: Vec<Token>) {
+    fn replace_tokens(&mut self, start_index: usize, mut replacement: Vec<Token>) {
+        if !replacement.is_empty()
+            && !self
+                .known_replacement
+                .insert((start_index, replacement.clone()))
+        {
+            log::warn!(
+                "A circular macro was detected. It was replaced with a dummy atom 'EFMT_DUMMY'."
+            );
+            let start_position = self.tokens[start_index].start_position();
+            replacement = vec![Token::from(dummy_atom(start_position))];
+        }
+
         let unread_tokens = self.tokens.split_off(self.current_token_index);
         self.tokens.truncate(start_index);
         self.tokens.extend(replacement);
@@ -547,26 +573,26 @@ impl Iterator for TokenStream {
     }
 }
 
-fn get_predefined_macro(name: &str) -> Option<Vec<Token>> {
+fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
     let token: Token = match name {
-        "MODULE" | "FUNCTION_NAME" => dummy_atom().into(),
-        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer().into(),
-        "MODULE_STRING" | "FILE" | "MACHINE" => dummy_string().into(),
+        "MODULE" | "FUNCTION_NAME" => dummy_atom(position).into(),
+        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer(position).into(),
+        "MODULE_STRING" | "FILE" | "MACHINE" => dummy_string(position).into(),
         _ => return None,
     };
     Some(vec![token])
 }
 
-fn dummy_atom() -> AtomToken {
-    AtomToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
+fn dummy_atom(position: Position) -> AtomToken {
+    AtomToken::new("EFMT_DUMMY", position, position)
 }
 
-fn dummy_integer() -> IntegerToken {
-    IntegerToken::new(Position::new(0, 0, 0), Position::new(0, 0, 0))
+fn dummy_integer(position: Position) -> IntegerToken {
+    IntegerToken::new(position, position)
 }
 
-fn dummy_string() -> StringToken {
-    StringToken::new("EFMT_DUMMY", Position::new(0, 0, 0), Position::new(0, 0, 0))
+fn dummy_string(position: Position) -> StringToken {
+    StringToken::new("EFMT_DUMMY", position, position)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
