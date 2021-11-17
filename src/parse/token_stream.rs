@@ -348,11 +348,31 @@ impl TokenStream {
             .map(|x| x.join(include_path))
         {
             // TODO: improve error handling
-            std::fs::File::open(cache_path)
+            std::fs::File::open(&cache_path)
+                .map_err(|e| {
+                    log::debug!("cache file open error ({:?}): {}", cache_path, e);
+                    e
+                })
                 .ok()
                 .map(BufReader::new)
-                .and_then(|file| serde_json::from_reader(file).ok())
+                .and_then(|file| {
+                    serde_json::from_reader(file)
+                        .map(|entries: Vec<(String, MacroDefine)>| {
+                            entries
+                                .into_iter()
+                                .map(|(name, define)| {
+                                    (MacroDefineKey::new(name, define.arity()), define)
+                                })
+                                .collect()
+                        })
+                        .map_err(|e| {
+                            log::warn!("deserialize error ({:?}): {}", cache_path, e);
+                            e
+                        })
+                        .ok()
+                })
         } else {
+            log::debug!("[TODO] fail1");
             None
         }
     }
@@ -373,16 +393,31 @@ impl TokenStream {
                 .ok()
                 .map(BufWriter::new)
                 .map(|mut file| {
-                    let saved = serde_json::to_writer(&mut file, macro_defines)
+                    let entries = macro_defines
+                        .iter()
+                        .map(|(k, v)| (&k.name, v))
+                        .collect::<Vec<_>>();
+                    let saved = serde_json::to_writer(&mut file, &entries)
+                        .map_err(|e| {
+                            log::warn!("serialization error: {}", e);
+                            e
+                        })
                         .ok()
                         .and_then(|_| {
-                            cache_path
-                                .parent()
-                                .and_then(|p| std::fs::create_dir_all(p).ok())
+                            cache_path.parent().and_then(|p| {
+                                std::fs::create_dir_all(p)
+                                    .map_err(|e| {
+                                        log::warn!("create_dir_all({:?}) error: {}", p, e);
+                                        e
+                                    })
+                                    .ok()
+                            })
                         })
                         .is_some();
                     if saved {
-                        let _ = file.into_inner().expect("TODO").persist(&cache_path);
+                        if let Err(e) = file.into_inner().expect("TODO").persist(&cache_path) {
+                            log::warn!("cannot save cache file {:?}: {}", cache_path, e);
+                        }
                         log::debug!(
                             "Saved a include cache for {:?} into {:?}",
                             include_path,
