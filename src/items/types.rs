@@ -3,8 +3,8 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
 use crate::items::generics::{
-    Args2, BinaryOpLike, Either, Maybe, NeedsBeforeSpace, NonEmptyItems2, Params, Parenthesized,
-    Parenthesized2, TupleLike, UnaryOpLike,
+    Args2, BinaryOpLike, Either, ListLike, Maybe, NeedsBeforeSpace, NonEmptyItems2, Params,
+    Parenthesized, Parenthesized2, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -12,10 +12,9 @@ use crate::items::keywords::{
 };
 use crate::items::styles::{RightSpace, Space, TrailingColumns};
 use crate::items::symbols::{
-    CloseSquareSymbol, ColonSymbol, CommaSymbol, DoubleColonSymbol, DoubleDotSymbol,
-    DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleRightArrowSymbol, HyphenSymbol,
-    MapMatchSymbol, MultiplySymbol, OpenSquareSymbol, PlusSymbol, RightArrowSymbol, SharpSymbol,
-    TripleDotSymbol, VerticalBarSymbol,
+    ColonSymbol, CommaSymbol, DoubleColonSymbol, DoubleDotSymbol, DoubleLeftAngleSymbol,
+    DoubleRightAngleSymbol, DoubleRightArrowSymbol, HyphenSymbol, MapMatchSymbol, MultiplySymbol,
+    PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
 use crate::items::Type;
@@ -159,59 +158,11 @@ pub struct MfargsType {
     args: Args2<Type>,
 }
 
-type ListItem = (Type, Maybe<(RightSpace<CommaSymbol>, TripleDotSymbol)>);
-
-/// `[]` | `[` [Type] (`,` `...`)? `]`
-#[derive(Debug, Clone, Span, Parse)]
-pub struct ListType {
-    open: OpenSquareSymbol,
-    item: Maybe<ListItem>,
-    close: CloseSquareSymbol,
-}
-
-impl ListType {
-    fn format_item(
-        &self,
-        fmt: &mut format::Formatter,
-        ty: &Type,
-        rest: Option<&(RightSpace<CommaSymbol>, TripleDotSymbol)>,
-    ) -> format::Result<()> {
-        if let Some((comma, triple_dot)) = rest {
-            fmt.subregion()
-                .reset_trailing_columns(1)
-                .enter(|fmt| ty.format(fmt))?;
-            fmt.subregion()
-                .forbid_too_long_line()
-                .check_trailing_columns(true)
-                .enter(|fmt| {
-                    comma.format(fmt)?;
-                    triple_dot.format(fmt)
-                })
-                .or_else(|_| {
-                    comma.format(fmt)?;
-                    fmt.write_newline()?;
-                    triple_dot.format(fmt)
-                })?;
-        } else {
-            ty.format(fmt)?;
-        }
-        Ok(())
-    }
-}
-
-impl Format for ListType {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        if let Some((ty, rest)) = self.item.get() {
-            fmt.subregion()
-                .current_column_as_indent()
-                .trailing_columns2(1) // "," or "]"
-                .enter(|fmt| self.format_item(fmt, ty, rest.get()))?;
-        }
-        self.close.format(fmt)?;
-        Ok(())
-    }
-}
+/// `[` (`$ITEM` `,`?)* `]`
+///
+/// - $ITEM: [Type] | `...`
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ListType(ListLike<Either<Type, TripleDotSymbol>>);
 
 /// `{` ([Type] `,`)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]

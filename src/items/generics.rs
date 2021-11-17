@@ -1,8 +1,8 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::styles::{Newline, TrailingColumns};
 use crate::items::symbols::{
-    CloseBraceSymbol, CloseParenSymbol, CommaSymbol, OpenBraceSymbol, OpenParenSymbol,
-    SemicolonSymbol,
+    CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, OpenBraceSymbol,
+    OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -333,6 +333,13 @@ impl<T: Format> Format for MaybeRepeat<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ListLike<T> {
+    open: OpenSquareSymbol,
+    items: MaybePackedItems<T>,
+    close: CloseSquareSymbol,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T> {
     open: OpenBraceSymbol,
     items: MaybePackedItems<T>,
@@ -340,9 +347,9 @@ pub struct TupleLike<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T>(Items<T>);
+pub struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
 
-impl<T: Format> MaybePackedItems<T> {
+impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
         let (items, delimiters) =
             if let Some((items, delimiters)) = self.0 .0.get().map(|x| (&x.items, &x.delimiters)) {
@@ -376,7 +383,7 @@ impl<T: Format> MaybePackedItems<T> {
     }
 }
 
-impl<T: Format> Format for MaybePackedItems<T> {
+impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion()
             .current_column_as_indent()
@@ -394,7 +401,7 @@ impl<T: Format> Format for MaybePackedItems<T> {
 
 // TODO: refactor
 #[derive(Debug, Clone, Span, Parse)]
-pub struct NonEmptyItems2<T, D>(NonEmptyItems<T, D>);
+pub struct NonEmptyItems2<T, D = CommaSymbol>(NonEmptyItems<T, D>);
 
 impl<T, D> NonEmptyItems2<T, D> {
     pub fn get(&self) -> &[T] {

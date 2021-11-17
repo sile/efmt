@@ -1,4 +1,4 @@
-/// Erlang expressions.
+//! Erlang expressions.
 use crate::format::{self, Format};
 use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
@@ -15,18 +15,18 @@ pub mod bitstrings;
 pub mod blocks;
 pub mod calls;
 pub mod functions;
-pub mod lists;
 pub mod maps;
 pub mod records;
 pub mod strings;
 
+mod lists;
 mod tuples;
 
 pub use self::bitstrings::BitstringExpr;
 pub use self::blocks::BlockExpr;
 pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::FunctionExpr;
-pub use self::lists::ListExpr;
+pub use self::lists::{ListComprehensionExpr, ListConstructExpr, ListExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
 pub use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 pub use self::strings::StringExpr;
