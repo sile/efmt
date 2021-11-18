@@ -95,6 +95,7 @@ impl<'a> RegionOptions<'a> {
         self
     }
 
+    // TODO: s/.../add_.../
     pub fn trailing_columns(mut self, n: usize) -> Self {
         self.config.trailing_columns += n;
         self
@@ -123,6 +124,7 @@ impl<'a> RegionOptions<'a> {
         })
     }
 
+    // TODO: delete
     pub fn enter_with_newline<F>(self, f: F) -> Result<()>
     where
         F: FnOnce(&mut Formatter) -> Result<()>,

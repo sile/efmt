@@ -1,12 +1,11 @@
-use crate::format::Format;
-use crate::items::expressions::{Body, Expr, Guard, GuardCondition};
+use crate::format::{self, Format};
+use crate::items::expressions::{Body, Expr, GuardCondition, WithArrow, WithGuard};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
-use crate::items::styles::{Block, ColumnIndent, Newline, RightSpace, Space, TrailingColumns};
-use crate::items::symbols::{ColonSymbol, RightArrowSymbol};
+use crate::items::symbols::ColonSymbol;
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
@@ -27,21 +26,38 @@ pub enum BlockExpr {
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct CaseExpr {
-    case: Space<CaseKeyword>,
-    value: TrailingColumns<Expr, 3>, // " of"
-    of: Space<OfKeyword>,
+    case: CaseKeyword,
+    value: Expr,
+    of: OfKeyword,
     clauses: Block<Clauses<CaseClause>>,
     end: EndKeyword,
 }
 
+impl Format for CaseExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
+            self.case.format(fmt)?;
+            fmt.write_space()?;
+
+            fmt.subregion()
+                .reset_trailing_columns(3) // " of"
+                .enter(|fmt| self.value.format(fmt))?;
+            fmt.write_space()?;
+
+            self.of.format(fmt)?;
+            self.clauses.format(fmt)?;
+            self.end.format(fmt)?;
+
+            Ok(())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct CaseClause {
-    // TODO: trailing columns
-    pattern: Expr,
-    guard: Maybe<Guard>,
-    arrow: Space<RightArrowSymbol>,
+    pattern: WithArrow<WithGuard<Expr>>,
     body: Body,
 }
 
@@ -50,17 +66,27 @@ struct CaseClause {
 /// - $CLAUSE: `$GUARD` `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Block<Clauses<IfClause>>,
     end: EndKeyword,
 }
 
+impl Format for IfExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
+            self.r#if.format(fmt)?;
+            self.clauses.format(fmt)?;
+            self.end.format(fmt)?;
+            Ok(())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct IfClause {
-    condigion: TrailingColumns<GuardCondition, 3>, // " ->"
-    arrow: Space<RightArrowSymbol>,
+    condigion: WithArrow<GuardCondition>,
     body: Body,
 }
 
@@ -81,12 +107,24 @@ pub struct BeginExpr {
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $TIMEOUT: `after` [Expr] `->` `$BODY`
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ReceiveExpr {
-    receive: Newline<ReceiveKeyword>,
-    clauses: Maybe<Block<Clauses<CaseClause>>>,
+    receive: ReceiveKeyword,
+    clauses: Block<Maybe<Clauses<CaseClause>>>,
     timeout: Maybe<ReceiveTimeout>,
     end: EndKeyword,
+}
+
+impl Format for ReceiveExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
+            self.receive.format(fmt)?;
+            self.clauses.format(fmt)?;
+            self.timeout.format(fmt)?;
+            self.end.format(fmt)?;
+            Ok(())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -97,8 +135,7 @@ struct ReceiveTimeout {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct ReceiveTimeoutClause {
-    timeout: TrailingColumns<Expr, 3>, // " ->"
-    arrow: Space<RightArrowSymbol>,
+    timeout: WithArrow<Expr>,
     body: Body,
 }
 
@@ -114,14 +151,30 @@ struct ReceiveTimeoutClause {
 /// - $ERROR_CLASS: ([AtomToken] | [VariableToken]) `:`
 /// - $STACKTRACE: `:` [VariableToken]
 /// - $AFTER: `after` `$BODY`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct TryExpr {
     r#try: TryKeyword,
-    body: Newline<Body>,
+    body: Body,
     clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
     end: EndKeyword,
+}
+
+impl Format for TryExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
+            self.r#try.format(fmt)?;
+            self.body.format(fmt)?;
+            fmt.write_newline()?;
+            self.clauses.format(fmt)?;
+            self.catch.format(fmt)?;
+            self.after.format(fmt)?;
+            fmt.write_newline()?;
+            self.end.format(fmt)?;
+            Ok(())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -132,26 +185,56 @@ struct TryCatch {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct CatchClause {
-    // TODO: trailing column
+    pattern: WithArrow<WithGuard<CatchPattern>>,
+    body: Body,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
-    guard: Maybe<Guard>,
-    arrow: Space<RightArrowSymbol>,
-    body: Body,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct TryAfter {
     after: AfterKeyword,
-    body: Newline<Body>,
+    body: Body,
 }
 
 /// `catch` [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct CatchExpr {
-    catch: RightSpace<CatchKeyword>,
-    expr: ColumnIndent<Expr>,
+    catch: CatchKeyword,
+    expr: Expr,
+}
+
+impl Format for CatchExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.catch.format(fmt)?;
+        fmt.write_space()?;
+        fmt.subregion()
+            .current_column_as_indent()
+            .enter(|fmt| self.expr.format(fmt))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct Block<T>(T);
+
+impl<T: Format> Format for Block<T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .clear_trailing_columns(true)
+            .indent_offset(4)
+            .enter(|fmt| {
+                fmt.write_newline()?;
+                self.0.format(fmt)?;
+                fmt.write_newline()?;
+                Ok(())
+            })
+    }
 }
 
 #[cfg(test)]

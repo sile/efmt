@@ -126,7 +126,7 @@ pub struct UnaryOpType(UnaryOpLike<UnaryOp, NonLeftRecursiveType>);
 pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
-    Bnot(Space<BnotKeyword>),
+    Bnot(BnotKeyword),
 }
 
 impl TokenStr for UnaryOp {
@@ -134,7 +134,7 @@ impl TokenStr for UnaryOp {
         match self {
             Self::Plus(x) => x.token_str(),
             Self::Minus(x) => x.token_str(),
-            Self::Bnot(x) => x.get().token_str(),
+            Self::Bnot(x) => x.token_str(),
         }
     }
 }

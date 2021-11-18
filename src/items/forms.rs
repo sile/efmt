@@ -11,7 +11,7 @@ use crate::items::generics::{
 };
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
-use crate::items::styles::{RightSpace, Space, TrailingColumns};
+use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     CloseParenSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
     MatchSymbol, OpenParenSymbol, RightArrowSymbol,
@@ -43,7 +43,7 @@ pub struct RecordDecl {
     record: RecordAtom,
     open: OpenParenSymbol,
     name: AtomToken,
-    comma: RightSpace<CommaSymbol>,
+    comma: CommaSymbol,
     fields: TrailingColumns<TupleLike<RecordField>, 2>, // ")."
     close: CloseParenSymbol,
     dot: DotSymbol,
@@ -57,6 +57,7 @@ impl Format for RecordDecl {
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             self.name.format(fmt)?;
             self.comma.format(fmt)?;
+            fmt.write_space()?;
             if fmt
                 .subregion()
                 .forbid_multi_line()
@@ -263,7 +264,7 @@ pub struct DefineDirective {
     open: OpenParenSymbol,
     macro_name: MacroName,
     variables: Maybe<Params<VariableToken>>,
-    comma: RightSpace<CommaSymbol>,
+    comma: CommaSymbol,
     replacement: TrailingColumns<MacroReplacement, 2>, // ")."
     close: CloseParenSymbol,
     dot: DotSymbol,
@@ -292,6 +293,7 @@ impl Format for DefineDirective {
             self.macro_name.format(fmt)?;
             self.variables.format(fmt)?;
             self.comma.format(fmt)?;
+            fmt.write_space()?;
             if fmt
                 .subregion()
                 .forbid_multi_line()

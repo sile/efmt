@@ -3,35 +3,6 @@ use crate::items::tokens::TokenStr;
 use crate::parse::Parse;
 use crate::span::{Position, Span};
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct ColumnIndent<T>(T);
-
-impl<T: Format> Format for ColumnIndent<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .current_column_as_indent()
-            .enter(|fmt| self.0.format(fmt))
-    }
-}
-
-// TODO: move to `blocks`
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Block<T>(T);
-
-impl<T: Format> Format for Block<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .clear_trailing_columns(true)
-            .indent_offset(4)
-            .enter(|fmt| {
-                fmt.write_newline()?;
-                self.0.format(fmt)?;
-                fmt.write_newline()?;
-                Ok(())
-            })
-    }
-}
-
 #[derive(Debug, Clone, Parse)]
 pub struct Space<T>(T);
 
@@ -70,47 +41,6 @@ impl<T: Format> Format for Space<T> {
 
 // TODO: delete
 impl<T: TokenStr> TokenStr for Space<T> {
-    fn token_str(&self) -> &str {
-        self.0.token_str()
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-pub struct RightSpace<T>(T);
-
-impl<T> RightSpace<T> {
-    pub fn get(&self) -> &T {
-        &self.0
-    }
-}
-
-// TODO: delete
-impl<T: TokenStr> TokenStr for RightSpace<T> {
-    fn token_str(&self) -> &str {
-        self.0.token_str()
-    }
-}
-
-impl<T: Format> Format for RightSpace<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.0.format(fmt)?;
-        fmt.write_space()?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Newline<T>(T);
-
-impl<T: Format> Format for Newline<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.0.format(fmt)?;
-        fmt.write_newline()?;
-        Ok(())
-    }
-}
-
-impl<T: TokenStr> TokenStr for Newline<T> {
     fn token_str(&self) -> &str {
         self.0.token_str()
     }

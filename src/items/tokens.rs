@@ -4,6 +4,7 @@ use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
+/// TODO: delete
 pub trait TokenStr {
     fn token_str(&self) -> &str;
 }

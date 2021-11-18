@@ -1,9 +1,8 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
-use crate::items::generics::{Maybe, NonEmptyItems, Null, Params};
+use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr, WithArrow, WithGuard};
+use crate::items::generics::{Clauses, Maybe, Null, Params};
 use crate::items::keywords::{EndKeyword, FunKeyword};
-use crate::items::styles::{Newline, RightSpace, Space};
-use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SemicolonSymbol, SlashSymbol};
+use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
@@ -22,7 +21,7 @@ pub enum FunctionExpr {
 /// - $ARITY: [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct DefinedFunctionExpr {
-    fun: RightSpace<FunKeyword>,
+    fun: Fun,
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
     name: AtomLikeExpr,
     slash: SlashSymbol,
@@ -36,7 +35,7 @@ pub struct DefinedFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct AnonymousFunctionExpr {
-    fun: RightSpace<FunKeyword>,
+    fun: Fun,
     clauses: FunctionClauses<Null>,
     end: EndKeyword,
 }
@@ -48,13 +47,24 @@ pub struct AnonymousFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
-    fun: RightSpace<FunKeyword>,
+    fun: Fun,
     clauses: FunctionClauses<VariableToken>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunctionClauses<Name>(NonEmptyItems<FunctionClause<Name>, Newline<SemicolonSymbol>>);
+struct Fun(FunKeyword);
+
+impl Format for Fun {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.0.format(fmt)?;
+        fmt.write_space()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct FunctionClauses<Name>(Clauses<FunctionClause<Name>>);
 
 impl<Name: Format> Format for FunctionClauses<Name> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
@@ -68,8 +78,8 @@ impl<Name: Format> Format for FunctionClauses<Name> {
                 .enter(|fmt| {
                     let clause = &self.0.items()[0];
                     clause.name.format(fmt)?;
-                    clause.params_and_guard.format(fmt)?;
-                    clause.arrow.format(fmt)?;
+                    clause.params.format(fmt)?;
+                    fmt.write_space()?;
                     clause.body.exprs()[0].format(fmt)?;
                     fmt.write_space()?;
                     Ok(())
@@ -91,31 +101,8 @@ impl<Name: Format> Format for FunctionClauses<Name> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub(crate) struct FunctionClause<Name> {
     name: Name,
-    params_and_guard: ParamsAndGuard,
-    arrow: Space<RightArrowSymbol>,
+    params: WithArrow<WithGuard<Params<Expr>>>,
     body: Body,
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-struct ParamsAndGuard {
-    params: Params<Expr>,
-    guard: Maybe<Guard>,
-}
-
-impl Format for ParamsAndGuard {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if self.guard.get().is_none() {
-            fmt.subregion()
-                .trailing_columns(3) // " ->"
-                .enter(|fmt| self.params.format(fmt))?;
-        } else {
-            self.params.format(fmt)?;
-            fmt.subregion()
-                .trailing_columns(3) // " ->"
-                .enter(|fmt| self.guard.format(fmt))?;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]

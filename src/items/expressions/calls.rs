@@ -2,7 +2,6 @@ use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr};
 use crate::items::generics::{Args, BinaryOpLike, IndentOffset, Maybe, UnaryOpLike};
 use crate::items::keywords;
-use crate::items::styles::RightSpace;
 use crate::items::symbols::{self, ColonSymbol};
 use crate::items::tokens::{Token, TokenStr};
 use crate::parse::{self, Parse, ResumeParse};
@@ -51,8 +50,8 @@ pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
-    Not(RightSpace<keywords::NotKeyword>),
-    Bnot(RightSpace<keywords::BnotKeyword>),
+    Not(keywords::NotKeyword),
+    Bnot(keywords::BnotKeyword),
 }
 
 impl TokenStr for UnaryOp {
@@ -60,8 +59,8 @@ impl TokenStr for UnaryOp {
         match self {
             Self::Plus(x) => x.token_str(),
             Self::Minus(x) => x.token_str(),
-            Self::Not(x) => x.get().token_str(),
-            Self::Bnot(x) => x.get().token_str(),
+            Self::Not(x) => x.token_str(),
+            Self::Bnot(x) => x.token_str(),
         }
     }
 }

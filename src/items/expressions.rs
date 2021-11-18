@@ -4,11 +4,11 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{self, Format};
-use crate::items::generics::{BinaryOpLike, Either, Indent, NonEmptyItems, Parenthesized};
+use crate::items::generics::{BinaryOpLike, Either, Indent, Maybe, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
-use crate::items::styles::{ColumnIndent, Newline, Space};
 use crate::items::symbols::{
-    CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol, SemicolonSymbol,
+    CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol, RightArrowSymbol,
+    SemicolonSymbol,
 };
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
@@ -172,6 +172,7 @@ pub enum LiteralExpr {
     VariableToken(VariableToken),
 }
 
+// TODO: s/AtomLikExpr/LiteralOrParen.../
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum AtomLikeExpr {
     Atom(AtomToken),
@@ -198,7 +199,7 @@ enum IntegerLikeExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 struct Body {
-    exprs: NonEmptyItems<Expr, Newline<CommaSymbol>>,
+    exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
 
 impl Body {
@@ -209,46 +210,80 @@ impl Body {
 
 impl Format for Body {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().indent_offset(4).enter(|fmt| {
+            fmt.write_newline()?;
+            self.exprs.format_multiline(fmt)
+        })
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct WithArrow<T> {
+    item: T,
+    arrow: RightArrowSymbol,
+}
+
+impl<T: Format> Format for WithArrow<T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         fmt.subregion()
-            .indent_offset(4)
-            .trailing_columns(1) // '.' or ',' or ';' (TODO move other place?)
+            .reset_trailing_columns(3) // " ->"
             .enter(|fmt| {
-                fmt.write_newline()?;
-                self.exprs.format(fmt)
+                self.item.format(fmt)?;
+                fmt.write_space()?;
+                self.arrow.format(fmt)?;
+                Ok(())
             })
     }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
+struct WithGuard<T> {
+    item: T,
+    guard: Maybe<Guard>,
+}
+
+impl<T: Format> Format for WithGuard<T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if let Some(guard) = self.guard.get() {
+            fmt.subregion()
+                .clear_trailing_columns(true)
+                .enter(|fmt| self.item.format(fmt))?;
+            fmt.write_space()?;
+            guard.format(fmt)?;
+        } else {
+            self.item.format(fmt)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct Guard {
-    when: Space<WhenKeyword>,
-    condition: ColumnIndent<GuardCondition>,
+    when: WhenKeyword,
+    condition: GuardCondition,
 }
 
 impl Format for Guard {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         let format = |fmt: &mut format::Formatter| {
             self.when.format(fmt)?;
+            fmt.write_space()?;
             self.condition.format(fmt)?;
             Ok(())
         };
 
-        if fmt.current_relative_column() < 2 {
-            fmt.subregion()
-                .trailing_columns(3) // ' ->'
-                .enter(format)?;
+        if fmt.current_relative_column() <= 2 {
+            format(fmt)?;
         } else if fmt
             .subregion()
-            .trailing_columns(3) // ' ->'
             .forbid_too_long_line()
             .forbid_multi_line()
+            .check_trailing_columns(true)
             .enter(format)
             .is_err()
         {
-            fmt.subregion()
-                .indent_offset(2)
-                .trailing_columns(3) // ' ->'
-                .enter_with_newline(format)?;
+            fmt.write_newline()?;
+            fmt.subregion().indent_offset(2).enter(format)?;
         }
         Ok(())
     }

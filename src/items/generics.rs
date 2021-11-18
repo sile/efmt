@@ -189,6 +189,12 @@ impl<T: Format, D: Format + TokenStr> NonEmptyItems<T, D> {
         self.items.last().expect("unreachable").format(fmt)?;
         Ok(())
     }
+
+    pub fn format_multiline(&self, fmt: &mut Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .current_column_as_indent()
+            .enter(|fmt| self.format_items(fmt, true))
+    }
 }
 
 impl<T: Format, D: Format + TokenStr> Format for NonEmptyItems<T, D> {
@@ -349,6 +355,12 @@ impl<T: Format> Format for BitstringLike<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
+impl<T> Clauses<T> {
+    pub fn items(&self) -> &[T] {
+        self.0.items()
+    }
+}
+
 impl<T: Format> Format for Clauses<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion().current_column_as_indent().enter(|fmt| {
@@ -379,6 +391,10 @@ impl<O: Format + TokenStr, T: Format> Format for UnaryOpLike<O, T> {
             fmt.write_space()?;
         }
         self.op.format(fmt)?;
+        if fmt.last_char().is_alphabetic() {
+            fmt.write_space()?;
+        }
+
         self.item.format(fmt)?;
         Ok(())
     }
@@ -388,9 +404,11 @@ impl<O: Format + TokenStr, T: Format> Format for UnaryOpLike<O, T> {
     }
 }
 
-// pub trait BinaryOpStyle {
+//  pub trait BinaryOpStyle {
 //     fn indent_offset(&self) -> usize;
+
 //     fn needs_space(&self) -> bool;
+
 //     fn allow_newline(&self) -> bool {
 //         true
 //     }
@@ -439,6 +457,7 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
 
 impl<L: Format, O: Format + IndentOffset + TokenStr, R: Format> Format for BinaryOpLike<L, O, R> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        // TODO: remove `current_column_as_indent()`
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             fmt.subregion()
                 .reset_trailing_columns(self.op.token_str().len() + 1)
