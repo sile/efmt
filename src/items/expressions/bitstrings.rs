@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, Indent, Maybe, MaybePackedItems, NonEmptyItems};
+use crate::items::generics::{BinaryOpLike, BitstringLike, Indent, Maybe, NonEmptyItems};
 use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
@@ -22,11 +22,7 @@ pub enum BitstringExpr {
 /// - $SIZE: `:` [Expr]
 /// - $TYPE: `/` ([AtomToken] `-`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringConstructExpr {
-    open: DoubleLeftAngleSymbol,
-    segments: TrailingColumns<MaybePackedItems<BitstringSegment>, 2>, // ">>"
-    close: DoubleRightAngleSymbol,
-}
+pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
 #[derive(Debug, Clone, Span, Parse, Format)]

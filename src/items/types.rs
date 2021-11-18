@@ -3,18 +3,18 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::Format;
 use crate::items::generics::{
-    Args, BinaryOpLike, Either, Indent, ListLike, Maybe, NonEmptyItems, Params, Parenthesized,
-    TupleLike, UnaryOpLike,
+    Args, BinaryOpLike, BitstringLike, Either, Indent, ListLike, Maybe, NonEmptyItems, Params,
+    Parenthesized, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     FunKeyword, RemKeyword,
 };
-use crate::items::styles::{RightSpace, Space, TrailingColumns};
+use crate::items::styles::Space;
 use crate::items::symbols::{
-    ColonSymbol, CommaSymbol, DoubleColonSymbol, DoubleDotSymbol, DoubleLeftAngleSymbol,
-    DoubleRightAngleSymbol, DoubleRightArrowSymbol, HyphenSymbol, MapMatchSymbol, MultiplySymbol,
-    PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
+    ColonSymbol, DoubleColonSymbol, DoubleDotSymbol, DoubleRightArrowSymbol, HyphenSymbol,
+    MapMatchSymbol, MultiplySymbol, PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol,
+    VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, TokenStr, VariableToken};
 use crate::items::Type;
@@ -217,21 +217,7 @@ type RecordItem = BinaryOpLike<AtomToken, Indent<Space<DoubleColonSymbol>, 4>, T
 /// - $BITS_SIZE: `_` `:` [Type]
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringType {
-    // TODO: BitstringLike<T>
-    open: DoubleLeftAngleSymbol,
-    size: Maybe<TrailingColumns<BitstringSize, 2>>, // trailing: ">>"
-    close: DoubleRightAngleSymbol,
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-enum BitstringSize {
-    BitsAndUnit(
-        Box<BinaryOpLike<BitstringBitsSize, Indent<RightSpace<CommaSymbol>, 0>, BitstringUnitSize>>,
-    ),
-    Unit(Box<BitstringUnitSize>),
-    Bits(Box<BitstringBitsSize>),
-}
+pub struct BitstringType(BitstringLike<Either<BitstringUnitSize, BitstringBitsSize>>);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringBitsSize {
@@ -399,11 +385,11 @@ mod tests {
             "<<>>",
             "<<_:10>>",
             "<<_:_*8>>",
-            "<<_:8 , _:_*4>>", // TODO
+            "<<_:8, _:_*4>>",
             indoc::indoc! {"
             %---10---|%---20---|
-            <<_:(1 + 3 + 4) ,
-              _:_*4>>"}, // TODO
+            <<_:(1 + 3 + 4),
+              _:_*4>>"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);

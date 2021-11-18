@@ -1,7 +1,7 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::symbols::{
-    CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, OpenBraceSymbol,
-    OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
+    CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
+    DoubleRightAngleSymbol, OpenBraceSymbol, OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::{TokenStr, WhitespaceToken};
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -329,6 +329,24 @@ impl<T: Format> Format for TupleLike<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
+pub struct BitstringLike<T> {
+    open: DoubleLeftAngleSymbol,
+    items: MaybePackedItems<T>,
+    close: DoubleRightAngleSymbol,
+}
+
+impl<T: Format> Format for BitstringLike<T> {
+    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
+        self.open.format(fmt)?;
+        fmt.subregion()
+            .trailing_columns(2) // ">>"
+            .enter(|fmt| self.items.format(fmt))?;
+        self.close.format(fmt)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
 impl<T: Format> Format for Clauses<T> {
@@ -370,6 +388,14 @@ impl<O: Format + TokenStr, T: Format> Format for UnaryOpLike<O, T> {
     }
 }
 
+// pub trait BinaryOpStyle {
+//     fn indent_offset(&self) -> usize;
+//     fn needs_space(&self) -> bool;
+//     fn allow_newline(&self) -> bool {
+//         true
+//     }
+// }
+
 // TODO: s/../BinaryOpProperty?/
 pub trait IndentOffset {
     // TODO: support no-newline
@@ -394,7 +420,6 @@ impl<T: TokenStr, const N: usize> TokenStr for Indent<T, N> {
     }
 }
 
-// TODO: rename
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpLike<L, O, R> {
     pub left: L,
