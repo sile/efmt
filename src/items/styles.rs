@@ -23,6 +23,7 @@ impl<T: Format> Format for ColumnIndent<T> {
     }
 }
 
+// TODO: move to `blocks`
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Block<T>(T);
 
@@ -30,7 +31,9 @@ impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion().indent_offset(4).enter(|fmt| {
             fmt.write_newline()?;
-            self.0.format(fmt)
+            self.0.format(fmt)?;
+            fmt.write_newline()?;
+            Ok(())
         })
     }
 }

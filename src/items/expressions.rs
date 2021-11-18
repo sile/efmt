@@ -1,8 +1,8 @@
 //! Erlang expressions.
 use crate::format::{self, Format};
-use crate::items::generics::{Either, NonEmptyItems, Parenthesized};
+use crate::items::generics::{Either, NonEmptyItems2, Parenthesized};
 use crate::items::keywords::WhenKeyword;
-use crate::items::styles::{Child, ColumnIndent, Newline, Space};
+use crate::items::styles::{ColumnIndent, Newline, Space};
 use crate::items::symbols::{CommaSymbol, OpenBraceSymbol, SemicolonSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
@@ -11,11 +11,11 @@ use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
-pub mod blocks;
 pub mod calls;
-pub mod functions;
 
 mod bitstrings;
+mod blocks;
+pub(crate) mod functions; // TODO
 mod lists;
 mod maps;
 mod records;
@@ -23,9 +23,11 @@ mod strings;
 mod tuples;
 
 pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr, BitstringExpr};
-pub use self::blocks::BlockExpr;
+pub use self::blocks::{BeginExpr, BlockExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
 pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
-pub use self::functions::FunctionExpr;
+pub use self::functions::{
+    AnonymousFunctionExpr, DefinedFunctionExpr, FunctionExpr, NamedFunctionExpr,
+};
 pub use self::lists::{ListComprehensionExpr, ListConstructExpr, ListExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
 pub use self::records::{
@@ -196,7 +198,13 @@ pub enum IntegerLikeExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Body {
-    exprs: NonEmptyItems<Child<Expr>, Newline<CommaSymbol>>,
+    exprs: NonEmptyItems2<Expr, Newline<CommaSymbol>>,
+}
+
+impl Body {
+    pub fn exprs(&self) -> &[Expr] {
+        self.exprs.items()
+    }
 }
 
 impl Format for Body {
@@ -208,26 +216,6 @@ impl Format for Body {
                 fmt.write_newline()?;
                 self.exprs.format(fmt)
             })
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-pub struct MaybeInlineBody {
-    exprs: NonEmptyItems<Child<Expr>, Newline<CommaSymbol>>,
-}
-
-impl Format for MaybeInlineBody {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let mut options = fmt.subregion().trailing_columns(4); // ' end'
-        if self.exprs.get().len() > 1 {
-            options = options.indent_offset(4)
-        }
-        options.enter(|fmt| {
-            if self.exprs.get().len() > 1 {
-                fmt.write_newline()?;
-            }
-            self.exprs.format(fmt)
-        })
     }
 }
 
@@ -268,7 +256,7 @@ impl Format for Guard {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct GuardCondition {
-    conditions: NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>,
+    conditions: NonEmptyItems2<Expr, Either<CommaSymbol, SemicolonSymbol>>,
 }
 
 #[cfg(test)]

@@ -406,6 +406,14 @@ impl<T, D> NonEmptyItems2<T, D> {
     pub fn get(&self) -> &[T] {
         self.0.get()
     }
+
+    pub fn items(&self) -> &[T] {
+        self.get()
+    }
+
+    // pub fn delimiters(&self) -> &[D] {
+    //     &self.0.delimiters
+    // }
 }
 
 impl<T: Format, D: Format> NonEmptyItems2<T, D> {
@@ -580,3 +588,28 @@ impl<L: Format, D: Format, R: Format> Format for MatchLike<L, D, R> {
 }
 
 pub type UnbalancedBinaryOpLike<L, D, R> = MatchLike<L, D, R>;
+
+#[derive(Debug, Clone)]
+pub struct Null(WhitespaceToken);
+
+impl Span for Null {
+    fn start_position(&self) -> Position {
+        self.0.end_position() // TODO: note
+    }
+
+    fn end_position(&self) -> Position {
+        self.0.start_position() // TODO: note
+    }
+}
+
+impl Parse for Null {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        ts.current_whitespace_token().map(Self)
+    }
+}
+
+impl Format for Null {
+    fn format(&self, _: &mut format::Formatter) -> format::Result<()> {
+        Ok(())
+    }
+}

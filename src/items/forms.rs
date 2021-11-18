@@ -232,14 +232,8 @@ struct Constraint {
 /// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunDecl {
-    clauses: Clauses2<FunDeclClause, 1>, // trailing: "."
+    clauses: Clauses2<FunctionClause<AtomToken>, 1>, // trailing: "."
     dot: DotSymbol,
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct FunDeclClause {
-    name: AtomToken,
-    clause: FunctionClause,
 }
 
 /// `-` `$NAME` `$ARGS`? `.`

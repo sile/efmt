@@ -1,11 +1,11 @@
 use crate::format::Format;
 use crate::items::expressions::{Body, Expr, Guard, GuardCondition};
-use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
+use crate::items::generics::{Clauses2, Either, Maybe, NonEmptyItems2};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
-use crate::items::styles::{Block, Child, ColumnIndent, Newline, RightSpace, Space};
+use crate::items::styles::{Block, ColumnIndent, Newline, RightSpace, Space, TrailingColumns};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
@@ -21,83 +21,118 @@ pub enum BlockExpr {
     Catch(Box<CatchExpr>),
 }
 
+/// `case` [Expr] `of` (`$CLAUSE` `;`?)+ `end`
+///
+/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $PATTERN: [Expr]
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CaseExpr {
     case: Space<CaseKeyword>,
-    value: Child<Expr>,
+    value: TrailingColumns<Expr, 3>, // " of"
     of: Space<OfKeyword>,
-    clauses: Newline<Block<Clauses<CaseClause>>>,
+    clauses: Block<Clauses2<CaseClause, 0>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct CaseClause {
+struct CaseClause {
+    // TODO: trailing columns
     pattern: Expr,
     guard: Maybe<Guard>,
     arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
+/// `if` (`$CLAUSE` `;`?)+ `end`
+///
+/// - $CLAUSE: `$GUARD` `->` `$BODY`
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
-    clauses: Newline<Block<Clauses<IfClause>>>,
+    clauses: Block<Clauses2<IfClause, 0>>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct IfClause {
-    condigion: GuardCondition,
+struct IfClause {
+    condigion: TrailingColumns<GuardCondition, 3>, // " ->"
     arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
+/// `begin` `$BODY` `end`
+///
+/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
-    exprs: Newline<Block<NonEmptyItems<Expr>>>,
+    exprs: Block<NonEmptyItems2<Expr>>,
     end: EndKeyword,
 }
 
+/// `receive` (`$CLAUSE` `;`?)* `$TIMEOUT`? `end`
+///
+/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $PATTERN: [Expr]
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+/// - $TIMEOUT: `after` [Expr] `->` `$BODY`
+/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveExpr {
     receive: Newline<ReceiveKeyword>,
-    clauses: Maybe<Newline<Block<Clauses<CaseClause>>>>,
-    timeout: Maybe<Newline<ReceiveTimeout>>,
+    clauses: Maybe<Block<Clauses2<CaseClause, 0>>>,
+    timeout: Maybe<ReceiveTimeout>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ReceiveTimeout {
-    after: Newline<AfterKeyword>,
+struct ReceiveTimeout {
+    after: AfterKeyword,
     clause: Block<ReceiveTimeoutClause>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ReceiveTimeoutClause {
-    timeout: Expr,
+struct ReceiveTimeoutClause {
+    timeout: TrailingColumns<Expr, 3>, // " ->"
     arrow: Space<RightArrowSymbol>,
     body: Body,
 }
 
+/// `try` `$BODY` `$BRANCHES`? `$CATCH`? `$AFTER`? `end`
+///
+/// - $BODY: ([Expr] `,`?)+
+/// - $BRANCHES: (`of` (`$BRANCH_CLAUSE` `;`?)+)
+/// - $BRANCH_CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $PATTERN: [Expr]
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+/// - $CATCH: `catch` (`$CATCH_CLAUSE` `;`?)+
+/// - $CATCH_CLAUSE: `$ERROR_CLASS`? [Expr] `$STACKTRACE`? (`when` `$GUARD`)? `->` `$BODY`
+/// - $ERROR_CLASS: ([AtomToken] | [VariableToken]) `:`
+/// - $STACKTRACE: `:` [VariableToken]
+/// - $AFTER: `after` `$BODY`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TryExpr {
     r#try: TryKeyword,
     body: Newline<Body>,
-    clauses: Maybe<(OfKeyword, Newline<Block<Clauses<CaseClause>>>)>,
-    catch: Maybe<Newline<TryCatch>>,
-    after: Maybe<Newline<TryAfter>>,
+    clauses: Maybe<(OfKeyword, Block<Clauses2<CaseClause, 0>>)>,
+    catch: Maybe<TryCatch>,
+    after: Maybe<TryAfter>,
     end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TryCatch {
+struct TryCatch {
     catch: CatchKeyword,
-    clauses: Newline<Block<Clauses<CatchClause>>>,
+    clauses: Block<Clauses2<CatchClause, 0>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct CatchClause {
+struct CatchClause {
+    // TODO: trailing column
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
@@ -107,11 +142,12 @@ pub struct CatchClause {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TryAfter {
+struct TryAfter {
     after: AfterKeyword,
-    body: Body,
+    body: Newline<Body>,
 }
 
+/// `catch` [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct CatchExpr {
     catch: RightSpace<CatchKeyword>,
