@@ -1,6 +1,6 @@
 use crate::format::{self, Format, Formatter};
 use crate::items::expressions::Expr;
-use crate::items::generics::{Args2, Either, Maybe};
+use crate::items::generics::{Args, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
@@ -184,8 +184,8 @@ impl Format for Empty {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum MacroArgs {
-    Empty(Args2<Empty>),
-    Args(Args2<MacroArg>),
+    Empty(Args<Empty>),
+    Args(Args<MacroArg>),
 }
 
 impl MacroArgs {

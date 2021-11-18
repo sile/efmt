@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, Guard, IntegerLikeExpr};
-use crate::items::generics::{Maybe, NonEmptyItems2, Null, Params};
+use crate::items::generics::{Maybe, NonEmptyItems, Null, Params};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::styles::{Newline, RightSpace, Space};
 use crate::items::symbols::{ColonSymbol, RightArrowSymbol, SemicolonSymbol, SlashSymbol};
@@ -54,7 +54,7 @@ pub struct NamedFunctionExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunctionClauses<Name>(NonEmptyItems2<FunctionClause<Name>, Newline<SemicolonSymbol>>);
+struct FunctionClauses<Name>(NonEmptyItems<FunctionClause<Name>, Newline<SemicolonSymbol>>);
 
 impl<Name: Format> Format for FunctionClauses<Name> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
@@ -63,7 +63,7 @@ impl<Name: Format> Format for FunctionClauses<Name> {
                 .subregion()
                 .forbid_multi_line()
                 .forbid_too_long_line()
-                .trailing_columns2(4) // "end"
+                .trailing_columns(4) // "end"
                 .check_trailing_columns(true)
                 .enter(|fmt| {
                     let clause = &self.0.items()[0];
@@ -106,12 +106,12 @@ impl Format for ParamsAndGuard {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         if self.guard.get().is_none() {
             fmt.subregion()
-                .trailing_columns2(3) // " ->"
+                .trailing_columns(3) // " ->"
                 .enter(|fmt| self.params.format(fmt))?;
         } else {
             self.params.format(fmt)?;
             fmt.subregion()
-                .trailing_columns2(3) // " ->"
+                .trailing_columns(3) // " ->"
                 .enter(|fmt| self.guard.format(fmt))?;
         }
         Ok(())

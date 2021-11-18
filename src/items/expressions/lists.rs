@@ -1,7 +1,6 @@
 use crate::format::Format;
-use crate::items::expressions::Expr;
-use crate::items::generics::{Either, ListLike, NonEmptyItems2, UnbalancedBinaryOpLike};
-use crate::items::qualifiers::Qualifier;
+use crate::items::expressions::{Expr, Qualifier};
+use crate::items::generics::{BinaryOpLike, Either, Indent, ListLike, NonEmptyItems};
 use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
@@ -31,7 +30,7 @@ pub struct ListComprehensionExpr {
 }
 
 type ListComprehensionBody =
-    UnbalancedBinaryOpLike<Expr, Space<DoubleVerticalBarSymbol>, NonEmptyItems2<Qualifier>>;
+    BinaryOpLike<Expr, Indent<DoubleVerticalBarSymbol, 3>, NonEmptyItems<Qualifier>>;
 
 #[cfg(test)]
 mod tests {
@@ -89,8 +88,9 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             [[X, Y] ||
-                X <- [1, 2, 3,
-                      4, 5],
+                X <-
+                    [1, 2, 3, 4,
+                     5],
                 Y <= Z,
                 false]"},
         ];

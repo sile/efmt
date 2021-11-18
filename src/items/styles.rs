@@ -1,4 +1,5 @@
 use crate::format::{self, Format, Formatter};
+use crate::items::tokens::TokenStr;
 use crate::parse::Parse;
 use crate::span::{Position, Span};
 
@@ -19,12 +20,15 @@ pub struct Block<T>(T);
 
 impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion().indent_offset(4).enter(|fmt| {
-            fmt.write_newline()?;
-            self.0.format(fmt)?;
-            fmt.write_newline()?;
-            Ok(())
-        })
+        fmt.subregion()
+            .clear_trailing_columns(true)
+            .indent_offset(4)
+            .enter(|fmt| {
+                fmt.write_newline()?;
+                self.0.format(fmt)?;
+                fmt.write_newline()?;
+                Ok(())
+            })
     }
 }
 
@@ -64,12 +68,26 @@ impl<T: Format> Format for Space<T> {
     }
 }
 
+// TODO: delete
+impl<T: TokenStr> TokenStr for Space<T> {
+    fn token_str(&self) -> &str {
+        self.0.token_str()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RightSpace<T>(T);
 
 impl<T> RightSpace<T> {
     pub fn get(&self) -> &T {
         &self.0
+    }
+}
+
+// TODO: delete
+impl<T: TokenStr> TokenStr for RightSpace<T> {
+    fn token_str(&self) -> &str {
+        self.0.token_str()
     }
 }
 
@@ -92,6 +110,12 @@ impl<T: Format> Format for Newline<T> {
     }
 }
 
+impl<T: TokenStr> TokenStr for Newline<T> {
+    fn token_str(&self) -> &str {
+        self.0.token_str()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct TrailingColumns<T, const N: usize>(T);
 
@@ -104,7 +128,7 @@ impl<T, const N: usize> TrailingColumns<T, N> {
 impl<T: Format, const N: usize> Format for TrailingColumns<T, N> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion()
-            .trailing_columns2(N)
+            .trailing_columns(N)
             .check_trailing_columns(true) // TODO: delete
             .enter(|fmt| self.0.format(fmt))
     }

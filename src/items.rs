@@ -4,7 +4,6 @@ use crate::span::Span;
 
 pub mod expressions;
 pub mod forms;
-pub mod qualifiers; // TODO: move to expressions/
 pub mod tokens;
 pub mod types;
 

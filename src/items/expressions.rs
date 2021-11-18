@@ -4,10 +4,12 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{self, Format};
-use crate::items::generics::{Either, NonEmptyItems2, Parenthesized};
+use crate::items::generics::{BinaryOpLike, Either, Indent, NonEmptyItems, Parenthesized};
 use crate::items::keywords::WhenKeyword;
 use crate::items::styles::{ColumnIndent, Newline, Space};
-use crate::items::symbols::{CommaSymbol, OpenBraceSymbol, SemicolonSymbol};
+use crate::items::symbols::{
+    CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol, SemicolonSymbol,
+};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
 };
@@ -196,7 +198,7 @@ enum IntegerLikeExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 struct Body {
-    exprs: NonEmptyItems2<Expr, Newline<CommaSymbol>>,
+    exprs: NonEmptyItems<Expr, Newline<CommaSymbol>>,
 }
 
 impl Body {
@@ -254,8 +256,19 @@ impl Format for Guard {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct GuardCondition {
-    conditions: NonEmptyItems2<Expr, Either<CommaSymbol, SemicolonSymbol>>,
+    conditions: NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>,
 }
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+enum Qualifier {
+    Generator(Generator),
+    Filter(Expr),
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct Generator(
+    BinaryOpLike<Expr, Indent<Either<LeftArrowSymbol, DoubleLeftArrowSymbol>, 4>, Expr>,
+);
 
 #[cfg(test)]
 mod tests {

@@ -83,12 +83,6 @@ impl<'a> RegionOptions<'a> {
         self
     }
 
-    // TODO: delete
-    pub fn trailing_columns(mut self, n: usize) -> Self {
-        self.config.max_columns = self.config.max_columns.saturating_sub(n);
-        self
-    }
-
     pub fn reset_trailing_columns(mut self, n: usize) -> Self {
         self.config.trailing_columns = n;
         self
@@ -101,7 +95,7 @@ impl<'a> RegionOptions<'a> {
         self
     }
 
-    pub fn trailing_columns2(mut self, n: usize) -> Self {
+    pub fn trailing_columns(mut self, n: usize) -> Self {
         self.config.trailing_columns += n;
         self
     }

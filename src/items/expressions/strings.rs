@@ -1,19 +1,38 @@
 use crate::format::{self, Format};
-use crate::items::generics::MaybeRepeat;
 use crate::items::tokens::StringToken;
-use crate::parse::Parse;
-use crate::span::Span;
+use crate::parse::{self, Parse};
+use crate::span::{Position, Span};
 
 /// [StringToken]+
-#[derive(Debug, Clone, Span, Parse)]
-pub struct StringExpr(MaybeRepeat<StringToken>);
+#[derive(Debug, Clone)]
+pub struct StringExpr(Vec<StringToken>);
+
+impl Span for StringExpr {
+    fn start_position(&self) -> Position {
+        self.0[0].start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.0[self.0.len() - 1].end_position()
+    }
+}
+
+impl Parse for StringExpr {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let mut items = vec![ts.parse()?];
+        while let Ok(item) = ts.parse() {
+            items.push(item);
+        }
+        Ok(Self(items))
+    }
+}
 
 impl Format for StringExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         fmt.subregion().current_column_as_indent().enter(|fmt| {
-            for (i, item) in self.0.get().iter().enumerate() {
+            for (i, item) in self.0.iter().enumerate() {
                 item.format(fmt)?;
-                if i + 1 < self.0.get().len() {
+                if i + 1 < self.0.len() {
                     fmt.write_newline()?;
                 }
             }

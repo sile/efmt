@@ -1,7 +1,6 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{BaseExpr, Expr};
-use crate::items::generics::{Maybe, MaybePackedItems, NonEmptyItems2, UnbalancedBinaryOpLike};
-use crate::items::qualifiers::Qualifier;
+use crate::items::expressions::{BaseExpr, Expr, Qualifier};
+use crate::items::generics::{BinaryOpLike, Indent, Maybe, MaybePackedItems, NonEmptyItems};
 use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
@@ -38,7 +37,7 @@ pub struct BitstringComprehensionExpr {
 }
 
 type ComprehensionBody =
-    UnbalancedBinaryOpLike<Expr, Space<DoubleVerticalBarSymbol>, NonEmptyItems2<Qualifier>>;
+    BinaryOpLike<Expr, Indent<Space<DoubleVerticalBarSymbol>, 2>, NonEmptyItems<Qualifier>>;
 
 #[derive(Debug, Clone, Span, Parse)]
 struct BitstringSegment {
@@ -69,7 +68,7 @@ struct BitstringSegmentSize {
 #[derive(Debug, Clone, Span, Parse)]
 struct BitstringSegmentType {
     slash: SlashSymbol,
-    specifiers: NonEmptyItems2<BitstringSegmentTypeSpecifier, HyphenSymbol>,
+    specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
 }
 
 impl Format for BitstringSegmentType {
@@ -77,16 +76,15 @@ impl Format for BitstringSegmentType {
         self.slash.format(fmt)?;
         for (item, delimiter) in self
             .specifiers
-            .get()
+            .items()
             .iter()
-            .zip(self.specifiers.0.delimiters.iter())
+            .zip(self.specifiers.delimiters().iter())
         {
             item.format(fmt)?;
             delimiter.format(fmt)?;
         }
         self.specifiers
-            .0
-            .items
+            .items()
             .last()
             .expect("unreachable")
             .format(fmt)?;
@@ -141,8 +139,9 @@ mod tests {
                    Z,
                    bar(),
                    baz())) ||
-                X <- [1, 2, 3,
-                      4, 5],
+                X <-
+                    [1, 2, 3, 4,
+                     5],
                 Y <= Z,
                 false>>"},
             indoc::indoc! {"

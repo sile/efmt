@@ -1,7 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::Expr;
-use crate::items::generics::{Either, MatchLike, TupleLike};
-use crate::items::styles::Space;
+use crate::items::generics::{BinaryOpLike, Either, Indent, TupleLike};
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -49,7 +48,7 @@ impl Format for MapUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct MapItem(MatchLike<Expr, Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Expr>);
+struct MapItem(BinaryOpLike<Expr, Indent<Either<DoubleRightArrowSymbol, MapMatchSymbol>, 4>, Expr>);
 
 #[cfg(test)]
 mod tests {

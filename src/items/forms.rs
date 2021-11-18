@@ -7,7 +7,7 @@ use crate::items::atoms::{
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{
-    Args, Clauses2, Either, Maybe, NonEmptyItems2, Params, Parenthesized2, TupleLike,
+    Args, Clauses, Either, Maybe, NonEmptyItems, Params, Parenthesized, TupleLike,
 };
 use crate::items::keywords::{IfKeyword, WhenKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
@@ -93,7 +93,7 @@ struct RecordField {
 pub struct TypeDecl {
     hyphen: HyphenSymbol,
     kind: Either<TypeAtom, OpaqueAtom>,
-    item: Either<TypeDeclItem, Parenthesized2<TypeDeclItem>>,
+    item: Either<TypeDeclItem, Parenthesized<TypeDeclItem>>,
     dot: DotSymbol,
 }
 
@@ -143,7 +143,8 @@ impl Format for TypeDeclItem {
 pub struct FunSpec {
     hyphen: HyphenSymbol,
     kind: Either<SpecAtom, CallbackAtom>,
-    item: Either<FunSpecItem, Parenthesized2<FunSpecItem>>,
+    // TODO: TrailingColumns<_, 1>
+    item: Either<FunSpecItem, Parenthesized<FunSpecItem>>,
     dot: DotSymbol,
 }
 
@@ -151,7 +152,7 @@ pub struct FunSpec {
 struct FunSpecItem {
     module_name: Maybe<(AtomToken, ColonSymbol)>,
     function_name: AtomToken,
-    clauses: Clauses2<SpecClause, 1>, // trailing: "."
+    clauses: Clauses<SpecClause>,
 }
 
 impl Format for FunSpecItem {
@@ -221,7 +222,7 @@ impl Format for SpecClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct Constraint {
     when: Space<WhenKeyword>,
-    constraints: NonEmptyItems2<Type, CommaSymbol>,
+    constraints: NonEmptyItems<Type, CommaSymbol>,
 }
 
 /// (`$NAME` `(` (`$PARAM` `,`?)* `)` (`when` `$GUARD`)? `->` `$BODY` `;`?)+ `.`
@@ -232,7 +233,8 @@ struct Constraint {
 /// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunDecl {
-    clauses: Clauses2<FunctionClause<AtomToken>, 1>, // trailing: "."
+    // TODO: trailing columns
+    clauses: Clauses<FunctionClause<AtomToken>>,
     dot: DotSymbol,
 }
 
@@ -540,8 +542,7 @@ mod tests {
                       {atom(),
                        atom()}
                           when A :: atom();
-                        (a) ->
-                      b."},
+                        (a) -> b."}, // TODO
             indoc::indoc! {"
             -spec foo:bar() ->
                       baz()."},

@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::expressions::{Body, Expr, Guard, GuardCondition};
-use crate::items::generics::{Clauses2, Either, Maybe, NonEmptyItems2};
+use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
@@ -32,7 +32,7 @@ pub struct CaseExpr {
     case: Space<CaseKeyword>,
     value: TrailingColumns<Expr, 3>, // " of"
     of: Space<OfKeyword>,
-    clauses: Block<Clauses2<CaseClause, 0>>,
+    clauses: Block<Clauses<CaseClause>>,
     end: EndKeyword,
 }
 
@@ -53,7 +53,7 @@ struct CaseClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
-    clauses: Block<Clauses2<IfClause, 0>>,
+    clauses: Block<Clauses<IfClause>>,
     end: EndKeyword,
 }
 
@@ -70,7 +70,7 @@ struct IfClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
-    exprs: Block<NonEmptyItems2<Expr>>,
+    exprs: Block<NonEmptyItems<Expr>>,
     end: EndKeyword,
 }
 
@@ -84,7 +84,7 @@ pub struct BeginExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveExpr {
     receive: Newline<ReceiveKeyword>,
-    clauses: Maybe<Block<Clauses2<CaseClause, 0>>>,
+    clauses: Maybe<Block<Clauses<CaseClause>>>,
     timeout: Maybe<ReceiveTimeout>,
     end: EndKeyword,
 }
@@ -118,7 +118,7 @@ struct ReceiveTimeoutClause {
 pub struct TryExpr {
     r#try: TryKeyword,
     body: Newline<Body>,
-    clauses: Maybe<(OfKeyword, Block<Clauses2<CaseClause, 0>>)>,
+    clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
     end: EndKeyword,
@@ -127,7 +127,7 @@ pub struct TryExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct TryCatch {
     catch: CatchKeyword,
-    clauses: Block<Clauses2<CatchClause, 0>>,
+    clauses: Block<Clauses<CatchClause>>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -167,6 +167,7 @@ mod tests {
                     2
             end"},
             indoc::indoc! {"
+            %---10---|%---20---|
             case foo() of
                 {1, 2} ->
                     3;

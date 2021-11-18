@@ -1,7 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{Either, Expr};
-use crate::items::generics::{MatchLike, TupleLike};
-use crate::items::styles::Space;
+use crate::items::generics::{BinaryOpLike, Indent, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
@@ -122,7 +121,9 @@ impl Format for RecordUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct RecordField(MatchLike<Either<AtomToken, UnderscoreVariable>, Space<MatchSymbol>, Expr>);
+struct RecordField(
+    BinaryOpLike<Either<AtomToken, UnderscoreVariable>, Indent<MatchSymbol, 4>, Expr>,
+);
 
 #[cfg(test)]
 mod tests {

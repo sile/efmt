@@ -44,8 +44,7 @@ loop(Users, N) ->
                             Pid !
                                 {ftp_server,
                                  {ok, New}},
-                            loop(Users,
-                                 N + 1)
+                            loop(Users, N + 1)
                     end;
                 false ->
                     Pid !
@@ -54,8 +53,7 @@ loop(Users, N) ->
                     loop(Users, N)
             end;
         {'EXIT', Pid} ->
-            io:format("Handler ~p died~n",
-                      [Pid]),
+            io:format("Handler ~p died~n", [Pid]),
             loop(Users, lists:max(N - 1, 0));
         Any ->
             io:format("received:~p~n", [Any]),

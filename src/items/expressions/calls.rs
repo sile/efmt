@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr};
-use crate::items::generics::{Args2, BinaryOpLike2, IndentOffset, Maybe, UnaryOpLike};
+use crate::items::generics::{Args, BinaryOpLike, IndentOffset, Maybe, UnaryOpLike};
 use crate::items::keywords;
 use crate::items::styles::RightSpace;
 use crate::items::symbols::{self, ColonSymbol};
@@ -18,7 +18,7 @@ use erl_tokenize::values::{Keyword, Symbol};
 pub struct FunctionCallExpr {
     module: Maybe<(BaseExpr, ColonSymbol)>,
     function: BaseExpr,
-    args: Args2<Expr>,
+    args: Args<Expr>,
 }
 
 impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
@@ -68,7 +68,7 @@ impl TokenStr for UnaryOp {
 
 /// [Expr] [BinaryOp] [Expr]
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpCallExpr(BinaryOpLike2<Expr, BinaryOp, Expr>);
+pub struct BinaryOpCallExpr(BinaryOpLike<Expr, BinaryOp, Expr>);
 
 impl ResumeParse<Expr> for BinaryOpCallExpr {
     fn resume_parse(ts: &mut parse::TokenStream, left: Expr) -> parse::Result<Self> {
@@ -282,11 +282,11 @@ mod tests {
         let texts = [
             "1 + 2",
             "1 - 2 * 3",
-            // TODO
             indoc::indoc! {"
             %---10---|%---20---|
             {A, B, C} =
-                {foo, bar, baz} =
+                {foo, bar,
+                 baz} =
                     qux() /
                     quux() div 2"},
         ];

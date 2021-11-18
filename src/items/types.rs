@@ -3,8 +3,8 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::Format;
 use crate::items::generics::{
-    Args2, BinaryOpLike, Either, ListLike, Maybe, NonEmptyItems2, Params, Parenthesized,
-    Parenthesized2, TupleLike, UnaryOpLike,
+    Args, BinaryOpLike, Either, Indent, ListLike, Maybe, NonEmptyItems, Params, Parenthesized,
+    TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -39,8 +39,9 @@ impl Parse for NonUnionType {
 }
 
 /// [Type] `|` [Type]
+// TODO: use BinaryOpLike instead
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnionType(NonEmptyItems2<NonUnionType, Space<VerticalBarSymbol>>);
+pub struct UnionType(NonEmptyItems<NonUnionType, Space<VerticalBarSymbol>>);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum NonLeftRecursiveType {
@@ -69,7 +70,7 @@ pub struct AnnotatedVariableType {
 ///
 /// - $OP: [BinaryOp]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type, 0>);
+pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, Indent<BinaryOp, 0>, Type>);
 
 impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
     fn resume_parse(
@@ -94,6 +95,24 @@ pub enum BinaryOp {
     Bsl(Space<BslKeyword>),
     Bsr(Space<BsrKeyword>),
     Range(DoubleDotSymbol),
+}
+
+impl TokenStr for BinaryOp {
+    fn token_str(&self) -> &str {
+        match self {
+            Self::Mul(x) => x.token_str(),
+            Self::Plus(x) => x.token_str(),
+            Self::Minus(x) => x.token_str(),
+            Self::Div(x) => x.token_str(),
+            Self::Rem(x) => x.token_str(),
+            Self::Band(x) => x.token_str(),
+            Self::Bor(x) => x.token_str(),
+            Self::Bxor(x) => x.token_str(),
+            Self::Bsl(x) => x.token_str(),
+            Self::Bsr(x) => x.token_str(),
+            Self::Range(x) => x.token_str(),
+        }
+    }
 }
 
 /// `$OP` [Type]
@@ -127,14 +146,15 @@ impl TokenStr for UnaryOp {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionType {
     fun: Space<FunKeyword>,
-    params_and_return: Parenthesized2<Maybe<FunctionParamsAndReturn>>,
+    params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
 }
 
-type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, Space<RightArrowSymbol>, Type, 8>;
+type FunctionParamsAndReturn =
+    BinaryOpLike<FunctionParams, Indent<Space<RightArrowSymbol>, 8>, Type>;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum FunctionParams {
-    Any(Parenthesized2<TripleDotSymbol>),
+    Any(Parenthesized<TripleDotSymbol>),
     Params(Params<Type>),
 }
 
@@ -156,7 +176,7 @@ pub enum LiteralType {
 pub struct MfargsType {
     module: Maybe<(AtomToken, ColonSymbol)>,
     name: AtomToken,
-    args: Args2<Type>,
+    args: Args<Type>,
 }
 
 /// `[` (`$ITEM` `,`?)* `]`
@@ -176,7 +196,8 @@ pub struct MapType {
     items: TupleLike<MapItem>,
 }
 
-type MapItem = BinaryOpLike<Type, Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, Type, 4>;
+type MapItem =
+    BinaryOpLike<Type, Indent<Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, 4>, Type>;
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -189,7 +210,7 @@ pub struct RecordType {
     fields: TupleLike<RecordItem>,
 }
 
-type RecordItem = BinaryOpLike<AtomToken, Space<DoubleColonSymbol>, Type, 4>;
+type RecordItem = BinaryOpLike<AtomToken, Indent<Space<DoubleColonSymbol>, 4>, Type>;
 
 /// `<<` `$BITS_SIZE`? `,`? `$UNIT_SIZE`? `>>`
 ///
@@ -197,6 +218,7 @@ type RecordItem = BinaryOpLike<AtomToken, Space<DoubleColonSymbol>, Type, 4>;
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringType {
+    // TODO: BitstringLike<T>
     open: DoubleLeftAngleSymbol,
     size: Maybe<TrailingColumns<BitstringSize, 2>>, // trailing: ">>"
     close: DoubleRightAngleSymbol,
@@ -205,7 +227,7 @@ pub struct BitstringType {
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum BitstringSize {
     BitsAndUnit(
-        Box<BinaryOpLike<BitstringBitsSize, RightSpace<CommaSymbol>, BitstringUnitSize, 0>>,
+        Box<BinaryOpLike<BitstringBitsSize, Indent<RightSpace<CommaSymbol>, 0>, BitstringUnitSize>>,
     ),
     Unit(Box<BitstringUnitSize>),
     Bits(Box<BitstringBitsSize>),
@@ -364,7 +386,7 @@ mod tests {
             %---10---|%---20---|
             foo |
             (3 + 10) |
-            -1..+20"},
+            -1 .. +20"}, // TODO
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -377,11 +399,11 @@ mod tests {
             "<<>>",
             "<<_:10>>",
             "<<_:_*8>>",
-            "<<_:8, _:_*4>>",
+            "<<_:8 , _:_*4>>", // TODO
             indoc::indoc! {"
             %---10---|%---20---|
-            <<_:(1 + 3 + 4),
-              _:_*4>>"},
+            <<_:(1 + 3 + 4) ,
+              _:_*4>>"}, // TODO
         ];
         for text in texts {
             crate::assert_format!(text, Type);
