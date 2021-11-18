@@ -4,7 +4,7 @@ use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, OpenBraceSymbol,
     OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
 };
-use crate::items::tokens::WhitespaceToken;
+use crate::items::tokens::{TokenStr, WhitespaceToken};
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
@@ -478,19 +478,16 @@ impl<T, D> Items2<T, D> {
     }
 }
 
-pub trait NeedsBeforeSpace {
-    fn needs_before_space(&self, fmt: &format::Formatter) -> bool;
-}
-
 #[derive(Debug, Clone, Span, Parse)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
 }
 
-impl<O: Format + NeedsBeforeSpace, T: Format> Format for UnaryOpLike<O, T> {
+impl<O: Format + TokenStr, T: Format> Format for UnaryOpLike<O, T> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if self.op.needs_before_space(fmt) {
+        let op = self.op.token_str();
+        if op.starts_with(fmt.last_char()) {
             fmt.write_space()?;
         }
         self.op.format(fmt)?;
@@ -611,5 +608,59 @@ impl Parse for Null {
 impl Format for Null {
     fn format(&self, _: &mut format::Formatter) -> format::Result<()> {
         Ok(())
+    }
+}
+
+pub trait IndentOffset {
+    fn indent_offset(&self) -> usize;
+}
+
+// TODO: rename
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpLike2<L, O, R> {
+    pub left: L,
+    pub op: O,
+    pub right: R,
+}
+
+impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike2<L, O, R> {
+    fn resume_parse(ts: &mut parse::TokenStream, left: L) -> parse::Result<Self> {
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
+}
+
+impl<L: Format, O: Format + IndentOffset + TokenStr, R: Format> Format for BinaryOpLike2<L, O, R> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion().current_column_as_indent().enter(|fmt| {
+            fmt.subregion()
+                .reset_trailing_columns(self.op.token_str().len() + 1)
+                .enter(|fmt| self.left.format(fmt))?;
+            fmt.write_space()?;
+            self.op.format(fmt)?;
+            fmt.write_space()?;
+
+            let indent_offset = self.op.indent_offset();
+            if fmt.current_relative_column() <= indent_offset {
+                // Inserting a newline cannot shorten the line length.
+                self.right.format(fmt)?
+            } else if fmt
+                .subregion()
+                .forbid_too_long_line()
+                .forbid_multi_line()
+                // TODO .check_trailing_columns(true)
+                .enter(|fmt| self.right.format(fmt))
+                .is_err()
+            {
+                fmt.subregion().indent_offset(indent_offset).enter(|fmt| {
+                    fmt.write_newline()?;
+                    self.right.format(fmt)
+                })?;
+            }
+            Ok(())
+        })
     }
 }

@@ -1,4 +1,8 @@
 //! Erlang expressions.
+use self::bitstrings::BitstringExpr;
+use self::blocks::BlockExpr;
+use self::functions::FunctionExpr;
+use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{self, Format};
 use crate::items::generics::{Either, NonEmptyItems2, Parenthesized};
 use crate::items::keywords::WhenKeyword;
@@ -11,10 +15,9 @@ use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
-pub mod calls;
-
 mod bitstrings;
 mod blocks;
+mod calls;
 pub(crate) mod functions; // TODO
 mod lists;
 mod maps;
@@ -22,18 +25,13 @@ mod records;
 mod strings;
 mod tuples;
 
-pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr, BitstringExpr};
-pub use self::blocks::{BeginExpr, BlockExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
-pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
-pub use self::functions::{
-    AnonymousFunctionExpr, DefinedFunctionExpr, FunctionExpr, NamedFunctionExpr,
-};
+pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
+pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
+pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOp, UnaryOpCallExpr};
+pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
 pub use self::lists::{ListComprehensionExpr, ListConstructExpr, ListExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
-pub use self::records::{
-    RecordAccessExpr, RecordAccessOrUpdateExpr, RecordConstructExpr, RecordConstructOrIndexExpr,
-    RecordIndexExpr, RecordUpdateExpr,
-};
+pub use self::records::{RecordAccessExpr, RecordConstructExpr, RecordIndexExpr, RecordUpdateExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
@@ -161,6 +159,7 @@ impl Expr {
     }
 }
 
+/// [AtomToken] | [CharToken] | [FloatToken] | [IntegerToken] | [VariableToken] | [StringExpr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum LiteralExpr {
     Atom(AtomToken),
@@ -171,9 +170,8 @@ pub enum LiteralExpr {
     VariableToken(VariableToken),
 }
 
-// TODO: delete?
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum AtomLikeExpr {
+enum AtomLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
@@ -190,19 +188,19 @@ impl From<AtomLikeExpr> for BaseExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum IntegerLikeExpr {
+enum IntegerLikeExpr {
     Integer(IntegerToken),
     Variable(VariableToken),
     Expr(Parenthesized<Expr>),
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct Body {
+struct Body {
     exprs: NonEmptyItems2<Expr, Newline<CommaSymbol>>,
 }
 
 impl Body {
-    pub fn exprs(&self) -> &[Expr] {
+    fn exprs(&self) -> &[Expr] {
         self.exprs.items()
     }
 }
@@ -220,7 +218,7 @@ impl Format for Body {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct Guard {
+struct Guard {
     when: Space<WhenKeyword>,
     condition: ColumnIndent<GuardCondition>,
 }
@@ -255,7 +253,7 @@ impl Format for Guard {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct GuardCondition {
+struct GuardCondition {
     conditions: NonEmptyItems2<Expr, Either<CommaSymbol, SemicolonSymbol>>,
 }
 
@@ -270,6 +268,7 @@ mod tests {
             foo(A) when A ->
                 A."},
             indoc::indoc! {"
+            %---10---|%---20---|
             foo(A, B, C)
               when A =:= B ->
                 C."},

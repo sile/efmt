@@ -1,10 +1,10 @@
 use crate::format::Format;
-use crate::items::tokens::KeywordToken;
+use crate::items::tokens::{KeywordToken, TokenStr};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;
 use erl_tokenize::values::Keyword;
 
-macro_rules! impl_parse {
+macro_rules! impl_traits {
     ($name:ident,$value:ident) => {
         impl Parse for $name {
             fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
@@ -16,113 +16,119 @@ macro_rules! impl_parse {
                 }
             }
         }
+
+        impl TokenStr for $name {
+            fn token_str(&self) -> &str {
+                self.0.token_str()
+            }
+        }
     };
 }
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct AfterKeyword(KeywordToken);
-impl_parse!(AfterKeyword, After);
+impl_traits!(AfterKeyword, After);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct AndKeyword(KeywordToken);
-impl_parse!(AndKeyword, And);
+impl_traits!(AndKeyword, And);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct AndalsoKeyword(KeywordToken);
-impl_parse!(AndalsoKeyword, Andalso);
+impl_traits!(AndalsoKeyword, Andalso);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BandKeyword(KeywordToken);
-impl_parse!(BandKeyword, Band);
+impl_traits!(BandKeyword, Band);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BeginKeyword(KeywordToken);
-impl_parse!(BeginKeyword, Begin);
+impl_traits!(BeginKeyword, Begin);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BnotKeyword(KeywordToken);
-impl_parse!(BnotKeyword, Bnot);
+impl_traits!(BnotKeyword, Bnot);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BorKeyword(KeywordToken);
-impl_parse!(BorKeyword, Bor);
+impl_traits!(BorKeyword, Bor);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BslKeyword(KeywordToken);
-impl_parse!(BslKeyword, Bsl);
+impl_traits!(BslKeyword, Bsl);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BsrKeyword(KeywordToken);
-impl_parse!(BsrKeyword, Bsr);
+impl_traits!(BsrKeyword, Bsr);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct BxorKeyword(KeywordToken);
-impl_parse!(BxorKeyword, Bxor);
+impl_traits!(BxorKeyword, Bxor);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct CaseKeyword(KeywordToken);
-impl_parse!(CaseKeyword, Case);
+impl_traits!(CaseKeyword, Case);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct CatchKeyword(KeywordToken);
-impl_parse!(CatchKeyword, Catch);
+impl_traits!(CatchKeyword, Catch);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct CondKeyword(KeywordToken);
-impl_parse!(CondKeyword, Cond);
+impl_traits!(CondKeyword, Cond);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct DivKeyword(KeywordToken);
-impl_parse!(DivKeyword, Div);
+impl_traits!(DivKeyword, Div);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct EndKeyword(KeywordToken);
-impl_parse!(EndKeyword, End);
+impl_traits!(EndKeyword, End);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct FunKeyword(KeywordToken);
-impl_parse!(FunKeyword, Fun);
+impl_traits!(FunKeyword, Fun);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct IfKeyword(KeywordToken);
-impl_parse!(IfKeyword, If);
+impl_traits!(IfKeyword, If);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct LetKeyword(KeywordToken);
-impl_parse!(LetKeyword, Let);
+impl_traits!(LetKeyword, Let);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct NotKeyword(KeywordToken);
-impl_parse!(NotKeyword, Not);
+impl_traits!(NotKeyword, Not);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct OfKeyword(KeywordToken);
-impl_parse!(OfKeyword, Of);
+impl_traits!(OfKeyword, Of);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct OrKeyword(KeywordToken);
-impl_parse!(OrKeyword, Or);
+impl_traits!(OrKeyword, Or);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct OrelseKeyword(KeywordToken);
-impl_parse!(OrelseKeyword, Orelse);
+impl_traits!(OrelseKeyword, Orelse);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct ReceiveKeyword(KeywordToken);
-impl_parse!(ReceiveKeyword, Receive);
+impl_traits!(ReceiveKeyword, Receive);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct RemKeyword(KeywordToken);
-impl_parse!(RemKeyword, Rem);
+impl_traits!(RemKeyword, Rem);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct TryKeyword(KeywordToken);
-impl_parse!(TryKeyword, Try);
+impl_traits!(TryKeyword, Try);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct WhenKeyword(KeywordToken);
-impl_parse!(WhenKeyword, When);
+impl_traits!(WhenKeyword, When);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct XorKeyword(KeywordToken);
-impl_parse!(XorKeyword, Xor);
+impl_traits!(XorKeyword, Xor);

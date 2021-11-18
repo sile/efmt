@@ -25,7 +25,8 @@ loop(Users, N) ->
         {connect, Pid, User, Password} ->
             io:format("connection request from:~p ~p ~p~n",
                       [Pid, User, Password]),
-            case member({User, Password}, Users) of
+            case member({User, Password},
+                        Users) of
                 true ->
                     Max = max_connections(),
                     if
@@ -43,7 +44,8 @@ loop(Users, N) ->
                             Pid !
                                 {ftp_server,
                                  {ok, New}},
-                            loop(Users, N + 1)
+                            loop(Users,
+                                 N + 1)
                     end;
                 false ->
                     Pid !

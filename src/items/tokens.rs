@@ -1,7 +1,12 @@
+//! Erlang tokens.
 use crate::format::{self, Format, Formatter};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
+
+pub trait TokenStr {
+    fn token_str(&self) -> &str;
+}
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
@@ -166,6 +171,12 @@ impl KeywordToken {
     }
 }
 
+impl TokenStr for KeywordToken {
+    fn token_str(&self) -> &str {
+        self.value.as_str()
+    }
+}
+
 impl_traits!(KeywordToken, Keyword, false);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -205,6 +216,12 @@ impl SymbolToken {
 
     pub fn value(&self) -> Symbol {
         self.value
+    }
+}
+
+impl TokenStr for SymbolToken {
+    fn token_str(&self) -> &str {
+        self.value.as_str()
     }
 }
 

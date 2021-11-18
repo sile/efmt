@@ -2,16 +2,6 @@ use crate::format::{self, Format, Formatter};
 use crate::parse::Parse;
 use crate::span::{Position, Span};
 
-// TODO: delete or rename
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Child<T>(pub T); // TODO: private
-
-impl<T> Child<T> {
-    pub fn get(&self) -> &T {
-        &self.0
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse)]
 pub struct ColumnIndent<T>(T);
 
@@ -77,24 +67,16 @@ impl<T: Format> Format for Space<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RightSpace<T>(T);
 
+impl<T> RightSpace<T> {
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+}
+
 impl<T: Format> Format for RightSpace<T> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         self.0.format(fmt)?;
         fmt.write_space()?;
-        Ok(())
-    }
-}
-
-// TODO: delete?
-#[derive(Debug, Clone, Span, Parse)]
-pub struct SpaceIfDigit<T>(pub T);
-
-impl<T: Format> Format for SpaceIfDigit<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.0.format(fmt)?;
-        if fmt.last_char().is_digit(10) {
-            fmt.write_space()?;
-        }
         Ok(())
     }
 }

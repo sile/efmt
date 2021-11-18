@@ -1,10 +1,10 @@
 //! Erlang types.
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
-use crate::format::{self, Format};
+use crate::format::Format;
 use crate::items::generics::{
-    Args2, BinaryOpLike, Either, ListLike, Maybe, NeedsBeforeSpace, NonEmptyItems2, Params,
-    Parenthesized, Parenthesized2, TupleLike, UnaryOpLike,
+    Args2, BinaryOpLike, Either, ListLike, Maybe, NonEmptyItems2, Params, Parenthesized,
+    Parenthesized2, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -16,7 +16,7 @@ use crate::items::symbols::{
     DoubleRightAngleSymbol, DoubleRightArrowSymbol, HyphenSymbol, MapMatchSymbol, MultiplySymbol,
     PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
 };
-use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
+use crate::items::tokens::{AtomToken, CharToken, IntegerToken, TokenStr, VariableToken};
 use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -110,12 +110,13 @@ pub enum UnaryOp {
     Bnot(Space<BnotKeyword>),
 }
 
-impl NeedsBeforeSpace for UnaryOp {
-    fn needs_before_space(&self, fmt: &format::Formatter) -> bool {
-        matches!(
-            (fmt.last_char(), self),
-            ('-', UnaryOp::Minus(_)) | ('+', UnaryOp::Plus(_))
-        )
+impl TokenStr for UnaryOp {
+    fn token_str(&self) -> &str {
+        match self {
+            Self::Plus(x) => x.token_str(),
+            Self::Minus(x) => x.token_str(),
+            Self::Bnot(x) => x.get().token_str(),
+        }
     }
 }
 

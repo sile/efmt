@@ -8,6 +8,7 @@ pub trait Span {
         self.len() == 0
     }
 
+    // TODO: delete (cannot work well with macros)
     fn len(&self) -> usize {
         if self.start_position() <= self.end_position() {
             self.end_position().offset() - self.start_position().offset()

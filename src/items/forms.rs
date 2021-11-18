@@ -1,4 +1,4 @@
-//! Erlang toplevel components such attributes, directives or declarations.
+//! Erlang top-level components such as attributes, directives or declarations.
 use crate::format::{self, Format};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,

@@ -31,7 +31,7 @@ pub struct DefinedFunctionExpr {
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
 ///
-/// - $CLAUSE: [Expr] (when `$GUARD`)? `->` `$BODY`
+/// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -41,6 +41,11 @@ pub struct AnonymousFunctionExpr {
     end: EndKeyword,
 }
 
+/// `fun` (`$CLAUSE` `;`?)+ `end`
+///
+/// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+/// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
     fun: RightSpace<FunKeyword>,

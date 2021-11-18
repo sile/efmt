@@ -1,19 +1,24 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr};
-use crate::items::generics::{Args, Maybe};
+use crate::items::generics::{Args2, BinaryOpLike2, IndentOffset, Maybe, UnaryOpLike};
 use crate::items::keywords;
-use crate::items::styles::{Child, RightSpace, Space};
+use crate::items::styles::RightSpace;
 use crate::items::symbols::{self, ColonSymbol};
-use crate::items::tokens::Token;
+use crate::items::tokens::{Token, TokenStr};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
+/// `$MODULE`? `$NAME` `(` (`$ARG` `,`?)* `)`
+///
+/// - $MODULE: [Expr] `:`
+/// - $NAME: [Expr]
+/// - $ARG: [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunctionCallExpr {
     module: Maybe<(BaseExpr, ColonSymbol)>,
     function: BaseExpr,
-    args: Args<Expr>,
+    args: Args2<Expr>,
 }
 
 impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
@@ -37,26 +42,11 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct UnaryOpCallExpr {
-    op: UnaryOp,
-    expr: BaseExpr,
-}
+/// [UnaryOp] [Expr]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
 
-impl Format for UnaryOpCallExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        match (fmt.last_char(), &self.op) {
-            ('-', UnaryOp::Minus(_)) | ('+', UnaryOp::Plus(_)) => {
-                fmt.write_space()?;
-            }
-            _ => {}
-        }
-        self.op.format(fmt)?;
-        self.expr.format(fmt)?;
-        Ok(())
-    }
-}
-
+/// `+` | `-` | `not` | `bnot`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
@@ -65,69 +55,44 @@ pub enum UnaryOp {
     Bnot(RightSpace<keywords::BnotKeyword>),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpCallExpr {
-    left: Child<Expr>,
-    op: Space<BinaryOp>,
-    right: Expr,
+impl TokenStr for UnaryOp {
+    fn token_str(&self) -> &str {
+        match self {
+            Self::Plus(x) => x.token_str(),
+            Self::Minus(x) => x.token_str(),
+            Self::Not(x) => x.get().token_str(),
+            Self::Bnot(x) => x.get().token_str(),
+        }
+    }
 }
+
+/// [Expr] [BinaryOp] [Expr]
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpCallExpr(BinaryOpLike2<Expr, BinaryOp, Expr>);
 
 impl ResumeParse<Expr> for BinaryOpCallExpr {
     fn resume_parse(ts: &mut parse::TokenStream, left: Expr) -> parse::Result<Self> {
-        Ok(Self {
-            left: Child(left),
-            op: ts.parse()?,
-            right: ts.parse()?,
-        })
+        ts.resume_parse(left).map(Self)
     }
 }
 
 impl BinaryOpCallExpr {
     fn is_name_and_arity(&self) -> bool {
-        self.left.get().is_atom_token()
-            && matches!(self.op.get(), BinaryOp::FloatDiv(_))
-            && self.right.is_integer_token()
+        self.0.left.is_atom_token()
+            && matches!(self.0.op, BinaryOp::FloatDiv(_))
+            && self.0.right.is_integer_token()
     }
 }
 
 impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         if self.is_name_and_arity() {
-            self.left.format(fmt)?;
-            self.op.get().format(fmt)?;
-            self.right.format(fmt)?;
-            return Ok(());
-        }
-
-        self.left.format(fmt)?;
-        self.op.format(fmt)?;
-        if fmt
-            .subregion()
-            .forbid_multi_line()
-            .forbid_too_long_line()
-            .enter(|fmt| self.format_right(fmt, false))
-            .is_err()
-        {
-            fmt.subregion().enter(|fmt| self.format_right(fmt, true))?;
-        }
-        Ok(())
-    }
-}
-
-impl BinaryOpCallExpr {
-    fn format_right(&self, fmt: &mut format::Formatter, multi_line: bool) -> format::Result<()> {
-        if !multi_line {
-            self.right.format(fmt)?;
-        } else if matches!(self.op.get(), BinaryOp::Send(_) | BinaryOp::Match(_)) {
-            fmt.subregion().indent_offset(4).enter(|fmt| {
-                fmt.write_newline()?;
-                self.right.format(fmt)
-            })?;
+            // A workaround for some attributes such as `-export` and `-import`.
+            self.0.left.format(fmt)?;
+            self.0.op.format(fmt)?;
+            self.0.right.format(fmt)?;
         } else {
-            fmt.subregion().enter(|fmt| {
-                fmt.write_newline()?;
-                self.right.format(fmt)
-            })?;
+            self.0.format(fmt)?;
         }
         Ok(())
     }
@@ -210,6 +175,75 @@ impl Parse for BinaryOp {
     }
 }
 
+impl IndentOffset for BinaryOp {
+    fn indent_offset(&self) -> usize {
+        match self {
+            Self::Plus(_)
+            | Self::Minus(_)
+            | Self::Mul(_)
+            | Self::FloatDiv(_)
+            | Self::PlusPlus(_)
+            | Self::MinusMinus(_)
+            | Self::Eq(_)
+            | Self::ExactEq(_)
+            | Self::NotEq(_)
+            | Self::ExactNotEq(_)
+            | Self::Less(_)
+            | Self::LessEq(_)
+            | Self::Greater(_)
+            | Self::GreaterEq(_)
+            | Self::IntDiv(_)
+            | Self::Rem(_)
+            | Self::Bor(_)
+            | Self::Bxor(_)
+            | Self::Band(_)
+            | Self::Bsl(_)
+            | Self::Bsr(_)
+            | Self::Or(_)
+            | Self::Xor(_)
+            | Self::And(_)
+            | Self::Andalso(_)
+            | Self::Orelse(_) => 0,
+            Self::Send(_) | Self::Match(_) => 4,
+        }
+    }
+}
+
+impl TokenStr for BinaryOp {
+    fn token_str(&self) -> &str {
+        match self {
+            Self::Plus(x) => x.token_str(),
+            Self::Minus(x) => x.token_str(),
+            Self::Mul(x) => x.token_str(),
+            Self::FloatDiv(x) => x.token_str(),
+            Self::PlusPlus(x) => x.token_str(),
+            Self::MinusMinus(x) => x.token_str(),
+            Self::Eq(x) => x.token_str(),
+            Self::ExactEq(x) => x.token_str(),
+            Self::NotEq(x) => x.token_str(),
+            Self::ExactNotEq(x) => x.token_str(),
+            Self::Less(x) => x.token_str(),
+            Self::LessEq(x) => x.token_str(),
+            Self::Greater(x) => x.token_str(),
+            Self::GreaterEq(x) => x.token_str(),
+            Self::IntDiv(x) => x.token_str(),
+            Self::Rem(x) => x.token_str(),
+            Self::Bor(x) => x.token_str(),
+            Self::Bxor(x) => x.token_str(),
+            Self::Band(x) => x.token_str(),
+            Self::Bsl(x) => x.token_str(),
+            Self::Bsr(x) => x.token_str(),
+            Self::Or(x) => x.token_str(),
+            Self::Xor(x) => x.token_str(),
+            Self::And(x) => x.token_str(),
+            Self::Andalso(x) => x.token_str(),
+            Self::Orelse(x) => x.token_str(),
+            Self::Send(x) => x.token_str(),
+            Self::Match(x) => x.token_str(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,11 +282,13 @@ mod tests {
         let texts = [
             "1 + 2",
             "1 - 2 * 3",
+            // TODO
             indoc::indoc! {"
-                {A, B, C} =
-                    {foo, bar, baz} =
-                        qux() /
-                        quux() div 2"},
+            %---10---|%---20---|
+            {A, B, C} =
+                {foo, bar, baz} =
+                    qux() /
+                    quux() div 2"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
