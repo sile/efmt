@@ -4,7 +4,6 @@ use crate::items::generics::{BinaryOpLike, Indent, ListLike, NonEmptyItems};
 use crate::items::symbols::{
     CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
-use crate::items::tokens::TokenStr;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -23,15 +22,6 @@ pub struct ListConstructExpr(ListLike<Expr, ListItemDelimiter>);
 enum ListItemDelimiter {
     Comma(CommaSymbol),
     VerticalBar(VerticalBarSymbol),
-}
-
-impl TokenStr for ListItemDelimiter {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::Comma(x) => x.token_str(),
-            Self::VerticalBar(x) => x.token_str(),
-        }
-    }
 }
 
 impl Format for ListItemDelimiter {

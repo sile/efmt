@@ -331,14 +331,15 @@ mod tests {
     fn begin_works() {
         let texts = [
             indoc::indoc! {"
-                begin
-                    1
-                end"},
+            begin
+                1
+            end"},
             indoc::indoc! {"
-                begin
-                    foo(bar, Baz),
-                    {[#{}]}
-                end"},
+            %---10---|%---20---|
+            begin
+                foo(bar, Baz),
+                {[#{}]}
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

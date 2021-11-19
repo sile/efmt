@@ -5,7 +5,7 @@ use crate::items::symbols::{
     DoubleRightAngleSymbol, OpenBraceSymbol, OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol,
     SemicolonSymbol,
 };
-use crate::items::tokens::{TokenStr, WhitespaceToken};
+use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
@@ -79,15 +79,6 @@ impl<T: Format> Format for Maybe<T> {
 pub enum Either<A, B> {
     A(A),
     B(B),
-}
-
-impl<A: TokenStr, B: TokenStr> TokenStr for Either<A, B> {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::A(x) => x.token_str(),
-            Self::B(x) => x.token_str(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -171,11 +162,14 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format + TokenStr> NonEmptyItems<T, D> {
+impl<T: Format, D: Format> NonEmptyItems<T, D> {
     fn format_items(&self, fmt: &mut Formatter, multi_line: bool) -> format::Result<()> {
         for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
+            let trailing_columns = fmt
+                .item_formatted_text(delimiter)
+                .map_or(1, |s| s.trim_end().len());
             fmt.subregion()
-                .reset_trailing_columns(delimiter.token_str().len())
+                .reset_trailing_columns(trailing_columns)
                 .enter(|fmt| item.format(fmt))?;
             delimiter.format(fmt)?;
             if multi_line {
@@ -195,7 +189,7 @@ impl<T: Format, D: Format + TokenStr> NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format + TokenStr> Format for NonEmptyItems<T, D> {
+impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             fmt.subregion()
@@ -208,7 +202,7 @@ impl<T: Format, D: Format + TokenStr> Format for NonEmptyItems<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Items<T, D = CommaSymbol>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -226,12 +220,6 @@ impl<T, D> Items<T, D> {
         } else {
             &[]
         }
-    }
-}
-
-impl<T: Format, D: Format + TokenStr> Format for Items<T, D> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.0.format(fmt)
     }
 }
 
@@ -282,7 +270,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format + TokenStr> Format for MaybePackedItems<T, D> {
+impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         if self.0.items().is_empty() {
             Ok(())
@@ -303,7 +291,7 @@ pub struct ListLike<T, D = CommaSymbol> {
     close: CloseSquareSymbol,
 }
 
-impl<T: Format, D: Format + TokenStr> Format for ListLike<T, D> {
+impl<T: Format, D: Format> Format for ListLike<T, D> {
     fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
         self.open.format(fmt)?;
         fmt.subregion()
@@ -375,17 +363,18 @@ impl<T: Format> Format for Clauses<T> {
     }
 }
 
-// TODO: delete
 #[derive(Debug, Clone, Span, Parse)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
 }
 
-impl<O: Format + TokenStr, T: Format> Format for UnaryOpLike<O, T> {
+impl<O: Format, T: Format> Format for UnaryOpLike<O, T> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let op = self.op.token_str();
-        if op.starts_with(fmt.last_char()) {
+        if fmt
+            .item_formatted_text(&self.op)
+            .map_or(false, |s| s.starts_with(fmt.last_char()))
+        {
             fmt.write_space()?;
         }
         self.op.format(fmt)?;
@@ -430,12 +419,6 @@ impl<T, const N: usize> IndentOffset for Indent<T, N> {
     }
 }
 
-impl<T: TokenStr, const N: usize> TokenStr for Indent<T, N> {
-    fn token_str(&self) -> &str {
-        self.0.token_str()
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpLike<L, O, R> {
     pub left: L,
@@ -453,12 +436,17 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
     }
 }
 
-impl<L: Format, O: Format + IndentOffset + TokenStr, R: Format> Format for BinaryOpLike<L, O, R> {
+impl<L: Format, O: Format + IndentOffset, R: Format> Format for BinaryOpLike<L, O, R> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         // TODO: remove `current_column_as_indent()`
         fmt.subregion().current_column_as_indent().enter(|fmt| {
+            let trailing_columns = fmt
+                .item_formatted_text(&self.op)
+                .map_or(1, |s| s.trim_end().len())
+                + 1;
+
             fmt.subregion()
-                .reset_trailing_columns(self.op.token_str().len() + 1)
+                .reset_trailing_columns(trailing_columns)
                 .enter(|fmt| self.left.format(fmt))?;
             fmt.write_space()?;
             self.op.format(fmt)?;
@@ -512,7 +500,7 @@ pub struct WithGuard<T, U, D = Either<CommaSymbol, SemicolonSymbol>> {
     guard: Maybe<Guard<U, D>>,
 }
 
-impl<T: Format, U: Format, D: Format + TokenStr> Format for WithGuard<T, U, D> {
+impl<T: Format, U: Format, D: Format> Format for WithGuard<T, U, D> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         if let Some(guard) = self.guard.get() {
             fmt.subregion()
@@ -533,7 +521,7 @@ struct Guard<T, D> {
     conditions: NonEmptyItems<T, D>,
 }
 
-impl<T: Format, D: Format + TokenStr> Format for Guard<T, D> {
+impl<T: Format, D: Format> Format for Guard<T, D> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         let format = |fmt: &mut format::Formatter| {
             self.when.format(fmt)?;

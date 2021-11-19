@@ -15,7 +15,7 @@ use crate::items::symbols::{
     MapMatchSymbol, MultiplySymbol, PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol,
     VerticalBarSymbol,
 };
-use crate::items::tokens::{AtomToken, CharToken, IntegerToken, TokenStr, VariableToken};
+use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
 use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -38,7 +38,6 @@ impl Parse for NonUnionType {
 }
 
 /// [Type] `|` [Type]
-// TODO: use BinaryOpLike instead
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
 
@@ -50,12 +49,6 @@ impl Format for UnionDelimiter {
         fmt.write_space()?;
         self.0.format(fmt)?;
         Ok(())
-    }
-}
-
-impl TokenStr for UnionDelimiter {
-    fn token_str(&self) -> &str {
-        self.0.token_str()
     }
 }
 
@@ -124,24 +117,6 @@ pub enum BinaryOp {
     Range(DoubleDotSymbol),
 }
 
-impl TokenStr for BinaryOp {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::Mul(x) => x.token_str(),
-            Self::Plus(x) => x.token_str(),
-            Self::Minus(x) => x.token_str(),
-            Self::Div(x) => x.token_str(),
-            Self::Rem(x) => x.token_str(),
-            Self::Band(x) => x.token_str(),
-            Self::Bor(x) => x.token_str(),
-            Self::Bxor(x) => x.token_str(),
-            Self::Bsl(x) => x.token_str(),
-            Self::Bsr(x) => x.token_str(),
-            Self::Range(x) => x.token_str(),
-        }
-    }
-}
-
 /// `$OP` [Type]
 ///
 /// - $OP: [UnaryOp]
@@ -154,16 +129,6 @@ pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
     Bnot(BnotKeyword),
-}
-
-impl TokenStr for UnaryOp {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::Plus(x) => x.token_str(),
-            Self::Minus(x) => x.token_str(),
-            Self::Bnot(x) => x.token_str(),
-        }
-    }
 }
 
 /// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`

@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::tokens::{KeywordToken, TokenStr};
+use crate::items::tokens::KeywordToken;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;
 use erl_tokenize::values::Keyword;
@@ -14,12 +14,6 @@ macro_rules! impl_traits {
                 } else {
                     Err(parse::Error::unexpected_token(ts, token.into()))
                 }
-            }
-        }
-
-        impl TokenStr for $name {
-            fn token_str(&self) -> &str {
-                self.0.token_str()
             }
         }
     };

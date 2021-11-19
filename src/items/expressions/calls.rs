@@ -3,7 +3,7 @@ use crate::items::expressions::{BaseExpr, Expr};
 use crate::items::generics::{Args, BinaryOpLike, IndentOffset, Maybe, UnaryOpLike};
 use crate::items::keywords;
 use crate::items::symbols::{self, ColonSymbol};
-use crate::items::tokens::{Token, TokenStr};
+use crate::items::tokens::Token;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
@@ -52,17 +52,6 @@ pub enum UnaryOp {
     Minus(symbols::HyphenSymbol),
     Not(keywords::NotKeyword),
     Bnot(keywords::BnotKeyword),
-}
-
-impl TokenStr for UnaryOp {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::Plus(x) => x.token_str(),
-            Self::Minus(x) => x.token_str(),
-            Self::Not(x) => x.token_str(),
-            Self::Bnot(x) => x.token_str(),
-        }
-    }
 }
 
 /// [Expr] [BinaryOp] [Expr]
@@ -204,41 +193,6 @@ impl IndentOffset for BinaryOp {
             | Self::Andalso(_)
             | Self::Orelse(_) => 0,
             Self::Send(_) | Self::Match(_) => 4,
-        }
-    }
-}
-
-impl TokenStr for BinaryOp {
-    fn token_str(&self) -> &str {
-        match self {
-            Self::Plus(x) => x.token_str(),
-            Self::Minus(x) => x.token_str(),
-            Self::Mul(x) => x.token_str(),
-            Self::FloatDiv(x) => x.token_str(),
-            Self::PlusPlus(x) => x.token_str(),
-            Self::MinusMinus(x) => x.token_str(),
-            Self::Eq(x) => x.token_str(),
-            Self::ExactEq(x) => x.token_str(),
-            Self::NotEq(x) => x.token_str(),
-            Self::ExactNotEq(x) => x.token_str(),
-            Self::Less(x) => x.token_str(),
-            Self::LessEq(x) => x.token_str(),
-            Self::Greater(x) => x.token_str(),
-            Self::GreaterEq(x) => x.token_str(),
-            Self::IntDiv(x) => x.token_str(),
-            Self::Rem(x) => x.token_str(),
-            Self::Bor(x) => x.token_str(),
-            Self::Bxor(x) => x.token_str(),
-            Self::Band(x) => x.token_str(),
-            Self::Bsl(x) => x.token_str(),
-            Self::Bsr(x) => x.token_str(),
-            Self::Or(x) => x.token_str(),
-            Self::Xor(x) => x.token_str(),
-            Self::And(x) => x.token_str(),
-            Self::Andalso(x) => x.token_str(),
-            Self::Orelse(x) => x.token_str(),
-            Self::Send(x) => x.token_str(),
-            Self::Match(x) => x.token_str(),
         }
     }
 }

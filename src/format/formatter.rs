@@ -1,5 +1,5 @@
 use crate::format::region::{RegionConfig, RegionWriter};
-use crate::format::{Error, Format as _, RegionOptions, Result};
+use crate::format::{Error, Format, RegionOptions, Result};
 use crate::items::macros::Macro;
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
@@ -12,6 +12,7 @@ pub struct Formatter {
     macros: BTreeMap<Position, Macro>,
     comments: BTreeMap<Position, CommentToken>,
     formatting_macros: HashSet<Position>,
+    skip_comments: bool,
 }
 
 impl Formatter {
@@ -27,6 +28,7 @@ impl Formatter {
             macros,
             comments,
             formatting_macros: HashSet::new(),
+            skip_comments: false,
         }
     }
 
@@ -92,6 +94,17 @@ impl Formatter {
         self.write_comments_and_macros(item, Some(CommentKind::Post))?;
         self.writer.write_item(&self.text, item)?;
         Ok(())
+    }
+
+    pub fn item_formatted_text(&mut self, item: &impl Format) -> Option<String> {
+        let config = RegionConfig::new(usize::MAX);
+        self.writer.start_subregion(config);
+        self.skip_comments = true;
+        let result = item.format(self).ok();
+        self.skip_comments = false;
+        let result = result.map(|_| self.writer.formatted_text().to_owned());
+        self.writer.abort_subregion();
+        result
     }
 
     fn write_comment(&mut self, item: &CommentToken) -> Result<()> {
@@ -182,6 +195,9 @@ impl Formatter {
     }
 
     fn next_comment_position(&self) -> Option<Position> {
+        if self.skip_comments {
+            return None;
+        }
         self.comments
             .range(self.next_position()..)
             .map(|x| x.0)
