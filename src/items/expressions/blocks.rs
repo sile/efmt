@@ -406,10 +406,11 @@ mod tests {
         let texts = [
             "catch 1",
             indoc::indoc! {"
-                catch foo(bar,
-                          Baz,
-                          qux) +
-                      3 + 4"},
+            %---10---|%---20---|
+            catch foo(bar,
+                      Baz,
+                      qux) + 3 +
+                  4"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

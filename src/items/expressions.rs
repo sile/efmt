@@ -4,7 +4,7 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{self, Format};
-use crate::items::generics::{BinaryOpLike, Either, Indent, NonEmptyItems, Parenthesized};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, NonEmptyItems, Parenthesized};
 use crate::items::symbols::{CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
@@ -18,7 +18,7 @@ mod blocks;
 mod calls;
 pub(crate) mod functions; // TODO
 mod lists;
-mod maps;
+pub(crate) mod maps;
 mod records;
 mod strings;
 mod tuples;
@@ -220,9 +220,24 @@ enum Qualifier {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct Generator(
-    BinaryOpLike<Expr, Indent<Either<LeftArrowSymbol, DoubleLeftArrowSymbol>, 4>, Expr>,
-);
+struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
+
+impl BinaryOpStyle for GeneratorDelimiter {
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn allow_newline(&self) -> bool {
+        false
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

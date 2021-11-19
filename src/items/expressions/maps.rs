@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::Expr;
-use crate::items::generics::{BinaryOpLike, Either, Indent, TupleLike};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, TupleLike};
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -48,7 +48,25 @@ impl Format for MapUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct MapItem(BinaryOpLike<Expr, Indent<Either<DoubleRightArrowSymbol, MapMatchSymbol>, 4>, Expr>);
+struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
+
+// TODO
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub(crate) struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
+
+impl BinaryOpStyle for MapDelimiter {
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

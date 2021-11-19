@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, BitstringLike, Indent, Maybe, NonEmptyItems};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, BitstringLike, Maybe, NonEmptyItems};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
     HyphenSymbol, SlashSymbol,
@@ -24,6 +24,7 @@ pub enum BitstringExpr {
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
+// TODO: Use `ComprehensionLike`
 #[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringComprehensionExpr {
     open: DoubleLeftAngleSymbol,
@@ -35,6 +36,7 @@ impl Format for BitstringComprehensionExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         self.open.format(fmt)?;
         fmt.subregion()
+            .current_column_as_indent()
             .reset_trailing_columns(2) // ">>"
             .enter(|fmt| self.body.format(fmt))?;
         self.close.format(fmt)?;
@@ -42,8 +44,24 @@ impl Format for BitstringComprehensionExpr {
     }
 }
 
-type ComprehensionBody =
-    BinaryOpLike<Expr, Indent<DoubleVerticalBarSymbol, 2>, NonEmptyItems<Qualifier>>;
+type ComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
+
+impl BinaryOpStyle for ComprehensionDelimiter {
+    fn indent_offset(&self) -> usize {
+        2
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse)]
 struct BitstringSegment {
@@ -145,9 +163,8 @@ mod tests {
                    Z,
                    bar(),
                    baz())) ||
-                X <-
-                    [1, 2, 3, 4,
-                     5],
+                X <- [1, 2, 3,
+                      4, 5],
                 Y <= Z,
                 false>>"},
             indoc::indoc! {"
@@ -156,8 +173,8 @@ mod tests {
                     X < 10 ->
                         X + $0;
                     true ->
-                        X -
-                        10 + $A
+                        X - 10 +
+                        $A
                 end>> ||
                 <<X:4>> <= B>>"},
         ];

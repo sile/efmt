@@ -2,8 +2,7 @@
 -module(comments2).
 
 foo(A)
-  when A ==
-       ?FOO orelse
+  when A == ?FOO orelse
        %% comment1
        A == ?BAR ->
     hello;

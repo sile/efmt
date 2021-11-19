@@ -3,17 +3,16 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
 use crate::items::generics::{
-    Args, BinaryOpLike, BitstringLike, Either, Indent, ListLike, Maybe, NonEmptyItems, Params,
-    Parenthesized, TupleLike, UnaryOpLike,
+    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, ListLike, Maybe, NonEmptyItems,
+    Params, Parenthesized, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     FunKeyword, RemKeyword,
 };
 use crate::items::symbols::{
-    ColonSymbol, DoubleColonSymbol, DoubleDotSymbol, DoubleRightArrowSymbol, HyphenSymbol,
-    MapMatchSymbol, MultiplySymbol, PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol,
-    VerticalBarSymbol,
+    ColonSymbol, DoubleColonSymbol, DoubleDotSymbol, HyphenSymbol, MultiplySymbol, PlusSymbol,
+    RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
 use crate::items::Type;
@@ -90,7 +89,7 @@ impl Format for AnnotatedVariableType {
 ///
 /// - $OP: [BinaryOp]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, Indent<BinaryOp, 0>, Type>);
+pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type>);
 
 impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
     fn resume_parse(
@@ -115,6 +114,20 @@ pub enum BinaryOp {
     Bsl(BslKeyword),
     Bsr(BsrKeyword),
     Range(DoubleDotSymbol),
+}
+
+impl BinaryOpStyle for BinaryOp {
+    fn indent_offset(&self) -> usize {
+        0
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        true
+    }
 }
 
 /// `$OP` [Type]
@@ -150,7 +163,24 @@ impl Format for FunctionType {
     }
 }
 
-type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, Indent<RightArrowSymbol, 8>, Type>;
+type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter, Type>;
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct RightArrowDelimiter(RightArrowSymbol);
+
+impl BinaryOpStyle for RightArrowDelimiter {
+    fn indent_offset(&self) -> usize {
+        8
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum FunctionParams {
@@ -196,7 +226,7 @@ pub struct MapType {
     items: TupleLike<MapItem>,
 }
 
-type MapItem = BinaryOpLike<Type, Indent<Either<DoubleRightArrowSymbol, MapMatchSymbol>, 4>, Type>;
+type MapItem = BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter, Type>;
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -209,7 +239,24 @@ pub struct RecordType {
     fields: TupleLike<RecordItem>,
 }
 
-type RecordItem = BinaryOpLike<AtomToken, Indent<DoubleColonSymbol, 4>, Type>;
+type RecordItem = BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>;
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct DoubleColonDelimiter(DoubleColonSymbol);
+
+impl BinaryOpStyle for DoubleColonDelimiter {
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 /// `<<` `$BITS_SIZE`? `,`? `$UNIT_SIZE`? `>>`
 ///
@@ -371,7 +418,7 @@ mod tests {
             %---10---|%---20---|
             foo |
             (3 + 10) |
-            -1 .. +20"}, // TODO
+            -1 .. +20"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);

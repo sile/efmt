@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr};
-use crate::items::generics::{Args, BinaryOpLike, IndentOffset, Maybe, UnaryOpLike};
+use crate::items::generics::{Args, BinaryOpLike, BinaryOpStyle, Maybe, UnaryOpLike};
 use crate::items::keywords;
 use crate::items::symbols::{self, ColonSymbol};
 use crate::items::tokens::Token;
@@ -163,37 +163,21 @@ impl Parse for BinaryOp {
     }
 }
 
-impl IndentOffset for BinaryOp {
+impl BinaryOpStyle for BinaryOp {
     fn indent_offset(&self) -> usize {
-        match self {
-            Self::Plus(_)
-            | Self::Minus(_)
-            | Self::Mul(_)
-            | Self::FloatDiv(_)
-            | Self::PlusPlus(_)
-            | Self::MinusMinus(_)
-            | Self::Eq(_)
-            | Self::ExactEq(_)
-            | Self::NotEq(_)
-            | Self::ExactNotEq(_)
-            | Self::Less(_)
-            | Self::LessEq(_)
-            | Self::Greater(_)
-            | Self::GreaterEq(_)
-            | Self::IntDiv(_)
-            | Self::Rem(_)
-            | Self::Bor(_)
-            | Self::Bxor(_)
-            | Self::Band(_)
-            | Self::Bsl(_)
-            | Self::Bsr(_)
-            | Self::Or(_)
-            | Self::Xor(_)
-            | Self::And(_)
-            | Self::Andalso(_)
-            | Self::Orelse(_) => 0,
-            Self::Send(_) | Self::Match(_) => 4,
+        if matches!(self, Self::Match(_)) {
+            4
+        } else {
+            0
         }
+    }
+
+    fn allow_newline(&self) -> bool {
+        !matches!(self, Self::Send(_))
+    }
+
+    fn should_pack(&self) -> bool {
+        self.indent_offset() == 0
     }
 }
 
@@ -207,6 +191,7 @@ mod tests {
             "foo()",
             "Foo(1, 2, 3)",
             indoc::indoc! {"
+            %---10---|%---20---|
             (foo(Bar))(a,
                        b,
                        c())"},
@@ -214,8 +199,9 @@ mod tests {
             "[]:bar(baz)",
             "foo:[](baz)",
             indoc::indoc! {"
-            foo(A *
-                10 * B / 1_0.0)"},
+            %---10---|%---20---|
+            foo(A * 10 * B /
+                1_0.0)"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -237,8 +223,8 @@ mod tests {
             "1 - 2 * 3",
             indoc::indoc! {"
             %---10---|%---20---|
-            1 +
-            2 + 3 + 4 + 5 + 6"}, // TODO
+            1 + 2 + 3 + 4 + 5 +
+            6"},
             indoc::indoc! {"
             %---10---|%---20---|
             {A, B, C} =

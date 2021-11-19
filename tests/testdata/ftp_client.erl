@@ -1,7 +1,9 @@
 % From: http://www1.erlang.org/examples/examples-2.0.html
 connect(Host, User, Password) ->
-    {ftp_server, Host} !
-        {connect, self(), User, Password},
+    {ftp_server, Host} ! {connect,
+                          self(),
+                          User,
+                          Password},
     receive
         {ftp_server, Reply} ->
             Reply;

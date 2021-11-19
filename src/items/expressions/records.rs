@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{Either, Expr};
-use crate::items::generics::{BinaryOpLike, Indent, TupleLike};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
@@ -121,9 +121,24 @@ impl Format for RecordUpdateExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct RecordField(
-    BinaryOpLike<Either<AtomToken, UnderscoreVariable>, Indent<MatchSymbol, 4>, Expr>,
-);
+struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFieldDelimiter, Expr>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct RecordFieldDelimiter(MatchSymbol);
+
+impl BinaryOpStyle for RecordFieldDelimiter {
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

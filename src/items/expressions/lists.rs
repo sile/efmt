@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, Indent, ListLike, NonEmptyItems};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, ListLike, NonEmptyItems};
 use crate::items::symbols::{
     CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
@@ -48,6 +48,7 @@ impl Format for ListComprehensionExpr {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
         self.open.format(fmt)?;
         fmt.subregion()
+            .current_column_as_indent()
             .reset_trailing_columns(1) // "]"
             .enter(|fmt| self.body.format(fmt))?;
         self.close.format(fmt)?;
@@ -55,8 +56,24 @@ impl Format for ListComprehensionExpr {
     }
 }
 
-type ListComprehensionBody =
-    BinaryOpLike<Expr, Indent<DoubleVerticalBarSymbol, 3>, NonEmptyItems<Qualifier>>;
+type ListComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
+
+impl BinaryOpStyle for ComprehensionDelimiter {
+    fn indent_offset(&self) -> usize {
+        3
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -114,9 +131,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             [[X, Y] ||
-                X <-
-                    [1, 2, 3, 4,
-                     5],
+                X <- [1, 2, 3,
+                      4, 5],
                 Y <= Z,
                 false]"},
         ];

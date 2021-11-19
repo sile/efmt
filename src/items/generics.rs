@@ -391,32 +391,12 @@ impl<O: Format, T: Format> Format for UnaryOpLike<O, T> {
     }
 }
 
-//  pub trait BinaryOpStyle {
-//     fn indent_offset(&self) -> usize;
-
-//     fn needs_space(&self) -> bool;
-
-//     fn allow_newline(&self) -> bool {
-//         true
-//     }
-// }
-
-// TODO: s/../BinaryOpProperty?/
-pub trait IndentOffset {
-    // TODO: support no-newline
+pub trait BinaryOpStyle {
     fn indent_offset(&self) -> usize;
 
-    // needs_space
-}
+    fn allow_newline(&self) -> bool;
 
-// TODO: rename
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Indent<T, const N: usize>(T);
-
-impl<T, const N: usize> IndentOffset for Indent<T, N> {
-    fn indent_offset(&self) -> usize {
-        N
-    }
+    fn should_pack(&self) -> bool;
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -436,41 +416,40 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
     }
 }
 
-impl<L: Format, O: Format + IndentOffset, R: Format> Format for BinaryOpLike<L, O, R> {
+impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L, O, R> {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        // TODO: remove `current_column_as_indent()`
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            let trailing_columns = fmt
-                .item_formatted_text(&self.op)
-                .map_or(1, |s| s.trim_end().len())
-                + 1;
+        let trailing_columns = fmt
+            .item_formatted_text(&self.op)
+            .map_or(1, |s| s.trim_end().len())
+            + 1;
 
-            fmt.subregion()
-                .reset_trailing_columns(trailing_columns)
-                .enter(|fmt| self.left.format(fmt))?;
-            fmt.write_space()?;
-            self.op.format(fmt)?;
-            fmt.write_space()?;
+        fmt.subregion()
+            .reset_trailing_columns(trailing_columns)
+            .enter(|fmt| self.left.format(fmt))?;
+        fmt.write_space()?;
+        self.op.format(fmt)?;
+        fmt.write_space()?;
 
-            let indent_offset = self.op.indent_offset();
-            if fmt.current_relative_column() <= indent_offset {
-                // Inserting a newline cannot shorten the line length.
-                self.right.format(fmt)?
-            } else if fmt
-                .subregion()
-                .forbid_too_long_line()
-                .forbid_multi_line()
-                .check_trailing_columns(true)
-                .enter(|fmt| self.right.format(fmt))
-                .is_err()
-            {
-                fmt.subregion().indent_offset(indent_offset).enter(|fmt| {
-                    fmt.write_newline()?;
-                    self.right.format(fmt)
-                })?;
-            }
-            Ok(())
-        })
+        let indent_offset = self.op.indent_offset();
+        if !self.op.allow_newline() || fmt.current_relative_column() <= indent_offset {
+            // Inserting a newline is forbiddend or cannot shorten the line length.
+            return self.right.format(fmt);
+        }
+
+        let mut options = fmt
+            .subregion()
+            .forbid_too_long_line()
+            .check_trailing_columns(true);
+        if !self.op.should_pack() {
+            options = options.forbid_multi_line();
+        }
+        if options.enter(|fmt| self.right.format(fmt)).is_err() {
+            fmt.subregion().indent_offset(indent_offset).enter(|fmt| {
+                fmt.write_newline()?;
+                self.right.format(fmt)
+            })?;
+        }
+        Ok(())
     }
 }
 
@@ -491,6 +470,7 @@ impl<T: Format> Format for WithArrow<T> {
                 fmt.write_space()?;
                 Ok(())
             })
+        // TODO: .enter_with_trailer(|fmt| {...}, |fmt| {})
     }
 }
 
