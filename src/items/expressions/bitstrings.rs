@@ -1,7 +1,6 @@
 use crate::format::{self, Format};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
 use crate::items::generics::{BinaryOpLike, BitstringLike, Indent, Maybe, NonEmptyItems};
-use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
     HyphenSymbol, SlashSymbol,
@@ -25,15 +24,26 @@ pub enum BitstringExpr {
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringComprehensionExpr {
     open: DoubleLeftAngleSymbol,
-    body: TrailingColumns<ComprehensionBody, 2>, // ">>",
+    body: ComprehensionBody,
     close: DoubleRightAngleSymbol,
 }
 
+impl Format for BitstringComprehensionExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.open.format(fmt)?;
+        fmt.subregion()
+            .reset_trailing_columns(2) // ">>"
+            .enter(|fmt| self.body.format(fmt))?;
+        self.close.format(fmt)?;
+        Ok(())
+    }
+}
+
 type ComprehensionBody =
-    BinaryOpLike<Expr, Indent<Space<DoubleVerticalBarSymbol>, 2>, NonEmptyItems<Qualifier>>;
+    BinaryOpLike<Expr, Indent<DoubleVerticalBarSymbol, 2>, NonEmptyItems<Qualifier>>;
 
 #[derive(Debug, Clone, Span, Parse)]
 struct BitstringSegment {

@@ -1,7 +1,7 @@
 //! Erlang types.
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
-use crate::format::Format;
+use crate::format::{self, Format};
 use crate::items::generics::{
     Args, BinaryOpLike, BitstringLike, Either, Indent, ListLike, Maybe, NonEmptyItems, Params,
     Parenthesized, TupleLike, UnaryOpLike,
@@ -10,7 +10,6 @@ use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     FunKeyword, RemKeyword,
 };
-use crate::items::styles::Space;
 use crate::items::symbols::{
     ColonSymbol, DoubleColonSymbol, DoubleDotSymbol, DoubleRightArrowSymbol, HyphenSymbol,
     MapMatchSymbol, MultiplySymbol, PlusSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol,
@@ -41,7 +40,24 @@ impl Parse for NonUnionType {
 /// [Type] `|` [Type]
 // TODO: use BinaryOpLike instead
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnionType(NonEmptyItems<NonUnionType, Space<VerticalBarSymbol>>);
+pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
+
+#[derive(Debug, Clone, Span, Parse)]
+struct UnionDelimiter(VerticalBarSymbol);
+
+impl Format for UnionDelimiter {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.write_space()?;
+        self.0.format(fmt)?;
+        Ok(())
+    }
+}
+
+impl TokenStr for UnionDelimiter {
+    fn token_str(&self) -> &str {
+        self.0.token_str()
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum NonLeftRecursiveType {
@@ -59,11 +75,22 @@ enum NonLeftRecursiveType {
 }
 
 /// [VariableToken] `::` [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct AnnotatedVariableType {
     variable: VariableToken,
-    colon: Space<DoubleColonSymbol>,
+    colon: DoubleColonSymbol,
     ty: Type,
+}
+
+impl Format for AnnotatedVariableType {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.variable.format(fmt)?;
+        fmt.write_space()?;
+        self.colon.format(fmt)?;
+        fmt.write_space()?;
+        self.ty.format(fmt)?;
+        Ok(())
+    }
 }
 
 /// [Type] `$OP` [Type]
@@ -84,16 +111,16 @@ impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
 /// `*` | `+` | `-` | `div` | `rem` | `band` | `bor` | `bxor` | `bsl` | `bsr` | `..`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BinaryOp {
-    Mul(Space<MultiplySymbol>),
-    Plus(Space<PlusSymbol>),
-    Minus(Space<HyphenSymbol>),
-    Div(Space<DivKeyword>),
-    Rem(Space<RemKeyword>),
-    Band(Space<BandKeyword>),
-    Bor(Space<BorKeyword>),
-    Bxor(Space<BxorKeyword>),
-    Bsl(Space<BslKeyword>),
-    Bsr(Space<BsrKeyword>),
+    Mul(MultiplySymbol),
+    Plus(PlusSymbol),
+    Minus(HyphenSymbol),
+    Div(DivKeyword),
+    Rem(RemKeyword),
+    Band(BandKeyword),
+    Bor(BorKeyword),
+    Bxor(BxorKeyword),
+    Bsl(BslKeyword),
+    Bsr(BsrKeyword),
     Range(DoubleDotSymbol),
 }
 
@@ -143,14 +170,22 @@ impl TokenStr for UnaryOp {
 ///
 /// - $PARAMS: `(` `...` `)` | `(` ([Type] `,`?)* `)`
 /// - $RETURN: [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct FunctionType {
-    fun: Space<FunKeyword>,
+    fun: FunKeyword,
     params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
 }
 
-type FunctionParamsAndReturn =
-    BinaryOpLike<FunctionParams, Indent<Space<RightArrowSymbol>, 8>, Type>;
+impl Format for FunctionType {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.fun.format(fmt)?;
+        fmt.write_space()?;
+        self.params_and_return.format(fmt)?;
+        Ok(())
+    }
+}
+
+type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, Indent<RightArrowSymbol, 8>, Type>;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 enum FunctionParams {
@@ -196,8 +231,7 @@ pub struct MapType {
     items: TupleLike<MapItem>,
 }
 
-type MapItem =
-    BinaryOpLike<Type, Indent<Space<Either<DoubleRightArrowSymbol, MapMatchSymbol>>, 4>, Type>;
+type MapItem = BinaryOpLike<Type, Indent<Either<DoubleRightArrowSymbol, MapMatchSymbol>, 4>, Type>;
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -210,7 +244,7 @@ pub struct RecordType {
     fields: TupleLike<RecordItem>,
 }
 
-type RecordItem = BinaryOpLike<AtomToken, Indent<Space<DoubleColonSymbol>, 4>, Type>;
+type RecordItem = BinaryOpLike<AtomToken, Indent<DoubleColonSymbol, 4>, Type>;
 
 /// `<<` `$BITS_SIZE`? `,`? `$UNIT_SIZE`? `>>`
 ///

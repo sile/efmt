@@ -1,11 +1,11 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{Body, Expr, GuardCondition, WithArrow, WithGuard};
-use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems};
+use crate::items::expressions::{Body, Expr};
+use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
     ReceiveKeyword, TryKeyword,
 };
-use crate::items::symbols::ColonSymbol;
+use crate::items::symbols::{ColonSymbol, CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
@@ -57,7 +57,7 @@ impl Format for CaseExpr {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct CaseClause {
-    pattern: WithArrow<WithGuard<Expr>>,
+    pattern: WithArrow<WithGuard<Expr, Expr>>,
     body: Body,
 }
 
@@ -89,6 +89,9 @@ struct IfClause {
     condigion: WithArrow<GuardCondition>,
     body: Body,
 }
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>);
 
 /// `begin` `$BODY` `end`
 ///
@@ -185,7 +188,7 @@ struct TryCatch {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct CatchClause {
-    pattern: WithArrow<WithGuard<CatchPattern>>,
+    pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
     body: Body,
 }
 

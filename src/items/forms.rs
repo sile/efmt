@@ -7,14 +7,13 @@ use crate::items::atoms::{
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{
-    Args, Clauses, Either, Maybe, NonEmptyItems, Params, Parenthesized, TupleLike,
+    Args, Clauses, Either, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
-use crate::items::keywords::{IfKeyword, WhenKeyword};
+use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
-use crate::items::styles::{Space, TrailingColumns};
 use crate::items::symbols::{
     CloseParenSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
-    MatchSymbol, OpenParenSymbol, RightArrowSymbol,
+    MatchSymbol, OpenParenSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
 use crate::items::Type;
@@ -44,7 +43,7 @@ pub struct RecordDecl {
     open: OpenParenSymbol,
     name: AtomToken,
     comma: CommaSymbol,
-    fields: TrailingColumns<TupleLike<RecordField>, 2>, // ")."
+    fields: TupleLike<RecordField>,
     close: CloseParenSymbol,
     dot: DotSymbol,
 }
@@ -58,17 +57,18 @@ impl Format for RecordDecl {
             self.name.format(fmt)?;
             self.comma.format(fmt)?;
             fmt.write_space()?;
-            if fmt
-                .subregion()
+            fmt.subregion()
                 .forbid_multi_line()
                 .forbid_too_long_line()
+                .reset_trailing_columns(2) // ")."
+                .check_trailing_columns(true)
                 .enter(|fmt| self.fields.format(fmt))
-                .is_err()
-            {
-                fmt.write_newline()?;
-                self.fields.format(fmt)?;
-            }
-            Ok(())
+                .or_else(|_| {
+                    fmt.write_newline()?;
+                    fmt.subregion()
+                        .reset_trailing_columns(2) // ")."
+                        .enter(|fmt| self.fields.format(fmt))
+                })
         })?;
         self.close.format(fmt)?;
         self.dot.format(fmt)?;
@@ -76,11 +76,30 @@ impl Format for RecordDecl {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct RecordField {
     name: AtomToken,
-    default: Maybe<(Space<MatchSymbol>, Expr)>,
-    r#type: Maybe<(Space<DoubleColonSymbol>, Type)>,
+    default: Maybe<(MatchSymbol, Expr)>,
+    r#type: Maybe<(DoubleColonSymbol, Type)>,
+}
+
+impl Format for RecordField {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.name.format(fmt)?;
+        if let Some((x, y)) = self.default.get() {
+            fmt.write_space()?;
+            x.format(fmt)?;
+            fmt.write_space()?;
+            y.format(fmt)?;
+        }
+        if let Some((x, y)) = self.r#type.get() {
+            fmt.write_space()?;
+            x.format(fmt)?;
+            fmt.write_space()?;
+            y.format(fmt)?;
+        }
+        Ok(())
+    }
 }
 
 /// `-` (`type` | `opaque`) `$NAME` `(` (`$PARAM` `,`?)* `)` `::` `$TYPE` `.`
@@ -101,9 +120,9 @@ pub struct TypeDecl {
 #[derive(Debug, Clone, Span, Parse)]
 struct TypeDeclItem {
     name: AtomToken,
-    params: TrailingColumns<Params<VariableToken>, 3>, // " ::"
-    delimiter: Space<DoubleColonSymbol>,
-    r#type: TrailingColumns<Type, 1>, // "."
+    params: Params<VariableToken>,
+    delimiter: DoubleColonSymbol,
+    r#type: Type,
 }
 
 impl Format for TypeDeclItem {
@@ -114,19 +133,25 @@ impl Format for TypeDeclItem {
 
         fmt.subregion().current_column_as_indent().enter(|fmt| {
             self.name.format(fmt)?;
-            self.params.format(fmt)?;
+            fmt.subregion()
+                .reset_trailing_columns(3) // " ::"
+                .enter(|fmt| self.params.format(fmt))?;
+            fmt.write_space()?;
             self.delimiter.format(fmt)?;
-            if fmt
-                .subregion()
+            fmt.write_space()?;
+            fmt.subregion()
                 .current_column_as_indent()
                 .forbid_too_long_line()
+                .trailing_columns(1) // "."
+                .check_trailing_columns(true)
                 .enter(|fmt| self.r#type.format(fmt))
-                .is_err()
-            {
-                fmt.subregion()
-                    .indent_offset(2)
-                    .enter_with_newline(|fmt| self.r#type.format(fmt))?;
-            }
+                .or_else(|_| {
+                    fmt.write_newline()?;
+                    fmt.subregion()
+                        .trailing_columns(1) // "."
+                        .indent_offset(2)
+                        .enter(|fmt| self.r#type.format(fmt))
+                })?;
             Ok(())
         })?;
         Ok(())
@@ -140,13 +165,24 @@ impl Format for TypeDeclItem {
 /// - $RETURN: [Type]
 ///
 /// Note that the parenthesized notation like `-spec(foo() -> bar()).` is also acceptable
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct FunSpec {
     hyphen: HyphenSymbol,
     kind: Either<SpecAtom, CallbackAtom>,
-    // TODO: TrailingColumns<_, 1>
     item: Either<FunSpecItem, Parenthesized<FunSpecItem>>,
     dot: DotSymbol,
+}
+
+impl Format for FunSpec {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.hyphen.format(fmt)?;
+        self.kind.format(fmt)?;
+        fmt.subregion()
+            .reset_trailing_columns(1) // "."
+            .enter(|fmt| self.item.format(fmt))?;
+        self.dot.format(fmt)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -173,10 +209,8 @@ impl Format for FunSpecItem {
 
 #[derive(Debug, Clone, Span, Parse)]
 struct SpecClause {
-    params: TrailingColumns<Params<Type>, 3>, // trailing: " ->"
-    arrow: Space<RightArrowSymbol>,
-    r#return: Type,
-    constraint: Maybe<Constraint>,
+    params: WithArrow<Params<Type>>,
+    r#return: WithGuard<Type, Type, CommaSymbol>,
 }
 
 impl Format for SpecClause {
@@ -184,46 +218,21 @@ impl Format for SpecClause {
         fmt.subregion()
             .clear_trailing_columns(true)
             .enter(|fmt| self.params.format(fmt))?;
-        self.arrow.format(fmt)?;
 
-        if fmt
-            .subregion()
+        fmt.subregion()
             .forbid_multi_line()
             .forbid_too_long_line()
-            .check_trailing_columns(self.constraint.is_none())
+            .check_trailing_columns(true)
             .enter(|fmt| self.r#return.format(fmt))
-            .is_err()
-        {
-            fmt.write_newline()?;
-            fmt.subregion()
-                .parent_indent()
-                .indent_offset(4)
-                .enter(|fmt| self.r#return.format(fmt))?;
-        }
-
-        if fmt
-            .subregion()
-            .forbid_multi_line()
-            .forbid_too_long_line()
-            .check_trailing_columns(!self.constraint.is_none())
-            .enter(|fmt| self.constraint.format(fmt))
-            .is_err()
-        {
-            fmt.write_newline()?;
-            fmt.subregion()
-                .parent_indent()
-                .indent_offset(8)
-                .enter(|fmt| self.constraint.format(fmt))?;
-        }
-
+            .or_else(|_| {
+                fmt.write_newline()?;
+                fmt.subregion()
+                    .parent_indent()
+                    .indent_offset(4)
+                    .enter(|fmt| self.r#return.format(fmt))
+            })?;
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct Constraint {
-    when: Space<WhenKeyword>,
-    constraints: NonEmptyItems<Type, CommaSymbol>,
 }
 
 /// (`$NAME` `(` (`$PARAM` `,`?)* `)` (`when` `$GUARD`)? `->` `$BODY` `;`?)+ `.`
@@ -232,11 +241,20 @@ struct Constraint {
 /// - $PARAM: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct FunDecl {
-    // TODO: trailing columns
     clauses: Clauses<FunctionClause<AtomToken>>,
     dot: DotSymbol,
+}
+
+impl Format for FunDecl {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .reset_trailing_columns(1) // "."
+            .enter(|fmt| self.clauses.format(fmt))?;
+        self.dot.format(fmt)?;
+        Ok(())
+    }
 }
 
 /// `-` `$NAME` `$ARGS`? `.`
@@ -244,12 +262,26 @@ pub struct FunDecl {
 /// - $NAME: [AtomToken] | `if`
 /// - $ARGS: `(` (`$ARG` `,`?)* `)`
 /// - $ARG: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Attr {
     hyphen: HyphenSymbol,
     name: Either<AtomToken, IfKeyword>,
-    items: Maybe<TrailingColumns<Args<Expr>, 1>>, // "."
+    items: Maybe<Args<Expr>>,
     dot: DotSymbol,
+}
+
+impl Format for Attr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.hyphen.format(fmt)?;
+        self.name.format(fmt)?;
+        if let Some(items) = self.items.get() {
+            fmt.subregion()
+                .reset_trailing_columns(1) // "."
+                .enter(|fmt| items.format(fmt))?;
+        }
+        self.dot.format(fmt)?;
+        Ok(())
+    }
 }
 
 /// `-` `define` `(` `$NAME` `$VARS`? `,` `REPLACEMENT`* `)` `.`
@@ -265,7 +297,7 @@ pub struct DefineDirective {
     macro_name: MacroName,
     variables: Maybe<Params<VariableToken>>,
     comma: CommaSymbol,
-    replacement: TrailingColumns<MacroReplacement, 2>, // ")."
+    replacement: MacroReplacement,
     close: CloseParenSymbol,
     dot: DotSymbol,
 }
@@ -280,7 +312,7 @@ impl DefineDirective {
     }
 
     pub fn replacement(&self) -> &[Token] {
-        self.replacement.get().tokens()
+        self.replacement.tokens()
     }
 }
 
@@ -294,17 +326,18 @@ impl Format for DefineDirective {
             self.variables.format(fmt)?;
             self.comma.format(fmt)?;
             fmt.write_space()?;
-            if fmt
-                .subregion()
+            fmt.subregion()
                 .forbid_multi_line()
                 .forbid_too_long_line()
+                .reset_trailing_columns(2) // ")."
+                .check_trailing_columns(true)
                 .enter(|fmt| self.replacement.format(fmt))
-                .is_err()
-            {
-                fmt.write_newline()?;
-                self.replacement.format(fmt)?;
-            }
-            Ok(())
+                .or_else(|_| {
+                    fmt.write_newline()?;
+                    fmt.subregion()
+                        .reset_trailing_columns(2) // ")."
+                        .enter(|fmt| self.replacement.format(fmt))
+                })
         })?;
         self.close.format(fmt)?;
         self.dot.format(fmt)?;
@@ -527,13 +560,13 @@ mod tests {
                      (XXX,
                       YYY) -> Z."},
             indoc::indoc! {"
-            -spec id(X) -> X
-                          when X :: tuple()."},
+            -spec id(X) ->
+                      X when X :: tuple()."},
             indoc::indoc! {"
-            -spec id(X) -> X
-                          when is_subtype(X,
-                                          atom()),
-                               X :: atom()."},
+            -spec id(X) ->
+                      X when is_subtype(X,
+                                        atom()),
+                             X :: atom()."},
             indoc::indoc! {"
             -callback foobar(atom()) ->
                           {atom(),
@@ -543,8 +576,9 @@ mod tests {
             -spec foobar(A) ->
                       {atom(),
                        atom()}
-                          when A :: atom();
-                        (a) -> b."}, // TODO
+                        when A :: atom();
+                        (a) ->
+                      b."},
             indoc::indoc! {"
             -spec foo:bar() ->
                       baz()."},

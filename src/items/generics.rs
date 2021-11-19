@@ -1,7 +1,9 @@
 use crate::format::{self, Format, Formatter};
+use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
-    DoubleRightAngleSymbol, OpenBraceSymbol, OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
+    DoubleRightAngleSymbol, OpenBraceSymbol, OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol,
+    SemicolonSymbol,
 };
 use crate::items::tokens::{TokenStr, WhitespaceToken};
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -36,10 +38,6 @@ impl Format for Null {
 pub struct Maybe<T>(Either<T, Null>);
 
 impl<T> Maybe<T> {
-    pub fn is_none(&self) -> bool {
-        matches!(self.0, Either::B(_))
-    }
-
     pub fn from_item(item: T) -> Self {
         Self(Either::A(item))
     }
@@ -485,5 +483,78 @@ impl<L: Format, O: Format + IndentOffset + TokenStr, R: Format> Format for Binar
             }
             Ok(())
         })
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct WithArrow<T> {
+    item: T,
+    arrow: RightArrowSymbol,
+}
+
+impl<T: Format> Format for WithArrow<T> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        fmt.subregion()
+            .reset_trailing_columns(3) // " ->"
+            .enter(|fmt| {
+                self.item.format(fmt)?;
+                fmt.write_space()?;
+                self.arrow.format(fmt)?;
+                fmt.write_space()?;
+                Ok(())
+            })
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct WithGuard<T, U, D = Either<CommaSymbol, SemicolonSymbol>> {
+    item: T,
+    guard: Maybe<Guard<U, D>>,
+}
+
+impl<T: Format, U: Format, D: Format + TokenStr> Format for WithGuard<T, U, D> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        if let Some(guard) = self.guard.get() {
+            fmt.subregion()
+                .clear_trailing_columns(true)
+                .enter(|fmt| self.item.format(fmt))?;
+            fmt.write_space()?;
+            guard.format(fmt)?;
+        } else {
+            self.item.format(fmt)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct Guard<T, D> {
+    when: WhenKeyword,
+    conditions: NonEmptyItems<T, D>,
+}
+
+impl<T: Format, D: Format + TokenStr> Format for Guard<T, D> {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        let format = |fmt: &mut format::Formatter| {
+            self.when.format(fmt)?;
+            fmt.write_space()?;
+            self.conditions.format(fmt)?;
+            Ok(())
+        };
+
+        if fmt.current_relative_column() <= 2 {
+            format(fmt)?;
+        } else if fmt
+            .subregion()
+            .forbid_too_long_line()
+            .forbid_multi_line()
+            .check_trailing_columns(true)
+            .enter(format)
+            .is_err()
+        {
+            fmt.write_newline()?;
+            fmt.subregion().indent_offset(2).enter(format)?;
+        }
+        Ok(())
     }
 }

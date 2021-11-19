@@ -35,6 +35,10 @@ impl<A: Format, B: Format> Format for (A, B) {
     }
 }
 
+pub trait FormatWithStyle<Style>: Format {
+    fn format_with_style(&self, fmt: &mut Formatter, style: &Style) -> Result<()>;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("max columns exceeded")]
@@ -116,21 +120,6 @@ impl<'a> RegionOptions<'a> {
         F: FnOnce(&mut Formatter) -> Result<()>,
     {
         self.fmt.with_subregion(self.config, |fmt| {
-            f(fmt)?;
-            if self.check_trailing_columns {
-                fmt.check_trailing_columns()?;
-            }
-            Ok(())
-        })
-    }
-
-    // TODO: delete
-    pub fn enter_with_newline<F>(self, f: F) -> Result<()>
-    where
-        F: FnOnce(&mut Formatter) -> Result<()>,
-    {
-        self.fmt.with_subregion(self.config, |fmt| {
-            fmt.write_newline()?;
             f(fmt)?;
             if self.check_trailing_columns {
                 fmt.check_trailing_columns()?;

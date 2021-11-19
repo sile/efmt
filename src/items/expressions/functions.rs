@@ -1,6 +1,6 @@
 use crate::format::{self, Format};
-use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr, WithArrow, WithGuard};
-use crate::items::generics::{Clauses, Maybe, Null, Params};
+use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr};
+use crate::items::generics::{Clauses, Maybe, Null, Params, WithArrow, WithGuard};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
@@ -101,7 +101,7 @@ impl<Name: Format> Format for FunctionClauses<Name> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub(crate) struct FunctionClause<Name> {
     name: Name,
-    params: WithArrow<WithGuard<Params<Expr>>>,
+    params: WithArrow<WithGuard<Params<Expr>, Expr>>,
     body: Body,
 }
 

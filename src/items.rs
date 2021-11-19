@@ -11,7 +11,6 @@ pub(crate) mod atoms;
 pub(crate) mod generics;
 pub(crate) mod keywords;
 pub(crate) mod macros;
-pub(crate) mod styles;
 pub(crate) mod symbols;
 pub(crate) mod variables;
 

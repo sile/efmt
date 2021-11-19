@@ -1,10 +1,10 @@
-use crate::format::Format;
+use crate::format::{self, Format};
 use crate::items::expressions::{Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, Either, Indent, ListLike, NonEmptyItems};
-use crate::items::styles::{Space, TrailingColumns};
+use crate::items::generics::{BinaryOpLike, Indent, ListLike, NonEmptyItems};
 use crate::items::symbols::{
     CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
 };
+use crate::items::tokens::TokenStr;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -19,14 +19,50 @@ pub enum ListExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListConstructExpr(ListLike<Expr, ListItemDelimiter>);
 
-type ListItemDelimiter = Either<CommaSymbol, Space<VerticalBarSymbol>>;
+#[derive(Debug, Clone, Span, Parse)]
+enum ListItemDelimiter {
+    Comma(CommaSymbol),
+    VerticalBar(VerticalBarSymbol),
+}
+
+impl TokenStr for ListItemDelimiter {
+    fn token_str(&self) -> &str {
+        match self {
+            Self::Comma(x) => x.token_str(),
+            Self::VerticalBar(x) => x.token_str(),
+        }
+    }
+}
+
+impl Format for ListItemDelimiter {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        match self {
+            Self::Comma(x) => x.format(fmt),
+            Self::VerticalBar(x) => {
+                fmt.write_space()?;
+                x.format(fmt)
+            }
+        }
+    }
+}
 
 /// `[` [Expr] `||` ([Qualifier] `,`?)+ `]`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ListComprehensionExpr {
     open: OpenSquareSymbol,
-    body: TrailingColumns<ListComprehensionBody, 1>, // "]"
+    body: ListComprehensionBody,
     close: CloseSquareSymbol,
+}
+
+impl Format for ListComprehensionExpr {
+    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
+        self.open.format(fmt)?;
+        fmt.subregion()
+            .reset_trailing_columns(1) // "]"
+            .enter(|fmt| self.body.format(fmt))?;
+        self.close.format(fmt)?;
+        Ok(())
+    }
 }
 
 type ListComprehensionBody =
