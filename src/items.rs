@@ -1,4 +1,5 @@
 use crate::format::Format;
+use crate::format2::Format2;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -24,5 +25,5 @@ pub use self::module::Module;
 pub struct Form(self::forms::Form);
 
 /// One of [types].
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct Type(self::types::UnionType);

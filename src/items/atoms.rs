@@ -1,4 +1,5 @@
 use crate::format::Format;
+use crate::format2::Format2;
 use crate::items::tokens::AtomToken;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;
@@ -18,39 +19,34 @@ macro_rules! impl_parse {
     };
 }
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DefineAtom(AtomToken);
 impl_parse!(DefineAtom, "define");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct IncludeAtom(AtomToken);
 impl_parse!(IncludeAtom, "include");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct IncludeLibAtom(AtomToken);
 impl_parse!(IncludeLibAtom, "include_lib");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct SpecAtom(AtomToken);
 impl_parse!(SpecAtom, "spec");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct TypeAtom(AtomToken);
 impl_parse!(TypeAtom, "type");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct OpaqueAtom(AtomToken);
 impl_parse!(OpaqueAtom, "opaque");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct CallbackAtom(AtomToken);
 impl_parse!(CallbackAtom, "callback");
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct RecordAtom(AtomToken);
 impl_parse!(RecordAtom, "record");
-
-// TODO
-// #[derive(Debug, Clone, Span, Format)]
-// pub struct InfinityAtom(AtomToken);
-// impl_parse!(InfinityAtom, "infinity");

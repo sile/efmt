@@ -2,6 +2,7 @@
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{self, Format};
+use crate::format2::{Format2, Formatter2};
 use crate::items::generics::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, ListLike, Maybe, NonEmptyItems,
     Params, Parenthesized, TupleLike, UnaryOpLike,
@@ -19,7 +20,7 @@ use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 enum NonUnionType {
     BinaryOp(Box<BinaryOpType>),
     NonLeftRecursive(NonLeftRecursiveType),
@@ -40,6 +41,12 @@ impl Parse for NonUnionType {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
 
+impl Format2 for UnionType {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.0.format2(fmt);
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct UnionDelimiter(VerticalBarSymbol);
 
@@ -51,7 +58,14 @@ impl Format for UnionDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for UnionDelimiter {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.add_space();
+        self.0.format2(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)] // TODO: derive Format2
 enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
@@ -64,6 +78,16 @@ enum NonLeftRecursiveType {
     Parenthesized(Box<Parenthesized<Type>>),
     Annotated(Box<AnnotatedVariableType>),
     Literal(LiteralType),
+}
+
+impl Format2 for NonLeftRecursiveType {
+    fn format2(&self, fmt: &mut Formatter2) {
+        match self {
+            Self::Mfargs(x) => x.format2(fmt),
+            Self::Literal(x) => x.format2(fmt),
+            _ => todo!("{:?}", self),
+        }
+    }
 }
 
 /// [VariableToken] `::` [Type]
@@ -90,6 +114,12 @@ impl Format for AnnotatedVariableType {
 /// - $OP: [BinaryOp]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type>);
+
+impl Format2 for BinaryOpType {
+    fn format2(&self, fmt: &mut Formatter2) {
+        todo!()
+    }
+}
 
 impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
     fn resume_parse(
@@ -189,7 +219,7 @@ enum FunctionParams {
 }
 
 /// [AtomToken] | [CharToken] | [IntegerToken] | [VariableToken]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum LiteralType {
     Atom(AtomToken),
     Char(CharToken),
@@ -202,7 +232,7 @@ pub enum LiteralType {
 /// - $MODULE: [AtomToken]
 /// - $NAME: [AtomToken]
 /// - $ARG: [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct MfargsType {
     module: Maybe<(AtomToken, ColonSymbol)>,
     name: AtomToken,
@@ -298,6 +328,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 

@@ -1,4 +1,6 @@
+// s/generics/components/
 use crate::format::{self, Format, Formatter};
+use crate::format2::{Format2, Formatter2, Indent, Newline};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
@@ -75,6 +77,14 @@ impl<T: Format> Format for Maybe<T> {
     }
 }
 
+impl<T: Format2> Format2 for Maybe<T> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if let Some(x) = self.get() {
+            x.format2(fmt);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum Either<A, B> {
     A(A),
@@ -106,6 +116,16 @@ impl<T: Format> Format for Parenthesized<T> {
     }
 }
 
+impl<T: Format2> Format2 for Parenthesized<T> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.open.format2(fmt);
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.item.format2(fmt);
+        });
+        self.close.format2(fmt);
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Params<T>(Parenthesized<Items<T>>);
 
@@ -115,7 +135,7 @@ impl<T> Params<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct Args<T>(Parenthesized<Items<T>>);
 
 impl<T> Args<T> {
@@ -124,8 +144,18 @@ impl<T> Args<T> {
     }
 }
 
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct CommaDelimiter(CommaSymbol);
+
+impl Format2 for CommaDelimiter {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.0.format2(fmt);
+        fmt.add_space();
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct NonEmptyItems<T, D = CommaSymbol> {
+pub struct NonEmptyItems<T, D = CommaDelimiter> {
     items: Vec<T>,
     delimiters: Vec<D>,
 }
@@ -202,8 +232,25 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Items<T, D = CommaSymbol>(Maybe<NonEmptyItems<T, D>>);
+impl<T: Format2, D: Format2> Format2 for NonEmptyItems<T, D> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            let item = self.items().first().expect("unreachable");
+            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format2(fmt));
+            for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
+                delimiter.format2(fmt);
+                fmt.subregion(
+                    Indent::Inherit,
+                    Newline::Or(vec![Newline::IfTooLong, Newline::IfMultiLineParent]),
+                    |fmt| item.format2(fmt),
+                );
+            }
+        });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+pub struct Items<T, D = CommaDelimiter>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
     pub fn items(&self) -> &[T] {

@@ -1,4 +1,5 @@
 use crate::format::Format;
+use crate::format2::Format2;
 use crate::items::tokens::SymbolToken;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
@@ -19,83 +20,83 @@ macro_rules! impl_traits {
     };
 }
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct OpenSquareSymbol(SymbolToken);
 impl_traits!(OpenSquareSymbol, OpenSquare);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct CloseSquareSymbol(SymbolToken);
 impl_traits!(CloseSquareSymbol, CloseSquare);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct OpenParenSymbol(SymbolToken);
 impl_traits!(OpenParenSymbol, OpenParen);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct CloseParenSymbol(SymbolToken);
 impl_traits!(CloseParenSymbol, CloseParen);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct OpenBraceSymbol(SymbolToken);
 impl_traits!(OpenBraceSymbol, OpenBrace);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct CloseBraceSymbol(SymbolToken);
 impl_traits!(CloseBraceSymbol, CloseBrace);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct SharpSymbol(SymbolToken);
 impl_traits!(SharpSymbol, Sharp);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct SlashSymbol(SymbolToken);
 impl_traits!(SlashSymbol, Slash);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DotSymbol(SymbolToken);
 impl_traits!(DotSymbol, Dot);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleDotSymbol(SymbolToken);
 impl_traits!(DoubleDotSymbol, DoubleDot);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct TripleDotSymbol(SymbolToken);
 impl_traits!(TripleDotSymbol, TripleDot);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct CommaSymbol(SymbolToken);
 impl_traits!(CommaSymbol, Comma);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct ColonSymbol(SymbolToken);
 impl_traits!(ColonSymbol, Colon);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleColonSymbol(SymbolToken);
 impl_traits!(DoubleColonSymbol, DoubleColon);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct SemicolonSymbol(SymbolToken);
 impl_traits!(SemicolonSymbol, Semicolon);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct MatchSymbol(SymbolToken);
 impl_traits!(MatchSymbol, Match);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct MapMatchSymbol(SymbolToken);
 impl_traits!(MapMatchSymbol, MapMatch);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct VerticalBarSymbol(SymbolToken);
 impl_traits!(VerticalBarSymbol, VerticalBar);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleVerticalBarSymbol(SymbolToken);
 impl_traits!(DoubleVerticalBarSymbol, DoubleVerticalBar);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct QuestionSymbol(SymbolToken);
 impl_traits!(QuestionSymbol, Question);
 
@@ -106,86 +107,86 @@ impl QuestionSymbol {
     }
 }
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleQuestionSymbol(SymbolToken);
 impl_traits!(DoubleQuestionSymbol, DoubleQuestion);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct NotSymbol(SymbolToken);
 impl_traits!(NotSymbol, Not);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct HyphenSymbol(SymbolToken);
 impl_traits!(HyphenSymbol, Hyphen);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct MinusMinusSymbol(SymbolToken);
 impl_traits!(MinusMinusSymbol, MinusMinus);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct PlusSymbol(SymbolToken);
 impl_traits!(PlusSymbol, Plus);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct PlusPlusSymbol(SymbolToken);
 impl_traits!(PlusPlusSymbol, PlusPlus);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct MultiplySymbol(SymbolToken);
 impl_traits!(MultiplySymbol, Multiply);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct RightArrowSymbol(SymbolToken);
 impl_traits!(RightArrowSymbol, RightArrow);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct LeftArrowSymbol(SymbolToken);
 impl_traits!(LeftArrowSymbol, LeftArrow);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleRightArrowSymbol(SymbolToken);
 impl_traits!(DoubleRightArrowSymbol, DoubleRightArrow);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleLeftArrowSymbol(SymbolToken);
 impl_traits!(DoubleLeftArrowSymbol, DoubleLeftArrow);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleRightAngleSymbol(SymbolToken);
 impl_traits!(DoubleRightAngleSymbol, DoubleRightAngle);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct DoubleLeftAngleSymbol(SymbolToken);
 impl_traits!(DoubleLeftAngleSymbol, DoubleLeftAngle);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct EqSymbol(SymbolToken);
 impl_traits!(EqSymbol, Eq);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct ExactEqSymbol(SymbolToken);
 impl_traits!(ExactEqSymbol, ExactEq);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct NotEqSymbol(SymbolToken);
 impl_traits!(NotEqSymbol, NotEq);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct ExactNotEqSymbol(SymbolToken);
 impl_traits!(ExactNotEqSymbol, ExactNotEq);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct GreaterSymbol(SymbolToken);
 impl_traits!(GreaterSymbol, Greater);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct GreaterEqSymbol(SymbolToken);
 impl_traits!(GreaterEqSymbol, GreaterEq);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct LessSymbol(SymbolToken);
 impl_traits!(LessSymbol, Less);
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct LessEqSymbol(SymbolToken);
 impl_traits!(LessEqSymbol, LessEq);

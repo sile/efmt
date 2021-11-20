@@ -1,11 +1,14 @@
 //! Erlang tokens.
 use crate::format::{self, Format, Formatter};
+use crate::format2::{Format2, Formatter2};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Span, Format, Format2, serde::Serialize, serde::Deserialize,
+)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
@@ -74,6 +77,12 @@ macro_rules! impl_traits {
 
             fn should_be_packed(&self) -> bool {
                 $should_be_packed
+            }
+        }
+
+        impl Format2 for $name {
+            fn format2(&self, fmt: &mut Formatter2) {
+                fmt.add_item(self);
             }
         }
 
