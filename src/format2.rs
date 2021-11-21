@@ -1,3 +1,5 @@
+use crate::format::region::{RegionConfig, RegionWriter};
+use crate::format::{Error, Result};
 use crate::items::macros::Macro;
 use crate::items::tokens::CommentToken;
 use crate::span::{Position, Span};
@@ -25,7 +27,7 @@ impl<A: Format2, B: Format2> Format2 for (A, B) {
 
 #[derive(Debug)]
 pub struct Formatter2 {
-    items: Vec<Item>,
+    item: Item,
     text: Arc<String>,
     macros: Arc<BTreeMap<Position, Macro>>,
     comments: Arc<BTreeMap<Position, CommentToken>>,
@@ -41,53 +43,50 @@ impl Formatter2 {
             text: Arc::new(text),
             macros: Arc::new(macros),
             comments: Arc::new(comments),
-            items: Vec::new(),
+            item: Item::new(),
         }
     }
 
+    // TODO: s/add_item/add_text/
     pub fn add_item(&mut self, item: &impl Span) {
         // TODO: handle macro
-        self.items.push(Item::Span {
-            start_position: item.start_position(),
-            end_position: item.end_position(),
-        });
+        self.item.add_item(item);
     }
 
     pub fn add_space(&mut self) {
-        self.items.push(Item::Space);
+        self.item.add_space();
     }
 
     pub fn add_newline(&mut self) {
-        self.items.push(Item::Newline);
+        self.item.add_newline();
     }
 
     pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
     where
         F: FnOnce(&mut Self),
     {
-        let mut fmt = Self {
-            items: Vec::new(),
-            text: Arc::clone(&self.text),
-            macros: Arc::clone(&self.macros),
-            comments: Arc::clone(&self.comments),
-        };
-        f(&mut fmt);
-        self.items.push(Item::Region {
-            indent,
-            newline,
-            items: fmt.items,
-        });
+        let parent = std::mem::replace(
+            &mut self.item,
+            Item::Region {
+                indent,
+                newline,
+                items: Vec::new(),
+            },
+        );
+        f(self);
+        let child = std::mem::replace(&mut self.item, parent);
+        self.item.add_region(child);
     }
 
     pub fn format(mut self, max_columns: usize) -> String {
-        let items = std::mem::replace(&mut self.items, Vec::new());
-        ItemToString::new(self, max_columns).to_string(&items)
+        let item = std::mem::replace(&mut self.item, Item::new());
+        ItemToString::new(self, max_columns).to_string(&item)
     }
 }
 
 #[derive(Debug)]
 struct ItemToString {
-    buf: String,
+    writer: RegionWriter,
     max_columns: usize,
     fmt: Formatter2,
 }
@@ -95,59 +94,139 @@ struct ItemToString {
 impl ItemToString {
     fn new(fmt: Formatter2, max_columns: usize) -> Self {
         Self {
-            buf: String::new(),
+            writer: RegionWriter::new(max_columns),
             max_columns,
             fmt,
         }
     }
 
-    fn to_string(mut self, items: &[Item]) -> String {
-        self.format_items(items);
-        self.buf
+    fn to_string(mut self, item: &Item) -> String {
+        self.format_item(item).expect("TODO: bug");
+        self.writer.formatted_text().to_owned()
     }
 
-    fn format_items(&mut self, items: &[Item]) {
+    fn format_item(&mut self, item: &Item) -> Result<()> {
+        match item {
+            Item::Span {
+                start_position,
+                end_position,
+            } => self.format_text(*start_position, *end_position)?,
+            Item::Space => self.format_space()?,
+            Item::Newline => self.format_newline()?,
+            Item::Region {
+                indent,
+                newline,
+                items,
+            } => self.format_region(indent, newline, items)?,
+        }
+        Ok(())
+    }
+
+    fn format_items(&mut self, items: &[Item]) -> Result<()> {
         for item in items {
-            match item {
-                Item::Span {
-                    start_position,
-                    end_position,
-                } => self.format_item(*start_position, *end_position),
-                Item::Space => self.format_space(),
-                Item::Newline => self.format_newline(),
-                Item::Region {
+            self.format_item(item)?;
+        }
+        Ok(())
+    }
+
+    fn format_space(&mut self) -> Result<()> {
+        self.writer.write_space()
+    }
+
+    fn format_newline(&mut self) -> Result<()> {
+        self.writer.write_newline()
+    }
+
+    fn format_text(&mut self, start_position: Position, end_position: Position) -> Result<()> {
+        self.writer
+            .write_item(&self.fmt.text, &(start_position, end_position))
+    }
+
+    fn format_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) -> Result<()> {
+        let indent = match indent {
+            Indent::Inherit => self.writer.config().indent,
+            Indent::Offset(n) => self.writer.config().indent + n,
+            Indent::ParentOffset(n) => self.writer.parent_indent() + n,
+            Indent::CurrentColumn => {
+                if self.writer.current_column() == 0 {
+                    self.writer.config().indent
+                } else {
+                    self.writer.current_column()
+                }
+            }
+        };
+        let mut needs_newline = false;
+        let mut allow_multi_line = true;
+        let mut allow_too_long_line = true;
+        let mut check_multi_line_parent = false;
+        match newline {
+            Newline::Always => {
+                needs_newline = true;
+            }
+            Newline::Never => {}
+            Newline::If(cond) => {
+                allow_multi_line = !cond.multi_line;
+                allow_too_long_line = !cond.too_long;
+                if cond.multi_line_parent {
+                    if self.writer.config().multi_line_mode {
+                        needs_newline = true;
+                    } else {
+                        check_multi_line_parent = true;
+                        allow_multi_line = false;
+                    }
+                }
+            }
+        };
+
+        let config = RegionConfig {
+            max_columns: self.max_columns,
+            indent,
+            trailing_columns: 0, // TODO: DELETE
+            allow_multi_line,
+            allow_too_long_line,
+            multi_line_mode: false,
+        };
+        self.writer.start_subregion(config);
+        if needs_newline {
+            self.writer.write_newline()?;
+        }
+        let mut result = self.format_items(items);
+        if result.is_ok() {
+            self.writer.commit_subregion();
+        } else {
+            self.writer.abort_subregion();
+
+            let (retry, needs_newline, multi_line_mode) = match &result {
+                Err(_) if check_multi_line_parent => {
+                    return Err(Error::MultiLineParent);
+                }
+                Err(Error::MultiLine) if !allow_multi_line => (true, true, false),
+                Err(Error::LineTooLong) if !allow_too_long_line => (true, true, false),
+                Err(Error::MultiLineParent) => (true, needs_newline, true),
+                _ => (false, false, false),
+            };
+            if retry {
+                let config = RegionConfig {
+                    max_columns: self.max_columns,
                     indent,
-                    newline,
-                    items,
-                } => self.format_region(indent, newline, items),
+                    trailing_columns: 0, // TODO: DELETE
+                    allow_multi_line: true,
+                    allow_too_long_line: true,
+                    multi_line_mode,
+                };
+                self.writer.start_subregion(config);
+                if needs_newline {
+                    self.writer.write_newline()?;
+                }
+                result = self.format_items(items);
+                if result.is_ok() {
+                    self.writer.commit_subregion();
+                } else {
+                    self.writer.abort_subregion();
+                }
             }
         }
-    }
-
-    fn format_space(&mut self) {
-        if self.buf.chars().last() != Some(' ') {
-            self.buf.push(' ');
-        }
-    }
-
-    fn format_newline(&mut self) {
-        if !matches!(self.buf.chars().last(), None | Some('\n')) {
-            if self.buf.chars().last() == Some(' ') {
-                self.buf.pop();
-            }
-            self.buf.push('\n');
-        }
-    }
-
-    fn format_item(&mut self, start_position: Position, end_position: Position) {
-        let start = start_position.offset();
-        let end = end_position.offset();
-        self.buf.push_str(&self.fmt.text[start..end]);
-    }
-
-    fn format_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) {
-        // TODO: indent and newline handlings
-        self.format_items(items);
+        result
     }
 }
 
@@ -157,14 +236,67 @@ pub enum Item {
         start_position: Position,
         end_position: Position,
     },
-    Space,
-    Newline,
+    Space,   // Space{force:bool}
+    Newline, // Newline{force:bool}
     //NewlineIfMultiLineRegion,
     Region {
         indent: Indent,
         newline: Newline,
         items: Vec<Item>,
     },
+}
+
+impl Item {
+    fn new() -> Self {
+        Self::Region {
+            indent: Indent::CurrentColumn,
+            newline: Newline::Never,
+            items: Vec::new(),
+        }
+    }
+
+    fn add_item(&mut self, item: &impl Span) {
+        if let Self::Region { items, .. } = self {
+            if let Some(last @ Self::Region { .. }) = items.last_mut() {
+                last.add_item(item);
+            } else {
+                items.push(Self::Span {
+                    start_position: item.start_position(),
+                    end_position: item.end_position(),
+                });
+            }
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn add_region(&mut self, region: Item) {
+        if let Self::Region { items, .. } = self {
+            if let Some(last @ Self::Region { .. }) = items.last_mut() {
+                last.add_region(region);
+            } else {
+                items.push(region);
+            }
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn add_space(&mut self) {
+        if let Self::Region { items, .. } = self {
+            items.push(Self::Space);
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn add_newline(&mut self) {
+        if let Self::Region { items, .. } = self {
+            items.push(Self::Newline);
+        } else {
+            unreachable!();
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -179,8 +311,12 @@ pub enum Indent {
 pub enum Newline {
     Always,
     Never,
-    IfTooLong,
-    IfMultiLine,
-    IfMultiLineParent,
-    Or(Vec<Self>),
+    If(NewlineIf),
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct NewlineIf {
+    pub too_long: bool,
+    pub multi_line: bool,
+    pub multi_line_parent: bool,
 }

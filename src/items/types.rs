@@ -321,9 +321,15 @@ mod tests {
             "foo()",
             "foo:bar(A, 1)",
             indoc::indoc! {"
+            %---10---|%---20---|
             foo:bar(A,
-                    1,
-                    baz(),
+                    BB,
+                    baz())"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            foo:bar(A,
+                    B,
+                    baz(12, 34),
                     qux())"},
         ];
         for text in texts {

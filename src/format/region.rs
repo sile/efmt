@@ -9,6 +9,7 @@ pub struct RegionConfig {
     pub trailing_columns: usize,
     pub allow_multi_line: bool,
     pub allow_too_long_line: bool,
+    pub multi_line_mode: bool,
 }
 
 impl RegionConfig {
@@ -19,6 +20,7 @@ impl RegionConfig {
             trailing_columns: 0,
             allow_multi_line: true,
             allow_too_long_line: true,
+            multi_line_mode: false,
         }
     }
 }

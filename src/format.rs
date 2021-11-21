@@ -7,7 +7,7 @@ pub use self::formatter::Formatter;
 pub use efmt_derive::Format;
 
 mod formatter;
-mod region;
+pub mod region;
 
 pub trait Format: Span {
     fn format(&self, fmt: &mut Formatter) -> Result<()>;
@@ -46,6 +46,9 @@ pub enum Error {
 
     #[error("unexpected multi-line")]
     MultiLine,
+
+    #[error("todo")]
+    MultiLineParent,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -1,6 +1,6 @@
 // s/generics/components/
 use crate::format::{self, Format, Formatter};
-use crate::format2::{Format2, Formatter2, Indent, Newline};
+use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
@@ -241,7 +241,11 @@ impl<T: Format2, D: Format2> Format2 for NonEmptyItems<T, D> {
                 delimiter.format2(fmt);
                 fmt.subregion(
                     Indent::Inherit,
-                    Newline::Or(vec![Newline::IfTooLong, Newline::IfMultiLineParent]),
+                    Newline::If(NewlineIf {
+                        too_long: true,
+                        multi_line_parent: true,
+                        ..Default::default()
+                    }),
                     |fmt| item.format2(fmt),
                 );
             }
