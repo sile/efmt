@@ -85,7 +85,7 @@ impl<T: Format2> Format2 for Maybe<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum Either<A, B> {
     A(A),
     B(B),
@@ -126,7 +126,7 @@ impl<T: Format2> Format2 for Parenthesized<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct Params<T>(Parenthesized<Items<T>>);
 
 impl<T> Params<T> {
@@ -275,7 +275,7 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
+pub struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
 
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn format_packed_item(
@@ -335,8 +335,27 @@ impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct ListLike<T, D = CommaSymbol> {
+impl<T: Format2, D: Format2> MaybePackedItems<T, D> {
+    fn packed_format2(&self, fmt: &mut Formatter2) {
+        todo!()
+    }
+}
+
+impl<T: Format2, D: Format2> Format2 for MaybePackedItems<T, D> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if self.0.items().is_empty() {
+        } else if self.0.items().iter().all(|x| !x.has_whitespace()) {
+            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                self.packed_format2(fmt)
+            });
+        } else {
+            self.0.format2(fmt);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format2)]
+pub struct ListLike<T, D = CommaDelimiter> {
     open: OpenSquareSymbol,
     items: MaybePackedItems<T, D>,
     close: CloseSquareSymbol,
@@ -353,7 +372,7 @@ impl<T: Format, D: Format> Format for ListLike<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct TupleLike<T> {
     open: OpenBraceSymbol,
     items: MaybePackedItems<T>,
@@ -414,7 +433,7 @@ impl<T: Format> Format for Clauses<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
@@ -448,6 +467,14 @@ pub trait BinaryOpStyle {
     fn allow_newline(&self) -> bool;
 
     fn should_pack(&self) -> bool;
+
+    fn needs_left_space(&self) -> bool {
+        true
+    }
+
+    fn needs_right_space(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -501,6 +528,36 @@ impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L,
             })?;
         }
         Ok(())
+    }
+}
+
+impl<L: Format2, O: Format2 + BinaryOpStyle, R: Format2> Format2 for BinaryOpLike<L, O, R> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.left.format2(fmt);
+
+        if self.op.needs_left_space() {
+            fmt.add_space();
+        }
+        self.op.format2(fmt);
+        if self.op.needs_right_space() {
+            fmt.add_space();
+        }
+
+        if !self.op.allow_newline() {
+            self.right.format2(fmt);
+            return;
+        }
+
+        let newline_cond = NewlineIf {
+            too_long: true,
+            multi_line: !self.op.should_pack(),
+            ..Default::default()
+        };
+        fmt.subregion(
+            Indent::Offset(self.op.indent_offset()),
+            Newline::If(newline_cond),
+            |fmt| self.right.format2(fmt),
+        );
     }
 }
 

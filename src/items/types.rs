@@ -85,6 +85,12 @@ impl Format2 for NonLeftRecursiveType {
         match self {
             Self::Mfargs(x) => x.format2(fmt),
             Self::Literal(x) => x.format2(fmt),
+            Self::List(x) => x.format2(fmt),
+            Self::Tuple(x) => x.format2(fmt),
+            Self::Map(x) => x.format2(fmt),
+            Self::Record(x) => x.format2(fmt),
+            Self::Function(x) => x.format2(fmt),
+            Self::UnaryOp(x) => x.format2(fmt),
             _ => todo!("{:?}", self),
         }
     }
@@ -163,11 +169,11 @@ impl BinaryOpStyle for BinaryOp {
 /// `$OP` [Type]
 ///
 /// - $OP: [UnaryOp]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct UnaryOpType(UnaryOpLike<UnaryOp, NonLeftRecursiveType>);
 
 /// `+` | `-` | `bnot`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
@@ -193,9 +199,17 @@ impl Format for FunctionType {
     }
 }
 
+impl Format2 for FunctionType {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.fun.format2(fmt);
+        fmt.add_space();
+        self.params_and_return.format2(fmt);
+    }
+}
+
 type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter, Type>;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct RightArrowDelimiter(RightArrowSymbol);
 
 impl BinaryOpStyle for RightArrowDelimiter {
@@ -212,7 +226,7 @@ impl BinaryOpStyle for RightArrowDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum FunctionParams {
     Any(Parenthesized<TripleDotSymbol>),
     Params(Params<Type>),
@@ -242,15 +256,15 @@ pub struct MfargsType {
 /// `[` (`$ITEM` `,`?)* `]`
 ///
 /// - $ITEM: [Type] | `...`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct ListType(ListLike<Either<Type, TripleDotSymbol>>);
 
 /// `{` ([Type] `,`)* `}`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct TupleType(TupleLike<Type>);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct MapType {
     sharp: SharpSymbol,
     items: TupleLike<MapItem>,
@@ -262,7 +276,7 @@ type MapItem = BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter,
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken] `::` [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -271,7 +285,7 @@ pub struct RecordType {
 
 type RecordItem = BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct DoubleColonDelimiter(DoubleColonSymbol);
 
 impl BinaryOpStyle for DoubleColonDelimiter {
@@ -351,6 +365,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -361,12 +376,14 @@ mod tests {
             "{foo()}",
             "{atom, 1}",
             indoc::indoc! {"
-                {foo(),
-                 bar(),
-                 [baz()]}"},
+            %---10---|%---20---|
+            {foo(),
+             bar(),
+             [baz()]}"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -386,12 +403,14 @@ mod tests {
                    bbb,
                    ccc}}"},
             indoc::indoc! {"
+            %---10---|%---20---|
             #{a => b,
               1 := 2,
               atom() := atom()}"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -410,6 +429,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -436,14 +456,17 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
     #[test]
     fn unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
+        let texts = ["-10", "+10", "bnot 100", "- - + +3"];
         for text in texts {
-            crate::assert_format!(text, Type);
+            // TODO: remove
+            // crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 

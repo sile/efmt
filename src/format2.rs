@@ -1,7 +1,7 @@
 use crate::format::region::{RegionConfig, RegionWriter};
 use crate::format::{Error, Result};
 use crate::items::macros::Macro;
-use crate::items::tokens::{CommentKind, CommentToken};
+use crate::items::tokens::{CommentToken, VisibleToken};
 use crate::span::{Position, Span};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -10,6 +10,11 @@ pub use efmt_derive::Format2;
 
 pub trait Format2: Span {
     fn format2(&self, fmt: &mut Formatter2);
+
+    // TODO:
+    fn has_whitespace(&self) -> bool {
+        true
+    }
 }
 
 impl<T: Format2> Format2 for Box<T> {
@@ -49,13 +54,21 @@ impl Formatter2 {
         }
     }
 
-    // TODO: s/add_item/add_text/
-    pub fn add_text(&mut self, text: &impl Span) {
-        self.add_macros_and_comments(text.start_position());
-        self.item.add_item(text);
+    pub fn add_token(&mut self, token: VisibleToken) {
+        if let Some(last) = self.item.last_token() {
+            if last.needs_space(&token) {
+                self.add_space();
+            }
+        }
 
-        assert!(self.next_position <= text.end_position());
-        self.next_position = text.end_position();
+        let start_position = token.start_position();
+        let end_position = token.end_position();
+
+        self.add_macros_and_comments(start_position);
+        self.item.add_token(token);
+
+        assert!(self.next_position <= end_position);
+        self.next_position = end_position;
     }
 
     fn add_macros_and_comments(&mut self, next_position: Position) {
@@ -65,25 +78,11 @@ impl Formatter2 {
             if next_position < next_comment_start {
                 break;
             }
+
             let comment = self.comments[&next_comment_start].clone();
-            self.add_comment(&comment);
+            self.next_position = comment.end_position();
+            comment.format2(self);
         }
-    }
-
-    fn add_comment(&mut self, comment: &CommentToken) {
-        match comment.kind() {
-            CommentKind::Trailing => {
-                self.item.add_space(2);
-            }
-            CommentKind::Post => {
-                self.add_newline();
-            }
-        }
-        self.item.add_item(comment);
-        self.add_newline();
-
-        assert!(self.next_position <= comment.end_position());
-        self.next_position = comment.end_position();
     }
 
     fn next_comment_start(&self) -> Position {
@@ -92,6 +91,10 @@ impl Formatter2 {
             .next()
             .map(|(k, _)| *k)
             .unwrap_or_else(|| Position::new(usize::MAX, usize::MAX, usize::MAX))
+    }
+
+    pub fn add_spaces(&mut self, n: usize) {
+        self.item.add_space(n);
     }
 
     pub fn add_space(&mut self) {
@@ -148,10 +151,7 @@ impl ItemToString {
 
     fn format_item(&mut self, item: &Item) -> Result<()> {
         match item {
-            Item::Span {
-                start_position,
-                end_position,
-            } => self.format_text(*start_position, *end_position)?,
+            Item::Token(x) => self.format_token(x)?,
             Item::Space(n) => self.format_space(*n)?,
             Item::Newline(n) => self.format_newline(*n)?,
             Item::Region {
@@ -170,6 +170,10 @@ impl ItemToString {
         Ok(())
     }
 
+    fn format_token(&mut self, token: &VisibleToken) -> Result<()> {
+        self.writer.write_item(&self.fmt.text, token)
+    }
+
     fn format_space(&mut self, n: usize) -> Result<()> {
         assert_eq!(n, 1);
         self.writer.write_space()
@@ -178,11 +182,6 @@ impl ItemToString {
     fn format_newline(&mut self, n: usize) -> Result<()> {
         assert_eq!(n, 1);
         self.writer.write_newline()
-    }
-
-    fn format_text(&mut self, start_position: Position, end_position: Position) -> Result<()> {
-        self.writer
-            .write_item(&self.fmt.text, &(start_position, end_position))
     }
 
     fn format_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) -> Result<()> {
@@ -210,6 +209,7 @@ impl ItemToString {
             Newline::If(cond) => {
                 allow_multi_line = !cond.multi_line;
                 allow_too_long_line = !cond.too_long;
+
                 if cond.multi_line_parent {
                     if self.writer.config().multi_line_mode {
                         needs_newline = true;
@@ -229,16 +229,13 @@ impl ItemToString {
             allow_too_long_line,
             multi_line_mode: false,
         };
-        self.writer.start_subregion(config);
-        if needs_newline {
-            self.writer.write_newline()?;
-        }
-        let mut result = self.format_items(items);
-        if result.is_ok() {
-            self.writer.commit_subregion();
-        } else {
-            self.writer.abort_subregion();
-
+        let result = self.with_subregion(config, |this| {
+            if needs_newline {
+                this.writer.write_newline()?;
+            }
+            this.format_items(items)
+        });
+        if result.is_err() {
             let (retry, needs_newline, multi_line_mode) = match &result {
                 Err(_) if check_multi_line_parent => {
                     return Err(Error::MultiLineParent);
@@ -257,17 +254,31 @@ impl ItemToString {
                     allow_too_long_line: true,
                     multi_line_mode,
                 };
-                self.writer.start_subregion(config);
-                if needs_newline {
-                    self.writer.write_newline()?;
-                }
-                result = self.format_items(items);
-                if result.is_ok() {
-                    self.writer.commit_subregion();
-                } else {
-                    self.writer.abort_subregion();
-                }
+
+                return self.with_subregion(config, |this| {
+                    if needs_newline {
+                        let column_before_newline = this.writer.current_column();
+                        if indent < column_before_newline {
+                            this.writer.write_newline()?;
+                        }
+                    }
+                    this.format_items(items)
+                });
             }
+        }
+        result
+    }
+
+    fn with_subregion<F>(&mut self, config: RegionConfig, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Self) -> Result<()>,
+    {
+        self.writer.start_subregion(config);
+        let result = f(self);
+        if result.is_ok() {
+            self.writer.commit_subregion();
+        } else {
+            self.writer.abort_subregion();
         }
         result
     }
@@ -275,10 +286,7 @@ impl ItemToString {
 
 #[derive(Debug)]
 pub enum Item {
-    Span {
-        start_position: Position,
-        end_position: Position,
-    },
+    Token(VisibleToken),
     Space(usize),
     Newline(usize),
     Region {
@@ -297,15 +305,27 @@ impl Item {
         }
     }
 
-    fn add_item(&mut self, item: &impl Span) {
+    fn last_token(&self) -> Option<&VisibleToken> {
+        match self {
+            Self::Token(x) => Some(x),
+            Self::Region { items, .. } => {
+                for item in items.iter().rev() {
+                    if let Some(last) = item.last_token() {
+                        return Some(last);
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn add_token(&mut self, token: VisibleToken) {
         if let Self::Region { items, .. } = self {
             if let Some(last @ Self::Region { .. }) = items.last_mut() {
-                last.add_item(item);
+                last.add_token(token);
             } else {
-                items.push(Self::Span {
-                    start_position: item.start_position(),
-                    end_position: item.end_position(),
-                });
+                items.push(Self::Token(token));
             }
         } else {
             unreachable!();

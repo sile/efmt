@@ -5,6 +5,68 @@ use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format2)]
+pub enum VisibleToken {
+    Atom(AtomToken),
+    Char(CharToken),
+    Comment(CommentToken),
+    Float(FloatToken),
+    Integer(IntegerToken),
+    Keyword(KeywordToken),
+    String(StringToken),
+    Symbol(SymbolToken),
+    Variable(VariableToken),
+}
+
+impl VisibleToken {
+    pub fn needs_space(&self, other: &Self) -> bool {
+        use erl_tokenize::values::Symbol::*;
+
+        match (self, other) {
+            (Self::Symbol(a), Self::Symbol(b)) => match (a.value(), b.value()) {
+                (OpenParen, _) => false,
+                (_, OpenParen) => false,
+                (CloseParen, _) => false,
+                (_, CloseParen) => false,
+                (OpenSquare, _) => false,
+                (_, CloseSquare) => false,
+                (OpenBrace, _) => false,
+                (_, CloseBrace) => false,
+                (Sharp, _) => false,
+                _ => true,
+            },
+            (Self::Symbol(a), _) => match a.value() {
+                OpenParen => false,
+                OpenBrace => false,
+                OpenSquare => false,
+                Colon => false,
+                Sharp => false,
+                Slash => false,
+                Dot => false,
+                Question => false,
+                DoubleQuestion => false,
+                Hyphen => false,
+                Plus => false,
+                _ => true,
+            },
+            (_, Self::Symbol(b)) => match b.value() {
+                OpenSquare | CloseSquare => false,
+                OpenParen | CloseParen => false,
+                OpenBrace | CloseBrace => false,
+                Sharp => false,
+                Slash => false,
+                Dot => false,
+                Colon => false,
+                Semicolon => false,
+                Comma => false,
+                _ => true,
+            },
+            _ => true,
+        }
+    }
+}
+
+// TODO(?): s/Token/LexicalToken/
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, Span, Format, Format2, serde::Serialize, serde::Deserialize,
@@ -21,7 +83,6 @@ pub enum Token {
 }
 
 impl Token {
-    // TODO: delete
     pub fn set_span(&mut self, span: &impl Span) {
         let (start, end) = match self {
             Self::Atom(x) => (&mut x.start, &mut x.end),
@@ -82,11 +143,17 @@ macro_rules! impl_traits {
 
         impl Format2 for $name {
             fn format2(&self, fmt: &mut Formatter2) {
-                fmt.add_text(self);
+                fmt.add_token(self.clone().into());
             }
         }
 
         impl From<$name> for Token {
+            fn from(x: $name) -> Self {
+                Self::$variant(x)
+            }
+        }
+
+        impl From<$name> for VisibleToken {
             fn from(x: $name) -> Self {
                 Self::$variant(x)
             }
@@ -273,6 +340,21 @@ impl Span for CommentToken {
 
     fn end_position(&self) -> Position {
         self.end
+    }
+}
+
+impl Format2 for CommentToken {
+    fn format2(&self, fmt: &mut Formatter2) {
+        match self.kind() {
+            CommentKind::Trailing => {
+                fmt.add_spaces(2);
+            }
+            CommentKind::Post => {
+                fmt.add_newline();
+            }
+        }
+        fmt.add_token(VisibleToken::Comment(self.clone()));
+        fmt.add_newline();
     }
 }
 

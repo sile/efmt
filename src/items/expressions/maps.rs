@@ -1,4 +1,5 @@
 use crate::format::{self, Format};
+use crate::format2::Format2;
 use crate::items::expressions::Expr;
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, TupleLike};
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
@@ -51,7 +52,7 @@ impl Format for MapUpdateExpr {
 struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
 
 // TODO
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub(crate) struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
 
 impl BinaryOpStyle for MapDelimiter {
