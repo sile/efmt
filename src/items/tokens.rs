@@ -82,7 +82,7 @@ macro_rules! impl_traits {
 
         impl Format2 for $name {
             fn format2(&self, fmt: &mut Formatter2) {
-                fmt.add_item(self);
+                fmt.add_text(self);
             }
         }
 

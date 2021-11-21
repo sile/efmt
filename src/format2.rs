@@ -1,7 +1,7 @@
 use crate::format::region::{RegionConfig, RegionWriter};
 use crate::format::{Error, Result};
 use crate::items::macros::Macro;
-use crate::items::tokens::CommentToken;
+use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -31,6 +31,7 @@ pub struct Formatter2 {
     text: Arc<String>,
     macros: Arc<BTreeMap<Position, Macro>>,
     comments: Arc<BTreeMap<Position, CommentToken>>,
+    next_position: Position,
 }
 
 impl Formatter2 {
@@ -44,21 +45,61 @@ impl Formatter2 {
             macros: Arc::new(macros),
             comments: Arc::new(comments),
             item: Item::new(),
+            next_position: Position::new(0, 0, 0),
         }
     }
 
     // TODO: s/add_item/add_text/
-    pub fn add_item(&mut self, item: &impl Span) {
+    pub fn add_text(&mut self, text: &impl Span) {
+        self.add_macros_and_comments(text.start_position());
+        self.item.add_item(text);
+
+        assert!(self.next_position <= text.end_position());
+        self.next_position = text.end_position();
+    }
+
+    fn add_macros_and_comments(&mut self, next_position: Position) {
         // TODO: handle macro
-        self.item.add_item(item);
+        loop {
+            let next_comment_start = self.next_comment_start();
+            if next_position < next_comment_start {
+                break;
+            }
+            let comment = self.comments[&next_comment_start].clone();
+            self.add_comment(&comment);
+        }
+    }
+
+    fn add_comment(&mut self, comment: &CommentToken) {
+        match comment.kind() {
+            CommentKind::Trailing => {
+                self.item.add_space(2);
+            }
+            CommentKind::Post => {
+                self.add_newline();
+            }
+        }
+        self.item.add_item(comment);
+        self.add_newline();
+
+        assert!(self.next_position <= comment.end_position());
+        self.next_position = comment.end_position();
+    }
+
+    fn next_comment_start(&self) -> Position {
+        self.comments
+            .range(self.next_position..)
+            .next()
+            .map(|(k, _)| *k)
+            .unwrap_or_else(|| Position::new(usize::MAX, usize::MAX, usize::MAX))
     }
 
     pub fn add_space(&mut self) {
-        self.item.add_space();
+        self.item.add_space(1);
     }
 
     pub fn add_newline(&mut self) {
-        self.item.add_newline();
+        self.item.add_newline(1);
     }
 
     pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
@@ -111,8 +152,8 @@ impl ItemToString {
                 start_position,
                 end_position,
             } => self.format_text(*start_position, *end_position)?,
-            Item::Space => self.format_space()?,
-            Item::Newline => self.format_newline()?,
+            Item::Space(n) => self.format_space(*n)?,
+            Item::Newline(n) => self.format_newline(*n)?,
             Item::Region {
                 indent,
                 newline,
@@ -129,11 +170,13 @@ impl ItemToString {
         Ok(())
     }
 
-    fn format_space(&mut self) -> Result<()> {
+    fn format_space(&mut self, n: usize) -> Result<()> {
+        assert_eq!(n, 1);
         self.writer.write_space()
     }
 
-    fn format_newline(&mut self) -> Result<()> {
+    fn format_newline(&mut self, n: usize) -> Result<()> {
+        assert_eq!(n, 1);
         self.writer.write_newline()
     }
 
@@ -236,9 +279,8 @@ pub enum Item {
         start_position: Position,
         end_position: Position,
     },
-    Space,   // Space{force:bool}
-    Newline, // Newline{force:bool}
-    //NewlineIfMultiLineRegion,
+    Space(usize),
+    Newline(usize),
     Region {
         indent: Indent,
         newline: Newline,
@@ -282,17 +324,17 @@ impl Item {
         }
     }
 
-    fn add_space(&mut self) {
+    fn add_space(&mut self, n: usize) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::Space);
+            items.push(Self::Space(n));
         } else {
             unreachable!();
         }
     }
 
-    fn add_newline(&mut self) {
+    fn add_newline(&mut self, n: usize) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::Newline);
+            items.push(Self::Newline(n));
         } else {
             unreachable!();
         }
