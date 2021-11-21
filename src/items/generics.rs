@@ -390,7 +390,7 @@ impl<T: Format> Format for TupleLike<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct BitstringLike<T> {
     open: DoubleLeftAngleSymbol,
     items: MaybePackedItems<T>,

@@ -37,6 +37,7 @@ pub struct Formatter2 {
     macros: Arc<BTreeMap<Position, Macro>>,
     comments: Arc<BTreeMap<Position, CommentToken>>,
     next_position: Position,
+    last_token: Option<VisibleToken>,
 }
 
 impl Formatter2 {
@@ -51,11 +52,12 @@ impl Formatter2 {
             comments: Arc::new(comments),
             item: Item::new(),
             next_position: Position::new(0, 0, 0),
+            last_token: None,
         }
     }
 
     pub fn add_token(&mut self, token: VisibleToken) {
-        if let Some(last) = self.item.last_token() {
+        if let Some(last) = &self.last_token {
             if last.needs_space(&token) {
                 self.add_space();
             }
@@ -65,6 +67,7 @@ impl Formatter2 {
         let end_position = token.end_position();
 
         self.add_macros_and_comments(start_position);
+        self.last_token = Some(token.clone());
         self.item.add_token(token);
 
         assert!(self.next_position <= end_position);
@@ -305,20 +308,20 @@ impl Item {
         }
     }
 
-    fn last_token(&self) -> Option<&VisibleToken> {
-        match self {
-            Self::Token(x) => Some(x),
-            Self::Region { items, .. } => {
-                for item in items.iter().rev() {
-                    if let Some(last) = item.last_token() {
-                        return Some(last);
-                    }
-                }
-                None
-            }
-            _ => None,
-        }
-    }
+    // fn last_token(&self) -> Option<&VisibleToken> {
+    //     match self {
+    //         Self::Token(x) => Some(x),
+    //         Self::Region { items, .. } => {
+    //             for item in items.iter().rev() {
+    //                 if let Some(last) = item.last_token() {
+    //                     return Some(last);
+    //                 }
+    //             }
+    //             None
+    //         }
+    //         _ => None,
+    //     }
+    // }
 
     fn add_token(&mut self, token: VisibleToken) {
         if let Self::Region { items, .. } = self {

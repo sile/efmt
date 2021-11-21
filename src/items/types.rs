@@ -65,7 +65,7 @@ impl Format2 for UnionDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)] // TODO: derive Format2
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
@@ -78,22 +78,6 @@ enum NonLeftRecursiveType {
     Parenthesized(Box<Parenthesized<Type>>),
     Annotated(Box<AnnotatedVariableType>),
     Literal(LiteralType),
-}
-
-impl Format2 for NonLeftRecursiveType {
-    fn format2(&self, fmt: &mut Formatter2) {
-        match self {
-            Self::Mfargs(x) => x.format2(fmt),
-            Self::Literal(x) => x.format2(fmt),
-            Self::List(x) => x.format2(fmt),
-            Self::Tuple(x) => x.format2(fmt),
-            Self::Map(x) => x.format2(fmt),
-            Self::Record(x) => x.format2(fmt),
-            Self::Function(x) => x.format2(fmt),
-            Self::UnaryOp(x) => x.format2(fmt),
-            _ => todo!("{:?}", self),
-        }
-    }
 }
 
 /// [VariableToken] `::` [Type]
@@ -115,6 +99,16 @@ impl Format for AnnotatedVariableType {
     }
 }
 
+impl Format2 for AnnotatedVariableType {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.variable.format2(fmt);
+        fmt.add_space();
+        self.colon.format2(fmt);
+        fmt.add_space();
+        self.ty.format2(fmt);
+    }
+}
+
 /// [Type] `$OP` [Type]
 ///
 /// - $OP: [BinaryOp]
@@ -123,7 +117,7 @@ pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type>);
 
 impl Format2 for BinaryOpType {
     fn format2(&self, fmt: &mut Formatter2) {
-        todo!()
+        self.0.format2(fmt);
     }
 }
 
@@ -137,7 +131,7 @@ impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
 }
 
 /// `*` | `+` | `-` | `div` | `rem` | `band` | `bor` | `bxor` | `bsl` | `bsr` | `..`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum BinaryOp {
     Mul(MultiplySymbol),
     Plus(PlusSymbol),
@@ -306,17 +300,17 @@ impl BinaryOpStyle for DoubleColonDelimiter {
 ///
 /// - $BITS_SIZE: `_` `:` [Type]
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct BitstringType(BitstringLike<Either<BitstringUnitSize, BitstringBitsSize>>);
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct BitstringBitsSize {
     underscore: VariableToken,
     colon: ColonSymbol,
     size: Type,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct BitstringUnitSize {
     underscore0: VariableToken,
     colon: ColonSymbol,
@@ -482,6 +476,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -499,6 +494,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 
@@ -517,6 +513,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Type);
+            crate::assert_format2!(text, Type);
         }
     }
 }
