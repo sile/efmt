@@ -723,6 +723,7 @@ impl<T: Format2, D: Format2> Format2 for Guard<T, D> {
                 ..Default::default()
             }),
             |fmt| {
+                fmt.add_space();
                 self.when.format2(fmt);
                 fmt.add_space();
                 self.conditions.format2(fmt);

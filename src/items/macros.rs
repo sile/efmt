@@ -1,4 +1,5 @@
 use crate::format::{self, Format, Formatter};
+use crate::format2::{Format2, Formatter2};
 use crate::items::expressions::Expr;
 use crate::items::generics::{Args, Either, Maybe};
 use crate::items::symbols::{
@@ -87,7 +88,7 @@ impl Macro {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub(crate) struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
@@ -152,6 +153,16 @@ impl Format for MacroReplacement {
             expr.format(fmt)
         } else {
             fmt.write_text(self)
+        }
+    }
+}
+
+impl Format2 for MacroReplacement {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if let Some(expr) = &self.expr {
+            expr.format2(fmt);
+        } else {
+            fmt.add_span(self);
         }
     }
 }

@@ -266,7 +266,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Form);
-            // TODO: crate::assert_format2!(text, Form);
+            crate::assert_format2!(text, Form);
         }
     }
 
@@ -277,7 +277,7 @@ mod tests {
                 $ ."}];
         for text in texts {
             crate::assert_format!(text, Form);
-            // TODO: crate::assert_format2!(text, Form);
+            crate::assert_format2!(text, Form);
         }
     }
 }

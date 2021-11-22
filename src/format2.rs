@@ -85,6 +85,14 @@ impl Formatter2 {
         self.next_position = end_position;
     }
 
+    pub fn add_span(&mut self, span: &impl Span) {
+        self.add_macros_and_comments(span.start_position());
+        self.item.add_span(span);
+        self.last_token = None;
+        assert!(self.next_position <= span.end_position());
+        self.next_position = span.end_position();
+    }
+
     fn add_macros_and_comments(&mut self, next_position: Position) {
         // TODO: handle macro
         loop {
@@ -168,6 +176,10 @@ impl ItemToString {
     fn format_item(&mut self, item: &Item) -> Result<()> {
         match item {
             Item::Token(x) => self.format_token(x)?,
+            Item::Span {
+                start_position,
+                end_position,
+            } => self.format_span(*start_position, *end_position)?,
             Item::Space(n) => self.format_space(*n)?,
             Item::Newline(n) => self.format_newline(*n)?,
             Item::Region {
@@ -189,6 +201,11 @@ impl ItemToString {
 
     fn format_token(&mut self, token: &VisibleToken) -> Result<()> {
         self.writer.write_item(&self.fmt.text, token)
+    }
+
+    fn format_span(&mut self, start_position: Position, end_position: Position) -> Result<()> {
+        self.writer
+            .write_item(&self.fmt.text, &(start_position, end_position))
     }
 
     fn format_space(&mut self, n: usize) -> Result<()> {
@@ -313,6 +330,10 @@ impl ItemToString {
 #[derive(Debug)]
 pub enum Item {
     Token(VisibleToken),
+    Span {
+        start_position: Position,
+        end_position: Position,
+    },
     Space(usize),
     Newline(usize),
     Region {
@@ -333,21 +354,6 @@ impl Item {
         }
     }
 
-    // fn last_token(&self) -> Option<&VisibleToken> {
-    //     match self {
-    //         Self::Token(x) => Some(x),
-    //         Self::Region { items, .. } => {
-    //             for item in items.iter().rev() {
-    //                 if let Some(last) = item.last_token() {
-    //                     return Some(last);
-    //                 }
-    //             }
-    //             None
-    //         }
-    //         _ => None,
-    //     }
-    // }
-
     fn add_token(&mut self, token: VisibleToken) {
         if let Self::Region { items, .. } = self {
             if let Some(last @ Self::Region { .. }) = items.last_mut() {
@@ -355,6 +361,17 @@ impl Item {
             } else {
                 items.push(Self::Token(token));
             }
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn add_span(&mut self, span: &impl Span) {
+        if let Self::Region { items, .. } = self {
+            items.push(Self::Span {
+                start_position: span.start_position(),
+                end_position: span.end_position(),
+            });
         } else {
             unreachable!();
         }

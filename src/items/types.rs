@@ -63,6 +63,7 @@ impl Format2 for UnionDelimiter {
     fn format2(&self, fmt: &mut Formatter2) {
         fmt.add_space();
         self.0.format2(fmt);
+        fmt.add_space();
     }
 }
 
