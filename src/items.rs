@@ -1,4 +1,4 @@
-use crate::format2::Format2;
+use crate::format::Format;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -20,9 +20,9 @@ pub use self::macros::Macro;
 pub use self::module::Module;
 
 /// One of [forms].
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Form(self::forms::Form);
 
 /// One of [types].
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Type(self::types::UnionType);

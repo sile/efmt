@@ -1,4 +1,4 @@
-use crate::format2::Format2;
+use crate::format::Format;
 use crate::items::expressions::Expr;
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, TupleLike};
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
@@ -8,7 +8,7 @@ use crate::span::Span;
 /// `#` `{` (`$ENTRY`, `,`?)* `}`
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     items: TupleLike<MapItem>,
@@ -18,7 +18,7 @@ pub struct MapConstructExpr {
 ///
 /// - $VALUE: `Expr`
 /// - $ENTRY: `Expr` (`:=` | `=>`) `Expr`
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
@@ -35,11 +35,11 @@ impl ResumeParse<Expr> for MapUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
 
 // TODO
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub(crate) struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
 
 impl BinaryOpStyle for MapDelimiter {
@@ -71,7 +71,7 @@ mod tests {
               foo => {bar, baz}}"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -89,7 +89,7 @@ mod tests {
                           baz}}"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

@@ -1,5 +1,5 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
+use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
@@ -21,7 +21,7 @@ use crate::parse::Parse;
 use crate::span::Span;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub(super) enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
@@ -48,14 +48,14 @@ pub struct RecordDecl {
     dot: DotSymbol,
 }
 
-impl Format2 for RecordDecl {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.hyphen.format2(fmt);
-        self.record.format2(fmt);
-        self.open.format2(fmt);
+impl Format for RecordDecl {
+    fn format(&self, fmt: &mut Formatter) {
+        self.hyphen.format(fmt);
+        self.record.format(fmt);
+        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.name.format2(fmt);
-            self.comma.format2(fmt);
+            self.name.format(fmt);
+            self.comma.format(fmt);
             fmt.add_space();
             fmt.subregion(
                 Indent::Inherit,
@@ -65,12 +65,12 @@ impl Format2 for RecordDecl {
                     ..Default::default()
                 }),
                 |fmt| {
-                    self.fields.format2(fmt);
+                    self.fields.format(fmt);
                 },
             );
         });
-        self.close.format2(fmt);
-        self.dot.format2(fmt);
+        self.close.format(fmt);
+        self.dot.format(fmt);
     }
 }
 
@@ -81,20 +81,20 @@ struct RecordField {
     r#type: Maybe<(DoubleColonSymbol, Type)>,
 }
 
-impl Format2 for RecordField {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.name.format2(fmt);
+impl Format for RecordField {
+    fn format(&self, fmt: &mut Formatter) {
+        self.name.format(fmt);
         if let Some((x, y)) = self.default.get() {
             fmt.add_space();
-            x.format2(fmt);
+            x.format(fmt);
             fmt.add_space();
-            y.format2(fmt);
+            y.format(fmt);
         }
         if let Some((x, y)) = self.r#type.get() {
             fmt.add_space();
-            x.format2(fmt);
+            x.format(fmt);
             fmt.add_space();
-            y.format2(fmt);
+            y.format(fmt);
         }
     }
 }
@@ -114,15 +114,15 @@ pub struct TypeDecl {
     dot: DotSymbol,
 }
 
-impl Format2 for TypeDecl {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.hyphen.format2(fmt);
-        self.kind.format2(fmt);
+impl Format for TypeDecl {
+    fn format(&self, fmt: &mut Formatter) {
+        self.hyphen.format(fmt);
+        self.kind.format(fmt);
         if matches!(self.item, Either::A(_)) {
             fmt.add_space();
         }
-        self.item.format2(fmt);
-        self.dot.format2(fmt);
+        self.item.format(fmt);
+        self.dot.format(fmt);
     }
 }
 
@@ -134,13 +134,13 @@ struct TypeDeclItem {
     r#type: Type,
 }
 
-impl Format2 for TypeDeclItem {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for TypeDeclItem {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.name.format2(fmt);
-            self.params.format2(fmt);
+            self.name.format(fmt);
+            self.params.format(fmt);
             fmt.add_space();
-            self.delimiter.format2(fmt);
+            self.delimiter.format(fmt);
             fmt.add_space();
             fmt.subregion(
                 Indent::Offset(2),
@@ -148,7 +148,7 @@ impl Format2 for TypeDeclItem {
                     too_long: true,
                     ..Default::default()
                 }),
-                |fmt| self.r#type.format2(fmt),
+                |fmt| self.r#type.format(fmt),
             );
         });
     }
@@ -169,15 +169,15 @@ pub struct FunSpec {
     dot: DotSymbol,
 }
 
-impl Format2 for FunSpec {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.hyphen.format2(fmt);
-        self.kind.format2(fmt);
+impl Format for FunSpec {
+    fn format(&self, fmt: &mut Formatter) {
+        self.hyphen.format(fmt);
+        self.kind.format(fmt);
         if matches!(self.item, Either::A(_)) {
             fmt.add_space();
         }
-        self.item.format2(fmt);
-        self.dot.format2(fmt);
+        self.item.format(fmt);
+        self.dot.format(fmt);
     }
 }
 
@@ -188,12 +188,12 @@ struct FunSpecItem {
     clauses: Clauses<SpecClause>,
 }
 
-impl Format2 for FunSpecItem {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for FunSpecItem {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.module_name.format2(fmt);
-            self.function_name.format2(fmt);
-            self.clauses.format2(fmt);
+            self.module_name.format(fmt);
+            self.function_name.format(fmt);
+            self.clauses.format(fmt);
         });
     }
 }
@@ -204,9 +204,9 @@ struct SpecClause {
     r#return: WithGuard<Type, Type, CommaSymbol>,
 }
 
-impl Format2 for SpecClause {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.params.format2(fmt);
+impl Format for SpecClause {
+    fn format(&self, fmt: &mut Formatter) {
+        self.params.format(fmt);
         fmt.subregion(
             Indent::ParentOffset(4),
             Newline::If(NewlineIf {
@@ -215,7 +215,7 @@ impl Format2 for SpecClause {
                 ..Default::default()
             }),
             |fmt| {
-                self.r#return.format2(fmt);
+                self.r#return.format(fmt);
             },
         );
     }
@@ -227,7 +227,7 @@ impl Format2 for SpecClause {
 /// - $PARAM: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct FunDecl {
     clauses: Clauses<FunctionClause<AtomToken>>,
     dot: DotSymbol,
@@ -238,7 +238,7 @@ pub struct FunDecl {
 /// - $NAME: [AtomToken] | `if`
 /// - $ARGS: `(` (`$ARG` `,`?)* `)`
 /// - $ARG: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Attr {
     hyphen: HyphenSymbol,
     name: Either<AtomToken, IfKeyword>,
@@ -278,15 +278,15 @@ impl DefineDirective {
     }
 }
 
-impl Format2 for DefineDirective {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.hyphen.format2(fmt);
-        self.define.format2(fmt);
-        self.open.format2(fmt);
+impl Format for DefineDirective {
+    fn format(&self, fmt: &mut Formatter) {
+        self.hyphen.format(fmt);
+        self.define.format(fmt);
+        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.macro_name.format2(fmt);
-            self.variables.format2(fmt);
-            self.comma.format2(fmt);
+            self.macro_name.format(fmt);
+            self.variables.format(fmt);
+            self.comma.format(fmt);
             fmt.add_space();
             fmt.subregion(
                 Indent::Inherit,
@@ -295,18 +295,18 @@ impl Format2 for DefineDirective {
                     multi_line: true,
                     ..Default::default()
                 }),
-                |fmt| self.replacement.format2(fmt),
+                |fmt| self.replacement.format(fmt),
             );
         });
-        self.close.format2(fmt);
-        self.dot.format2(fmt);
+        self.close.format(fmt);
+        self.dot.format(fmt);
     }
 }
 
 /// `-` (`include` | `include_lib`) `(` `$PATH` `)` `.`
 ///
 /// - $PATH: [StringToken]
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IncludeDirective {
     hyphen: HyphenSymbol,
     include: Either<IncludeAtom, IncludeLibAtom>,
@@ -407,7 +407,7 @@ mod tests {
                         E), F)."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -418,7 +418,7 @@ mod tests {
             r#"-include_lib("path/to/hrl")."#,
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -434,7 +434,7 @@ mod tests {
             "-elif(true).",
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -456,7 +456,7 @@ mod tests {
                         h/0]})."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -475,7 +475,7 @@ mod tests {
                      field3 = 421})."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -499,7 +499,7 @@ mod tests {
                 qux."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -545,7 +545,7 @@ mod tests {
                       baz())."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 
@@ -572,7 +572,7 @@ mod tests {
                         Val}]."},
         ];
         for text in texts {
-            crate::assert_format2!(text, Form);
+            crate::assert_format!(text, Form);
         }
     }
 }

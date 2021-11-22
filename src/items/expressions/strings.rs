@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2, Indent, Newline};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::tokens::StringToken;
 use crate::parse::{self, Parse};
 use crate::span::{Position, Span};
@@ -27,11 +27,11 @@ impl Parse for StringExpr {
     }
 }
 
-impl Format2 for StringExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for StringExpr {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             for (i, item) in self.0.iter().enumerate() {
-                item.format2(fmt);
+                item.format(fmt);
                 if i + 1 < self.0.len() {
                     fmt.add_newline();
                 }
@@ -59,7 +59,7 @@ mod tests {
                 qux)"#},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

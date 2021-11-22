@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2};
+use crate::format::{Format, Formatter};
 use crate::items::expressions::Expr;
 use crate::items::generics::{Args, Either, Maybe};
 use crate::items::symbols::{
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
 /// - $ARG: [Token]+
-#[derive(Debug, Clone, Span, Format2)]
+#[derive(Debug, Clone, Span, Format)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -87,7 +87,7 @@ impl Macro {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub(crate) struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
@@ -146,10 +146,10 @@ impl Parse for MacroReplacement {
     }
 }
 
-impl Format2 for MacroReplacement {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for MacroReplacement {
+    fn format(&self, fmt: &mut Formatter) {
         if let Some(expr) = &self.expr {
-            expr.format2(fmt);
+            expr.format(fmt);
         } else {
             fmt.add_span(self);
         }
@@ -177,13 +177,13 @@ impl Parse for Empty {
     }
 }
 
-impl Format2 for Empty {
-    fn format2(&self, _: &mut Formatter2) {
+impl Format for Empty {
+    fn format(&self, _: &mut Formatter) {
         unreachable!();
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 enum MacroArgs {
     Empty(Args<Empty>),
     Args(Args<MacroArg>),
@@ -328,10 +328,10 @@ impl Parse for MacroArg {
     }
 }
 
-impl Format2 for MacroArg {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for MacroArg {
+    fn format(&self, fmt: &mut Formatter) {
         if let Some(expr) = &self.expr {
-            expr.format2(fmt);
+            expr.format(fmt);
         } else {
             fmt.add_span(self);
         }
@@ -387,7 +387,7 @@ mod tests {
             ?EMPTY"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 
@@ -466,7 +466,7 @@ mod tests {
             "},
         ];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 
@@ -500,7 +500,7 @@ mod tests {
             "},
         ];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 
@@ -533,7 +533,7 @@ mod tests {
             "}, // TODO
         ];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 
@@ -559,7 +559,7 @@ mod tests {
             "},
         ];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 
@@ -573,7 +573,7 @@ mod tests {
                 ?a == ?b.
             "}];
         for text in texts {
-            crate::assert_format2!(text, Module);
+            crate::assert_format!(text, Module);
         }
     }
 }

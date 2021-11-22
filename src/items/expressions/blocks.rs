@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2, Indent, Newline};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::{Body, Expr};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::keywords::{
@@ -13,15 +13,15 @@ use crate::span::Span;
 #[derive(Debug, Clone, Span, Parse)]
 struct End(EndKeyword);
 
-impl Format2 for End {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for End {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.0.format2(fmt);
+            self.0.format(fmt);
         });
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BlockExpr {
     Case(Box<CaseExpr>),
     If(Box<IfExpr>),
@@ -46,19 +46,19 @@ pub struct CaseExpr {
     end: End,
 }
 
-impl Format2 for CaseExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.case.format2(fmt);
+impl Format for CaseExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.case.format(fmt);
         fmt.add_space();
-        self.value.format2(fmt);
+        self.value.format(fmt);
         fmt.add_space();
-        self.of.format2(fmt);
-        self.clauses.format2(fmt);
-        self.end.format2(fmt);
+        self.of.format(fmt);
+        self.clauses.format(fmt);
+        self.end.format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct CaseClause {
     pattern: WithArrow<WithGuard<Expr, Expr>>,
     body: Body,
@@ -69,26 +69,26 @@ struct CaseClause {
 /// - $CLAUSE: `$GUARD` `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Block<Clauses<IfClause>>,
     end: End,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct IfClause {
     condigion: WithArrow<GuardCondition>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>);
 
 /// `begin` `$BODY` `end`
 ///
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Body,
@@ -102,7 +102,7 @@ pub struct BeginExpr {
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $TIMEOUT: `after` [Expr] `->` `$BODY`
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveExpr {
     receive: ReceiveKeyword,
     clauses: Block<Maybe<Clauses<CaseClause>>>,
@@ -116,16 +116,16 @@ struct ReceiveTimeout {
     clause: Block<ReceiveTimeoutClause>,
 }
 
-impl Format2 for ReceiveTimeout {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for ReceiveTimeout {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.after.format2(fmt);
-            self.clause.format2(fmt);
+            self.after.format(fmt);
+            self.clause.format(fmt);
         });
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct ReceiveTimeoutClause {
     timeout: WithArrow<Expr>,
     body: Body,
@@ -153,42 +153,42 @@ pub struct TryExpr {
     end: End,
 }
 
-impl Format2 for TryExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.r#try.format2(fmt);
-        self.body.format2(fmt);
+impl Format for TryExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.r#try.format(fmt);
+        self.body.format(fmt);
         fmt.add_newline();
-        self.clauses.format2(fmt);
+        self.clauses.format(fmt);
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.catch.format2(fmt);
+            self.catch.format(fmt);
         });
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.after.format2(fmt);
+            self.after.format(fmt);
         });
-        self.end.format2(fmt);
+        self.end.format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct TryCatch {
     catch: CatchKeyword,
     clauses: Block<Clauses<CatchClause>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct CatchClause {
     pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
@@ -201,12 +201,12 @@ pub struct CatchExpr {
     expr: Expr,
 }
 
-impl Format2 for CatchExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.catch.format2(fmt);
+impl Format for CatchExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.catch.format(fmt);
         fmt.add_space();
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.expr.format2(fmt);
+            self.expr.format(fmt);
         });
     }
 }
@@ -214,10 +214,10 @@ impl Format2 for CatchExpr {
 #[derive(Debug, Clone, Span, Parse)]
 struct Block<T>(T);
 
-impl<T: Format2> Format2 for Block<T> {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl<T: Format> Format for Block<T> {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
-            self.0.format2(fmt);
+            self.0.format(fmt);
             fmt.add_newline();
         });
     }
@@ -247,7 +247,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -269,7 +269,7 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -310,7 +310,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -329,7 +329,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -389,7 +389,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -405,7 +405,7 @@ mod tests {
                   4"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

@@ -1,6 +1,16 @@
-use crate::format::{Error, Result};
 use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("max columns exceeded")]
+    LineTooLong,
+
+    #[error("unexpected multi-line")]
+    MultiLine,
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub struct RegionConfig {

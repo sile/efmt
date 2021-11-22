@@ -1,10 +1,10 @@
 //! Erlang tokens.
-use crate::format2::{Format2, Formatter2};
+use crate::format::{Format, Formatter};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format2)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format)]
 pub enum VisibleToken {
     Atom(AtomToken),
     Char(CharToken),
@@ -51,7 +51,7 @@ impl VisibleToken {
 // TODO(?): s/Token/LexicalToken/
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, Span, Format2, serde::Serialize, serde::Deserialize,
+    Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize,
 )]
 pub enum Token {
     Atom(AtomToken),
@@ -113,8 +113,8 @@ macro_rules! impl_traits {
             }
         }
 
-        impl Format2 for $name {
-            fn format2(&self, fmt: &mut Formatter2) {
+        impl Format for $name {
+            fn format(&self, fmt: &mut Formatter) {
                 fmt.add_token(self.clone().into());
             }
         }
@@ -315,8 +315,8 @@ impl Span for CommentToken {
     }
 }
 
-impl Format2 for CommentToken {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for CommentToken {
+    fn format(&self, fmt: &mut Formatter) {
         match self.kind() {
             CommentKind::Trailing => {
                 fmt.cancel_whitespaces();

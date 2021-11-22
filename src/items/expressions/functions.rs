@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
+use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Maybe, Null, Params, WithArrow, WithGuard};
 use crate::items::keywords::{EndKeyword, FunKeyword};
@@ -7,7 +7,7 @@ use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
@@ -19,7 +19,7 @@ pub enum FunctionExpr {
 /// - $MODULE: [Expr]
 /// - $NAME: [Expr]
 /// - $ARITY: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct DefinedFunctionExpr {
     fun: Fun,
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
@@ -40,8 +40,8 @@ pub struct AnonymousFunctionExpr {
     end: EndKeyword,
 }
 
-impl Format2 for AnonymousFunctionExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for AnonymousFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
         // TODO: refactor
         if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
             let clause = self.clauses.0.items()[0].clone();
@@ -50,9 +50,9 @@ impl Format2 for AnonymousFunctionExpr {
                 params: clause.params,
                 body: MaybeOnelineBody(clause.body),
             };
-            self.fun.format2(fmt);
+            self.fun.format(fmt);
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                clause.format2(fmt);
+                clause.format(fmt);
                 fmt.subregion(
                     Indent::ParentOffset(0),
                     Newline::If(NewlineIf {
@@ -61,15 +61,15 @@ impl Format2 for AnonymousFunctionExpr {
                         ..Default::default()
                     }),
                     |fmt| {
-                        self.end.format2(fmt);
+                        self.end.format(fmt);
                     },
                 );
             });
         } else {
-            self.fun.format2(fmt);
-            self.clauses.format2(fmt);
+            self.fun.format(fmt);
+            self.clauses.format(fmt);
             fmt.add_newline();
-            self.end.format2(fmt);
+            self.end.format(fmt);
         }
     }
 }
@@ -86,8 +86,8 @@ pub struct NamedFunctionExpr {
     end: EndKeyword,
 }
 
-impl Format2 for NamedFunctionExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for NamedFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
         if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
             let clause = self.clauses.0.items()[0].clone();
             let clause = FunctionClause {
@@ -95,9 +95,9 @@ impl Format2 for NamedFunctionExpr {
                 params: clause.params,
                 body: MaybeOnelineBody(clause.body),
             };
-            self.fun.format2(fmt);
+            self.fun.format(fmt);
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                clause.format2(fmt);
+                clause.format(fmt);
                 fmt.subregion(
                     Indent::ParentOffset(0),
                     Newline::If(NewlineIf {
@@ -106,15 +106,15 @@ impl Format2 for NamedFunctionExpr {
                         ..Default::default()
                     }),
                     |fmt| {
-                        self.end.format2(fmt);
+                        self.end.format(fmt);
                     },
                 );
             });
         } else {
-            self.fun.format2(fmt);
-            self.clauses.format2(fmt);
+            self.fun.format(fmt);
+            self.clauses.format(fmt);
             fmt.add_newline();
-            self.end.format2(fmt);
+            self.end.format(fmt);
         }
     }
 }
@@ -122,17 +122,17 @@ impl Format2 for NamedFunctionExpr {
 #[derive(Debug, Clone, Span, Parse)]
 struct Fun(FunKeyword);
 
-impl Format2 for Fun {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.0.format2(fmt);
+impl Format for Fun {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.format(fmt);
         fmt.add_space();
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct FunctionClauses<Name>(Clauses<FunctionClause<Name>>);
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub(crate) struct FunctionClause<Name, B = Body> {
     name: Name,
     params: WithArrow<WithGuard<Params<Expr>, Expr>>,
@@ -142,8 +142,8 @@ pub(crate) struct FunctionClause<Name, B = Body> {
 #[derive(Debug, Clone, Span, Parse)]
 struct MaybeOnelineBody(Body);
 
-impl Format2 for MaybeOnelineBody {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for MaybeOnelineBody {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(
             Indent::Offset(4),
             Newline::If(NewlineIf {
@@ -151,7 +151,7 @@ impl Format2 for MaybeOnelineBody {
                 multi_line_parent: true,
                 ..Default::default()
             }),
-            |fmt| self.0.exprs.format2(fmt),
+            |fmt| self.0.exprs.format(fmt),
         );
     }
 }
@@ -164,7 +164,7 @@ mod tests {
     fn defined_function_works() {
         let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -206,7 +206,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -237,7 +237,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

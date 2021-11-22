@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2, Indent, Newline};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::{Expr, Qualifier};
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, ListLike, NonEmptyItems};
 use crate::items::symbols::{
@@ -8,14 +8,14 @@ use crate::parse::Parse;
 use crate::span::Span;
 
 /// [ListConstructExpr] | [ListComprehensionExpr]
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum ListExpr {
     Construct(ListConstructExpr),
     Comprehension(ListComprehensionExpr),
 }
 
 /// `[` ([Expr] (`,` | `|`)?)* `]`
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListConstructExpr(ListLike<Expr, ListItemDelimiter>);
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -24,16 +24,16 @@ enum ListItemDelimiter {
     VerticalBar(VerticalBarSymbol),
 }
 
-impl Format2 for ListItemDelimiter {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl Format for ListItemDelimiter {
+    fn format(&self, fmt: &mut Formatter) {
         match self {
             Self::Comma(x) => {
-                x.format2(fmt);
+                x.format(fmt);
                 fmt.add_space();
             }
             Self::VerticalBar(x) => {
                 fmt.add_space();
-                x.format2(fmt);
+                x.format(fmt);
                 fmt.add_space();
             }
         }
@@ -48,19 +48,19 @@ pub struct ListComprehensionExpr {
     close: CloseSquareSymbol,
 }
 
-impl Format2 for ListComprehensionExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.open.format2(fmt);
+impl Format for ListComprehensionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.body.format2(fmt)
+            self.body.format(fmt)
         });
-        self.close.format2(fmt);
+        self.close.format(fmt);
     }
 }
 
 type ListComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
 
 impl BinaryOpStyle for ComprehensionDelimiter {
@@ -104,7 +104,7 @@ mod tests {
              9]"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -120,7 +120,7 @@ mod tests {
              [4, 5]]"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -143,7 +143,7 @@ mod tests {
                 false]"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

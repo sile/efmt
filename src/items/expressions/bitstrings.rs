@@ -1,4 +1,4 @@
-use crate::format2::{Format2, Formatter2, Indent, Newline};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, BitstringLike, Maybe, NonEmptyItems};
 use crate::items::symbols::{
@@ -9,7 +9,7 @@ use crate::items::tokens::{AtomToken, IntegerToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BitstringExpr {
     Construct(BitstringConstructExpr),
     Comprehension(BitstringComprehensionExpr),
@@ -20,7 +20,7 @@ pub enum BitstringExpr {
 /// - $SEGMENT: [Expr] `$SIZE`? `$TYPE`?
 /// - $SIZE: `:` [Expr]
 /// - $TYPE: `/` ([AtomToken] `-`?)+
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
@@ -32,19 +32,19 @@ pub struct BitstringComprehensionExpr {
     close: DoubleRightAngleSymbol,
 }
 
-impl Format2 for BitstringComprehensionExpr {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.open.format2(fmt);
+impl Format for BitstringComprehensionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.body.format2(fmt)
+            self.body.format(fmt)
         });
-        self.close.format2(fmt);
+        self.close.format(fmt);
     }
 }
 
 type ComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
 
 impl BinaryOpStyle for ComprehensionDelimiter {
@@ -61,14 +61,14 @@ impl BinaryOpStyle for ComprehensionDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegment {
     value: BaseExpr,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegmentSize {
     colon: ColonSymbol,
     size: BaseExpr,
@@ -80,27 +80,27 @@ struct BitstringSegmentType {
     specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
 }
 
-impl Format2 for BitstringSegmentType {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.slash.format2(fmt);
+impl Format for BitstringSegmentType {
+    fn format(&self, fmt: &mut Formatter) {
+        self.slash.format(fmt);
         for (item, delimiter) in self
             .specifiers
             .items()
             .iter()
             .zip(self.specifiers.delimiters().iter())
         {
-            item.format2(fmt);
-            delimiter.format2(fmt);
+            item.format(fmt);
+            delimiter.format(fmt);
         }
         self.specifiers
             .items()
             .last()
             .expect("unreachable")
-            .format2(fmt);
+            .format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegmentTypeSpecifier {
     name: AtomToken,
     value: Maybe<(ColonSymbol, IntegerToken)>,
@@ -129,7 +129,7 @@ mod tests {
               C/binary>>"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 
@@ -163,7 +163,7 @@ mod tests {
                 <<X:4>> <= B>>"},
         ];
         for text in texts {
-            crate::assert_format2!(text, Expr);
+            crate::assert_format!(text, Expr);
         }
     }
 }

@@ -181,49 +181,47 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Format2)]
-pub fn derive_format2_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Format)]
+pub fn derive_format_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
-    let generics = add_format2_trait_bounds(input.generics);
+    let generics = add_format_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let format2 = generate_format2_method_body(&input.data);
+    let format = generate_format_method_body(&input.data);
     let expanded = quote! {
-        impl #impl_generics crate::format2::Format2 for #name #ty_generics #where_clause {
-            fn format2(&self, fmt: &mut crate::format2::Formatter2)  {
-                #format2
+        impl #impl_generics crate::format::Format for #name #ty_generics #where_clause {
+            fn format(&self, fmt: &mut crate::format::Formatter)  {
+                #format
             }
         }
     };
     proc_macro::TokenStream::from(expanded)
 }
 
-fn add_format2_trait_bounds(mut generics: Generics) -> Generics {
+fn add_format_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param
-                .bounds
-                .push(parse_quote!(crate::format2::Format2));
+            type_param.bounds.push(parse_quote!(crate::format::Format));
         }
     }
     generics
 }
 
-fn generate_format2_method_body(data: &Data) -> TokenStream {
+fn generate_format_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let format2 = fields.named.iter().map(|f| {
+                let format = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => self.#name.format2(fmt) }
+                    quote_spanned! { f.span() => self.#name.format(fmt) }
                 });
                 quote! {
-                    #(#format2 ;)*
+                    #(#format ;)*
                 }
             }
             Fields::Unnamed(ref fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.format2(fmt) }
+                quote! { self.0.format(fmt) }
             }
             Fields::Unit => unimplemented!(),
         },
@@ -235,7 +233,7 @@ fn generate_format2_method_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() => Self::#name(x) => x.format2(fmt), }
+                quote_spanned! { variant.span() => Self::#name(x) => x.format(fmt), }
             });
             quote! {
                 match self {

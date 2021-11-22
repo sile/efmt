@@ -1,5 +1,5 @@
 // s/generics/components/
-use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
+use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
@@ -29,8 +29,8 @@ impl Parse for Null {
     }
 }
 
-impl Format2 for Null {
-    fn format2(&self, _: &mut Formatter2) {}
+impl Format for Null {
+    fn format(&self, _: &mut Formatter) {}
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -61,15 +61,15 @@ impl<T> Maybe<T> {
     }
 }
 
-impl<T: Format2> Format2 for Maybe<T> {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl<T: Format> Format for Maybe<T> {
+    fn format(&self, fmt: &mut Formatter) {
         if let Some(x) = self.get() {
-            x.format2(fmt);
+            x.format(fmt);
         }
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub enum Either<A, B> {
     A(A),
     B(B),
@@ -88,17 +88,17 @@ impl<T> Parenthesized<T> {
     }
 }
 
-impl<T: Format2> Format2 for Parenthesized<T> {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.open.format2(fmt);
+impl<T: Format> Format for Parenthesized<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.item.format2(fmt);
+            self.item.format(fmt);
         });
-        self.close.format2(fmt);
+        self.close.format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Params<T>(Parenthesized<Items<T>>);
 
 impl<T> Params<T> {
@@ -107,7 +107,7 @@ impl<T> Params<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Args<T>(Parenthesized<Items<T>>);
 
 impl<T> Args<T> {
@@ -119,9 +119,9 @@ impl<T> Args<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct CommaDelimiter(CommaSymbol);
 
-impl Format2 for CommaDelimiter {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.0.format2(fmt);
+impl Format for CommaDelimiter {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.format(fmt);
         fmt.add_space();
     }
 }
@@ -175,13 +175,13 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Format2, D: Format2> Format2 for NonEmptyItems<T, D> {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format2(fmt));
+            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-                delimiter.format2(fmt);
+                delimiter.format(fmt);
                 fmt.subregion(
                     Indent::Inherit,
                     Newline::If(NewlineIf {
@@ -189,27 +189,27 @@ impl<T: Format2, D: Format2> Format2 for NonEmptyItems<T, D> {
                         multi_line_parent: true,
                         ..Default::default()
                     }),
-                    |fmt| item.format2(fmt),
+                    |fmt| item.format(fmt),
                 );
             }
         });
     }
 }
 
-impl<T: Format2, D: Format2> NonEmptyItems<T, D> {
-    pub fn format2_multi_line(&self, fmt: &mut Formatter2) {
+impl<T: Format, D: Format> NonEmptyItems<T, D> {
+    pub fn format_multi_line(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format2(fmt));
+            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-                delimiter.format2(fmt);
-                fmt.subregion(Indent::Inherit, Newline::Always, |fmt| item.format2(fmt));
+                delimiter.format(fmt);
+                fmt.subregion(Indent::Inherit, Newline::Always, |fmt| item.format(fmt));
             }
         });
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Items<T, D = CommaDelimiter>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -233,11 +233,11 @@ impl<T, D> Items<T, D> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
 
-impl<T: Format2, D: Format2> MaybePackedItems<T, D> {
-    fn packed_format2(&self, fmt: &mut Formatter2) {
+impl<T: Format, D: Format> MaybePackedItems<T, D> {
+    fn packed_format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.0.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format2(fmt));
+            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self
                 .0
                 .items()
@@ -245,22 +245,22 @@ impl<T: Format2, D: Format2> MaybePackedItems<T, D> {
                 .skip(1)
                 .zip(self.0.delimiters().iter())
             {
-                delimiter.format2(fmt);
+                delimiter.format(fmt);
                 fmt.subregion(
                     Indent::Inherit,
                     Newline::If(NewlineIf {
                         too_long: true,
                         ..Default::default()
                     }),
-                    |fmt| item.format2(fmt),
+                    |fmt| item.format(fmt),
                 );
             }
         });
     }
 }
 
-impl<T: Format2, D: Format2> Format2 for MaybePackedItems<T, D> {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
+    fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
         } else if self
             .0
@@ -269,36 +269,36 @@ impl<T: Format2, D: Format2> Format2 for MaybePackedItems<T, D> {
             .all(|x| !fmt.item_to_text(x).contains(&[' ', '\n'][..]))
         {
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                self.packed_format2(fmt)
+                self.packed_format(fmt)
             });
         } else {
-            self.0.format2(fmt);
+            self.0.format(fmt);
         }
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListLike<T, D = CommaDelimiter> {
     open: OpenSquareSymbol,
     items: MaybePackedItems<T, D>,
     close: CloseSquareSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T> {
     open: OpenBraceSymbol,
     items: MaybePackedItems<T>,
     close: CloseBraceSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringLike<T> {
     open: DoubleLeftAngleSymbol,
     items: MaybePackedItems<T>,
     close: DoubleRightAngleSymbol,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
 
 impl<T> Clauses<T> {
@@ -310,14 +310,14 @@ impl<T> Clauses<T> {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct SemicolonDelimiter(SemicolonSymbol);
 
-impl Format2 for SemicolonDelimiter {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.0.format2(fmt);
+impl Format for SemicolonDelimiter {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.format(fmt);
         fmt.add_newline();
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
@@ -356,20 +356,20 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
     }
 }
 
-impl<L: Format2, O: Format2 + BinaryOpStyle, R: Format2> Format2 for BinaryOpLike<L, O, R> {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.left.format2(fmt);
+impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L, O, R> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.left.format(fmt);
 
         if self.op.needs_left_space() {
             fmt.add_space();
         }
-        self.op.format2(fmt);
+        self.op.format(fmt);
         if self.op.needs_right_space() {
             fmt.add_space();
         }
 
         if !self.op.allow_newline() {
-            self.right.format2(fmt);
+            self.right.format(fmt);
             return;
         }
 
@@ -381,7 +381,7 @@ impl<L: Format2, O: Format2 + BinaryOpStyle, R: Format2> Format2 for BinaryOpLik
         fmt.subregion(
             Indent::Offset(self.op.indent_offset()),
             Newline::If(newline_cond),
-            |fmt| self.right.format2(fmt),
+            |fmt| self.right.format(fmt),
         );
     }
 }
@@ -392,16 +392,16 @@ pub struct WithArrow<T> {
     arrow: RightArrowSymbol,
 }
 
-impl<T: Format2> Format2 for WithArrow<T> {
-    fn format2(&self, fmt: &mut Formatter2) {
-        self.item.format2(fmt);
+impl<T: Format> Format for WithArrow<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.item.format(fmt);
         fmt.add_space();
-        self.arrow.format2(fmt);
+        self.arrow.format(fmt);
         fmt.add_space();
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct WithGuard<T, U, D = Either<CommaSymbol, SemicolonSymbol>> {
     item: T,
     guard: Maybe<Guard<U, D>>,
@@ -413,8 +413,8 @@ struct Guard<T, D> {
     conditions: NonEmptyItems<T, D>,
 }
 
-impl<T: Format2, D: Format2> Format2 for Guard<T, D> {
-    fn format2(&self, fmt: &mut Formatter2) {
+impl<T: Format, D: Format> Format for Guard<T, D> {
+    fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(
             Indent::Offset(2),
             Newline::If(NewlineIf {
@@ -424,9 +424,9 @@ impl<T: Format2, D: Format2> Format2 for Guard<T, D> {
             }),
             |fmt| {
                 fmt.add_space();
-                self.when.format2(fmt);
+                self.when.format(fmt);
                 fmt.add_space();
-                self.conditions.format2(fmt);
+                self.conditions.format(fmt);
             },
         );
     }
