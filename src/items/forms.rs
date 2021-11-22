@@ -29,7 +29,7 @@ pub(super) enum Form {
     FunDecl(FunDecl),
     TypeDecl(TypeDecl),
     RecordDecl(RecordDecl),
-    Attr(Attr),
+    Attr(Attr), // TODO: handle known attributes
 }
 
 /// `-` `record` `(` `$NAME` `,` `{` `$FIELD`* `}` `)` `.`

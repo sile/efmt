@@ -265,8 +265,8 @@ impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
         } else if self
             .0
             .items()
-            .iter()
-            .all(|x| !fmt.item_to_text(x).contains(&[' ', '\n'][..]))
+            .iter() // TODO
+            .all(|x| !fmt.item_to_text(x).contains(&[' ', '\n', '/'][..]))
         {
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 self.packed_format(fmt)

@@ -175,6 +175,12 @@ impl RegionWriter {
         Ok(())
     }
 
+    pub fn cancel_whitespaces(&mut self) {
+        while matches!(self.last_char(), '\n' | ' ') {
+            self.pop_last_char();
+        }
+    }
+
     pub fn write_item(&mut self, text: &str, item: &impl Span) -> Result<()> {
         if self
             .state

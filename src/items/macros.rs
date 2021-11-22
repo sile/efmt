@@ -478,8 +478,7 @@ mod tests {
             -define(bar(A), A).
 
             main() ->
-                ?bar(?foo)
-                c].
+                ?bar(?foo)c].
             "},
             indoc::indoc! {"
             -define(foo, [],).
@@ -495,8 +494,7 @@ mod tests {
             -define(b(A), A).
 
             main() ->
-                ?b(?a a)
-                , c].
+                ?b(?a a), c].
             "},
         ];
         for text in texts {
@@ -529,7 +527,7 @@ mod tests {
             %---10---|%---20---|
             -define(a(X), X X).
             foo() ->
-                1 ?a(?a(+1)) .
+                1 ?a(?a(+1)).
             "}, // TODO
         ];
         for text in texts {

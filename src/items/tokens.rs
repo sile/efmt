@@ -50,9 +50,7 @@ impl VisibleToken {
 
 // TODO(?): s/Token/LexicalToken/
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
 pub enum Token {
     Atom(AtomToken),
     Char(CharToken),
