@@ -1,4 +1,5 @@
 use crate::format::{self, Format};
+use crate::format2::Format2;
 use crate::items::expressions::{Either, Expr};
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
@@ -7,13 +8,13 @@ use crate::items::variables::UnderscoreVariable;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum RecordConstructOrIndexExpr {
     Construct(Box<RecordConstructExpr>),
     Index(Box<RecordIndexExpr>),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum RecordAccessOrUpdateExpr {
     Access(Box<RecordAccessExpr>),
     Update(Box<RecordUpdateExpr>),
@@ -33,7 +34,7 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -45,7 +46,7 @@ pub struct RecordConstructExpr {
 /// - $VALUE: [Expr]
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken]
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct RecordAccessExpr {
     value: Expr,
     index: RecordIndexExpr,
@@ -75,7 +76,7 @@ impl Format for RecordAccessExpr {
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct RecordIndexExpr {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -88,7 +89,7 @@ pub struct RecordIndexExpr {
 /// - $VALUE: [Expr]
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken]
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct RecordUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
@@ -120,10 +121,10 @@ impl Format for RecordUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFieldDelimiter, Expr>);
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct RecordFieldDelimiter(MatchSymbol);
 
 impl BinaryOpStyle for RecordFieldDelimiter {
@@ -159,6 +160,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -167,6 +169,7 @@ mod tests {
         let texts = ["#foo.bar"];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -180,6 +183,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -188,7 +192,10 @@ mod tests {
         let texts = [
             "M#foo{}",
             "88 #foo{}",
-            "M#baz{qux = 1}#foo.bar",
+            indoc::indoc! {"
+            %---10---|%---20---|
+            M#baz{qux =
+                      1}#foo.bar"},
             indoc::indoc! {"
             %---10---|%---20---|
             M#foo.bar#baz{qux =
@@ -201,7 +208,8 @@ mod tests {
                              baz}}"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
+            // crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }

@@ -46,9 +46,6 @@ pub enum Error {
 
     #[error("unexpected multi-line")]
     MultiLine,
-
-    #[error("todo")]
-    MultiLineParent,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

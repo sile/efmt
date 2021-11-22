@@ -1,4 +1,5 @@
 use crate::format::{self, Format};
+use crate::format2::{Format2, Formatter2, Indent, Newline};
 use crate::items::expressions::{Body, Expr};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::keywords::{
@@ -11,6 +12,17 @@ use crate::parse::Parse;
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
+struct End(EndKeyword);
+
+impl Format2 for End {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+            self.0.format2(fmt);
+        });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum BlockExpr {
     Case(Box<CaseExpr>),
     If(Box<IfExpr>),
@@ -32,7 +44,7 @@ pub struct CaseExpr {
     value: Expr,
     of: OfKeyword,
     clauses: Block<Clauses<CaseClause>>,
-    end: EndKeyword,
+    end: End,
 }
 
 impl Format for CaseExpr {
@@ -55,7 +67,19 @@ impl Format for CaseExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for CaseExpr {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.case.format2(fmt);
+        fmt.add_space();
+        self.value.format2(fmt);
+        fmt.add_space();
+        self.of.format2(fmt);
+        self.clauses.format2(fmt);
+        self.end.format2(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct CaseClause {
     pattern: WithArrow<WithGuard<Expr, Expr>>,
     body: Body,
@@ -66,11 +90,11 @@ struct CaseClause {
 /// - $CLAUSE: `$GUARD` `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Block<Clauses<IfClause>>,
-    end: EndKeyword,
+    end: End,
 }
 
 impl Format for IfExpr {
@@ -84,23 +108,23 @@ impl Format for IfExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct IfClause {
     condigion: WithArrow<GuardCondition>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>);
 
 /// `begin` `$BODY` `end`
 ///
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Block<NonEmptyItems<Expr>>,
-    end: EndKeyword,
+    end: End,
 }
 
 /// `receive` (`$CLAUSE` `;`?)* `$TIMEOUT`? `end`
@@ -110,12 +134,12 @@ pub struct BeginExpr {
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $TIMEOUT: `after` [Expr] `->` `$BODY`
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct ReceiveExpr {
     receive: ReceiveKeyword,
     clauses: Block<Maybe<Clauses<CaseClause>>>,
     timeout: Maybe<ReceiveTimeout>,
-    end: EndKeyword,
+    end: End,
 }
 
 impl Format for ReceiveExpr {
@@ -136,7 +160,16 @@ struct ReceiveTimeout {
     clause: Block<ReceiveTimeoutClause>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for ReceiveTimeout {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+            self.after.format2(fmt);
+            self.clause.format2(fmt);
+        });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct ReceiveTimeoutClause {
     timeout: WithArrow<Expr>,
     body: Body,
@@ -161,7 +194,7 @@ pub struct TryExpr {
     clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
-    end: EndKeyword,
+    end: End,
 }
 
 impl Format for TryExpr {
@@ -180,26 +213,42 @@ impl Format for TryExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for TryExpr {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.r#try.format2(fmt);
+        self.body.format2(fmt);
+        fmt.add_newline();
+        self.clauses.format2(fmt);
+        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+            self.catch.format2(fmt);
+        });
+        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+            self.after.format2(fmt);
+        });
+        self.end.format2(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct TryCatch {
     catch: CatchKeyword,
     clauses: Block<Clauses<CatchClause>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct CatchClause {
     pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
@@ -223,6 +272,16 @@ impl Format for CatchExpr {
     }
 }
 
+impl Format2 for CatchExpr {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.catch.format2(fmt);
+        fmt.add_space();
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.expr.format2(fmt);
+        });
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct Block<T>(T);
 
@@ -237,6 +296,15 @@ impl<T: Format> Format for Block<T> {
                 fmt.write_newline()?;
                 Ok(())
             })
+    }
+}
+
+impl<T: Format2> Format2 for Block<T> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
+            self.0.format2(fmt);
+            fmt.add_newline();
+        });
     }
 }
 
@@ -265,6 +333,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -287,6 +356,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -294,36 +364,41 @@ mod tests {
     fn receive_works() {
         let texts = [
             indoc::indoc! {"
-                receive
-                    {A, B} ->
-                        [A, B];
-                    A when is_integer(A);
-                           is_atom(A) ->
-                        A
-                end"},
+            %---10---|%---20---|
+            receive
+                {A, B} ->
+                    [A, B];
+                A when is_integer(A);
+                       is_atom(A) ->
+                    A
+            end"},
             indoc::indoc! {"
-                receive
-                    A ->
-                        A
-                after
-                    1000 ->
-                        timeout
-                end"},
+            %---10---|%---20---|
+            receive
+                A ->
+                    A
+            after
+                1000 ->
+                    timeout
+            end"},
             indoc::indoc! {"
-                receive
-                after
-                    N ->
-                        timeout
-                end"},
+            %---10---|%---20---|
+            receive
+            after
+                N ->
+                    timeout
+            end"},
             indoc::indoc! {"
-                receive
-                after
-                    infinity ->
-                        timeout
-                end"},
+            %---10---|%---20---|
+            receive
+            after
+                infinity ->
+                    timeout
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -343,6 +418,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -350,54 +426,60 @@ mod tests {
     fn try_works() {
         let texts = [
             indoc::indoc! {"
-                try
-                    1
-                after
+            %---10---|%---20---|
+            try
+                1
+            after
+                2
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            try
+                1,
+                2,
+                3
+            catch
+                E ->
+                    E
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            try
+                X
+            of
+                {_, _} ->
+                    1;
+                [_, _] ->
                     2
-                end"},
+            catch
+                _:E:Stacktrace
+                  when is_atom(E) ->
+                    foo
+            after
+                bar
+            end"},
             indoc::indoc! {"
-                try
-                    1,
-                    2,
-                    3
-                catch
-                    E ->
-                        E
-                end"},
+            %---10---|%---20---|
+            try
+                foo()
+            catch
+                _:#foo{} = E ->
+                    E
+            end"},
             indoc::indoc! {"
-                try
-                    X
-                of
-                    {_, _} ->
-                        1;
-                    [_, _] ->
-                        2
-                catch
-                    _:E:Stacktrace
-                      when is_atom(E) ->
-                        foo
-                after
-                    bar
-                end"},
-            indoc::indoc! {"
-                try
-                    foo()
-                catch
-                    _:#foo{} = E ->
-                        E
-                end"},
-            indoc::indoc! {"
-                try
-                    foo()
-                catch
-                    throw:_ ->
-                        throw;
-                    error:_ ->
-                        error
-                end"},
+            %---10---|%---20---|
+            try
+                foo()
+            catch
+                throw:_ ->
+                    throw;
+                error:_ ->
+                    error
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -414,6 +496,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }

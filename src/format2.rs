@@ -10,11 +10,6 @@ pub use efmt_derive::Format2;
 
 pub trait Format2: Span {
     fn format2(&self, fmt: &mut Formatter2);
-
-    // TODO:
-    fn has_whitespace(&self) -> bool {
-        true
-    }
 }
 
 impl<T: Format2> Format2 for Box<T> {
@@ -38,6 +33,7 @@ pub struct Formatter2 {
     comments: Arc<BTreeMap<Position, CommentToken>>,
     next_position: Position,
     last_token: Option<VisibleToken>,
+    regino_seqno: usize,
 }
 
 impl Formatter2 {
@@ -53,7 +49,22 @@ impl Formatter2 {
             item: Item::new(),
             next_position: Position::new(0, 0, 0),
             last_token: None,
+            regino_seqno: 1,
         }
+    }
+
+    pub fn item_to_text(&self, item: &impl Format2) -> String {
+        let mut fmt = Formatter2 {
+            item: Item::new(),
+            text: Arc::clone(&self.text),
+            macros: Arc::clone(&self.macros),
+            comments: Arc::clone(&self.comments),
+            next_position: item.start_position(),
+            last_token: None,
+            regino_seqno: 1,
+        };
+        item.format2(&mut fmt);
+        fmt.format(usize::MAX).trim().to_owned()
     }
 
     pub fn add_token(&mut self, token: VisibleToken) {
@@ -115,11 +126,13 @@ impl Formatter2 {
         let parent = std::mem::replace(
             &mut self.item,
             Item::Region {
+                seqno: self.regino_seqno,
                 indent,
                 newline,
                 items: Vec::new(),
             },
         );
+        self.regino_seqno += 1;
         f(self);
         let child = std::mem::replace(&mut self.item, parent);
         self.item.add_region(child);
@@ -127,7 +140,7 @@ impl Formatter2 {
 
     pub fn format(mut self, max_columns: usize) -> String {
         let item = std::mem::replace(&mut self.item, Item::new());
-        ItemToString::new(self, max_columns).to_string(&item)
+        ItemToString::new(self, max_columns).into_string(&item)
     }
 }
 
@@ -147,7 +160,7 @@ impl ItemToString {
         }
     }
 
-    fn to_string(mut self, item: &Item) -> String {
+    fn into_string(mut self, item: &Item) -> String {
         self.format_item(item).expect("TODO: bug");
         self.writer.formatted_text().to_owned()
     }
@@ -161,6 +174,7 @@ impl ItemToString {
                 indent,
                 newline,
                 items,
+                ..
             } => self.format_region(indent, newline, items)?,
         }
         Ok(())
@@ -203,7 +217,6 @@ impl ItemToString {
         let mut needs_newline = false;
         let mut allow_multi_line = true;
         let mut allow_too_long_line = true;
-        let mut check_multi_line_parent = false;
         match newline {
             Newline::Always => {
                 needs_newline = true;
@@ -213,16 +226,29 @@ impl ItemToString {
                 allow_multi_line = !cond.multi_line;
                 allow_too_long_line = !cond.too_long;
 
-                if cond.multi_line_parent {
-                    if self.writer.config().multi_line_mode {
-                        needs_newline = true;
-                    } else {
-                        check_multi_line_parent = true;
-                        allow_multi_line = false;
-                    }
+                if cond.multi_line_parent && self.writer.config().multi_line_mode {
+                    needs_newline = true;
                 }
             }
         };
+
+        let check_multi_line = items.iter().any(|item| {
+            if let Item::Region {
+                newline:
+                    Newline::If(NewlineIf {
+                        multi_line_parent: true,
+                        ..
+                    }),
+                ..
+            } = item
+            {
+                return true;
+            }
+            false
+        });
+        if check_multi_line {
+            allow_multi_line = false;
+        }
 
         let config = RegionConfig {
             max_columns: self.max_columns,
@@ -240,12 +266,9 @@ impl ItemToString {
         });
         if result.is_err() {
             let (retry, needs_newline, multi_line_mode) = match &result {
-                Err(_) if check_multi_line_parent => {
-                    return Err(Error::MultiLineParent);
-                }
+                Err(Error::MultiLine) if check_multi_line => (true, needs_newline, true),
                 Err(Error::MultiLine) if !allow_multi_line => (true, true, false),
                 Err(Error::LineTooLong) if !allow_too_long_line => (true, true, false),
-                Err(Error::MultiLineParent) => (true, needs_newline, true),
                 _ => (false, false, false),
             };
             if retry {
@@ -293,6 +316,7 @@ pub enum Item {
     Space(usize),
     Newline(usize),
     Region {
+        seqno: usize, // for debug (TODO: delete)
         indent: Indent,
         newline: Newline,
         items: Vec<Item>,
@@ -302,6 +326,7 @@ pub enum Item {
 impl Item {
     fn new() -> Self {
         Self::Region {
+            seqno: 0,
             indent: Indent::CurrentColumn,
             newline: Newline::Never,
             items: Vec::new(),
@@ -337,11 +362,7 @@ impl Item {
 
     fn add_region(&mut self, region: Item) {
         if let Self::Region { items, .. } = self {
-            if let Some(last @ Self::Region { .. }) = items.last_mut() {
-                last.add_region(region);
-            } else {
-                items.push(region);
-            }
+            items.push(region);
         } else {
             unreachable!();
         }
@@ -349,7 +370,11 @@ impl Item {
 
     fn add_space(&mut self, n: usize) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::Space(n));
+            if let Some(last @ Self::Region { .. }) = items.last_mut() {
+                last.add_space(n);
+            } else {
+                items.push(Self::Space(n));
+            }
         } else {
             unreachable!();
         }

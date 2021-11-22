@@ -22,52 +22,29 @@ impl VisibleToken {
     pub fn needs_space(&self, other: &Self) -> bool {
         use erl_tokenize::values::Symbol::*;
 
-        match (self, other) {
-            (Self::Symbol(a), Self::Symbol(b)) => match (a.value(), b.value()) {
-                (OpenParen, _) => false,
-                (_, OpenParen) => false,
-                (CloseParen, _) => false,
-                (_, CloseParen) => false,
-                (OpenSquare, _) => false,
-                (_, CloseSquare) => false,
-                (OpenBrace, _) => false,
-                (_, CloseBrace) => false,
-                (DoubleLeftAngle, _) => false,
-                (_, DoubleRightAngle) => false,
-                (Sharp, _) => false,
-                _ => true,
-            },
-            (Self::Symbol(a), _) => match a.value() {
-                OpenParen => false,
-                OpenBrace => false,
-                OpenSquare => false,
-                DoubleLeftAngle => false,
-                Colon => false,
-                Sharp => false,
-                Slash => false,
-                Dot => false,
-                Question => false,
-                DoubleQuestion => false,
-                Hyphen => false,
-                Multiply => false,
-                Plus => false,
-                _ => true,
-            },
-            (_, Self::Symbol(b)) => match b.value() {
-                OpenSquare | CloseSquare => false,
-                OpenParen | CloseParen => false,
-                OpenBrace | CloseBrace => false,
-                DoubleLeftAngle | DoubleRightAngle => false,
-                Sharp => false,
-                Slash => false,
-                Dot => false,
-                Colon => false,
-                Semicolon => false,
-                Comma => false,
-                Multiply => false,
-                _ => true,
-            },
-            _ => true,
+        if let (Self::Symbol(a), Self::Symbol(b)) = (self, other) {
+            if matches!((a.value(), b.value()), (Hyphen, Hyphen) | (Plus, Plus)) {
+                return true;
+            }
+        }
+        if let (Self::Integer(_), Self::Symbol(b)) = (self, other) {
+            if b.value() == Sharp {
+                return true;
+            }
+        }
+        if !matches!((self, other), (Self::Symbol(_), _) | (_, Self::Symbol(_))) {
+            return true;
+        }
+        false
+    }
+
+    pub fn value(&self) -> Option<&str> {
+        match self {
+            Self::Atom(x) => Some(x.value()),
+            Self::Variable(x) => Some(x.value()),
+            Self::Symbol(x) => Some(x.value().as_str()),
+            Self::Keyword(x) => Some(x.value().as_str()),
+            _ => None,
         }
     }
 }

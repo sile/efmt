@@ -132,9 +132,6 @@ impl Formatter {
             Err(Error::MultiLine) => {
                 assert!(!config.allow_multi_line);
             }
-            Err(Error::MultiLineParent) => {
-                todo!();
-            }
             Ok(()) => {}
         }
 

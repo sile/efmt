@@ -1,4 +1,5 @@
 use crate::format::{self, Format};
+use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Maybe, Null, Params, WithArrow, WithGuard};
 use crate::items::keywords::{EndKeyword, FunKeyword};
@@ -7,7 +8,7 @@ use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
@@ -19,7 +20,7 @@ pub enum FunctionExpr {
 /// - $MODULE: [Expr]
 /// - $NAME: [Expr]
 /// - $ARITY: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct DefinedFunctionExpr {
     fun: Fun,
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
@@ -33,7 +34,7 @@ pub struct DefinedFunctionExpr {
 /// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<Null>,
@@ -45,15 +46,23 @@ pub struct AnonymousFunctionExpr {
 /// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct NamedFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<VariableToken>,
     end: EndKeyword,
 }
 
+// TODO: delete
 #[derive(Debug, Clone, Span, Parse)]
 struct Fun(FunKeyword);
+
+impl Format2 for Fun {
+    fn format2(&self, fmt: &mut Formatter2) {
+        self.0.format2(fmt);
+        fmt.add_space();
+    }
+}
 
 impl Format for Fun {
     fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
@@ -98,11 +107,53 @@ impl<Name: Format> Format for FunctionClauses<Name> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name> {
+impl<Name: Format2 + Clone> Format2 for FunctionClauses<Name> {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if self.0.items().len() == 1 && self.0.items()[0].body.exprs().len() == 1 {
+            self.0
+                .clone()
+                .map(|clause| FunctionClause {
+                    name: clause.name,
+                    params: clause.params,
+                    body: MaybeOnelineBody(clause.body),
+                })
+                .format2(fmt);
+        } else {
+            self.0.format2(fmt);
+        }
+        fmt.subregion(
+            Indent::Inherit,
+            Newline::If(NewlineIf {
+                multi_line_parent: true,
+                ..Default::default()
+            }),
+            |_| {},
+        );
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+pub(crate) struct FunctionClause<Name, B = Body> {
     name: Name,
     params: WithArrow<WithGuard<Params<Expr>, Expr>>,
-    body: Body,
+    body: B,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct MaybeOnelineBody(Body);
+
+impl Format2 for MaybeOnelineBody {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(
+            Indent::Offset(4),
+            Newline::If(NewlineIf {
+                too_long: true,
+                multi_line_parent: true,
+                ..Default::default()
+            }),
+            |fmt| self.0.exprs.format2(fmt),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -114,6 +165,7 @@ mod tests {
         let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -156,6 +208,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -182,6 +235,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }

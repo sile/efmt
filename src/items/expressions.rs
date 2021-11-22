@@ -4,6 +4,7 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{self, Format};
+use crate::format2::{Format2, Formatter2, Indent, Newline};
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, NonEmptyItems, Parenthesized};
 use crate::items::symbols::{CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
 use crate::items::tokens::{
@@ -34,7 +35,7 @@ pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
 // TODO: refactor
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
@@ -115,7 +116,7 @@ impl BaseExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub enum Expr {
     Base(BaseExpr),
     FunctionCall(Box<FunctionCallExpr>),
@@ -158,7 +159,7 @@ impl Expr {
 }
 
 /// [AtomToken] | [CharToken] | [FloatToken] | [IntegerToken] | [VariableToken] | [StringExpr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub enum LiteralExpr {
     Atom(AtomToken),
     Char(CharToken),
@@ -169,7 +170,7 @@ pub enum LiteralExpr {
 }
 
 // TODO: s/AtomLikExpr/LiteralOrParen.../
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum AtomLikeExpr {
     Atom(AtomToken),
     Variable(VariableToken),
@@ -186,7 +187,7 @@ impl From<AtomLikeExpr> for BaseExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum IntegerLikeExpr {
     Integer(IntegerToken),
     Variable(VariableToken),
@@ -194,7 +195,7 @@ enum IntegerLikeExpr {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct Body {
+pub(crate) struct Body {
     exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
 
@@ -213,16 +214,24 @@ impl Format for Body {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for Body {
+    fn format2(&self, fmt: &mut Formatter2) {
+        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
+            self.exprs.format2_multi_line(fmt)
+        });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum Qualifier {
     Generator(Generator),
     Filter(Expr),
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
 
 impl BinaryOpStyle for GeneratorDelimiter {
@@ -257,6 +266,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Form);
+            // TODO: crate::assert_format2!(text, Form);
         }
     }
 
@@ -267,6 +277,7 @@ mod tests {
                 $ ."}];
         for text in texts {
             crate::assert_format!(text, Form);
+            // TODO: crate::assert_format2!(text, Form);
         }
     }
 }

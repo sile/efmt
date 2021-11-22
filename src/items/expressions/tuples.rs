@@ -1,11 +1,12 @@
 use crate::format::Format;
+use crate::format2::Format2;
 use crate::items::expressions::Expr;
 use crate::items::generics::TupleLike;
 use crate::parse::Parse;
 use crate::span::Span;
 
 /// `{` ([Expr] `,`?)* `}`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct TupleExpr(TupleLike<Expr>);
 
 #[cfg(test)]
@@ -32,6 +33,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }

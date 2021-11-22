@@ -16,6 +16,7 @@ use crate::items::symbols::{
     RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
+use crate::items::variables::UnderscoreVariable;
 use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -305,16 +306,16 @@ pub struct BitstringType(BitstringLike<Either<BitstringUnitSize, BitstringBitsSi
 
 #[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct BitstringBitsSize {
-    underscore: VariableToken,
+    underscore: UnderscoreVariable,
     colon: ColonSymbol,
     size: Type,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct BitstringUnitSize {
-    underscore0: VariableToken,
+    underscore0: UnderscoreVariable,
     colon: ColonSymbol,
-    underscore1: VariableToken,
+    underscore1: UnderscoreVariable,
     mul: MultiplySymbol,
     size: Type,
 }
@@ -371,12 +372,16 @@ mod tests {
             "{atom, 1}",
             indoc::indoc! {"
             %---10---|%---20---|
+            {foo(), bar(),
+             [baz()]}"},
+            indoc::indoc! {"
+            %---10---|%---20---|
             {foo(),
              bar(),
-             [baz()]}"},
+             [baz(A, B)]}"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
+            //crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -393,8 +398,7 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             #{atom() :=
-                  {aaa,
-                   bbb,
+                  {aaa, bbb,
                    ccc}}"},
             indoc::indoc! {"
             %---10---|%---20---|
@@ -403,7 +407,7 @@ mod tests {
               atom() := atom()}"},
         ];
         for text in expected {
-            crate::assert_format!(text, Type);
+            //crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -456,10 +460,9 @@ mod tests {
 
     #[test]
     fn unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100", "- - + +3"];
+        let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
         for text in texts {
-            // TODO: remove
-            // crate::assert_format!(text, Type);
+            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }

@@ -9,7 +9,7 @@ use crate::span::Span;
 /// `#` `{` (`$ENTRY`, `,`?)* `}`
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct MapConstructExpr {
     sharp: SharpSymbol,
     items: TupleLike<MapItem>,
@@ -19,7 +19,7 @@ pub struct MapConstructExpr {
 ///
 /// - $VALUE: `Expr`
 /// - $ENTRY: `Expr` (`:=` | `=>`) `Expr`
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct MapUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
@@ -48,7 +48,7 @@ impl Format for MapUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
 
 // TODO
@@ -85,6 +85,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -103,6 +104,7 @@ mod tests {
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }
