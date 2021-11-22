@@ -154,6 +154,10 @@ impl Formatter2 {
         self.item.add_newline(1);
     }
 
+    pub fn cancel_whitespaces(&mut self) {
+        self.item.cancel_whitespaces();
+    }
+
     pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
     where
         F: FnOnce(&mut Self),
@@ -245,8 +249,7 @@ impl ItemToString {
     }
 
     fn format_space(&mut self, n: usize) -> Result<()> {
-        assert_eq!(n, 1);
-        self.writer.write_space()
+        self.writer.write_space(n)
     }
 
     fn format_newline(&mut self, n: usize) -> Result<()> {

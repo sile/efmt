@@ -319,6 +319,7 @@ impl Format2 for CommentToken {
     fn format2(&self, fmt: &mut Formatter2) {
         match self.kind() {
             CommentKind::Trailing => {
+                fmt.cancel_whitespaces();
                 fmt.add_spaces(2);
             }
             CommentKind::Post => {

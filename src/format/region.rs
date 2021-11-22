@@ -31,7 +31,7 @@ struct RegionState {
     current_column: usize,
     formatted_text: String,
     popped_parent_chars: usize,
-    skip_whitespace_until: Option<Position>,
+    skip_whitespace_until: Option<Position>, // TODO: delete
 }
 
 #[derive(Debug)]
@@ -135,12 +135,17 @@ impl RegionWriter {
         &self.state.formatted_text
     }
 
-    pub fn write_space(&mut self) -> Result<()> {
+    pub fn write_space(&mut self, mut n: usize) -> Result<()> {
         if self.state.skip_whitespace_until.is_some() {
             return Ok(());
         }
 
         if !matches!(self.last_char(), ' ' | '\n') {
+            self.write(" ")?;
+        }
+        n -= 1;
+
+        for _ in 0..n {
             self.write(" ")?;
         }
         Ok(())
