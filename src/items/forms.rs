@@ -29,7 +29,7 @@ pub(super) enum Form {
     FunDecl(FunDecl),
     TypeDecl(TypeDecl),
     RecordDecl(RecordDecl),
-    Attr(Attr), // TODO: handle known attributes
+    Attr(Attr),
 }
 
 /// `-` `record` `(` `$NAME` `,` `{` `$FIELD`* `}` `)` `.`
@@ -40,7 +40,7 @@ pub(super) enum Form {
 pub struct RecordDecl {
     hyphen: HyphenSymbol,
     record: RecordAtom,
-    open: OpenParenSymbol,
+    open: OpenParenSymbol, // TODO: may be omitted
     name: AtomToken,
     comma: CommaSymbol,
     fields: TupleLike<RecordField>,
@@ -242,7 +242,7 @@ pub struct FunDecl {
 pub struct Attr {
     hyphen: HyphenSymbol,
     name: Either<AtomToken, IfKeyword>,
-    items: Maybe<Args<Expr>>,
+    items: Maybe<Args<Expr>>, // TODO: parenthes may be omitted
     dot: DotSymbol,
 }
 
