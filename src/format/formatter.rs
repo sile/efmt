@@ -60,7 +60,11 @@ impl Formatter {
     }
 
     pub fn add_span(&mut self, span: &impl Span) {
-        self.add_macros_and_comments(span.start_position());
+        let next_macro_start = self.next_macro_start();
+        if next_macro_start != span.start_position() {
+            self.add_macros_and_comments(span.start_position());
+        }
+
         self.item.add_span(span);
         self.last_token = None;
         assert!(self.next_position <= span.end_position());
@@ -272,7 +276,6 @@ impl ItemToString {
         let config = RegionConfig {
             max_columns: self.max_columns,
             indent,
-            trailing_columns: 0, // TODO: DELETE
             allow_multi_line,
             allow_too_long_line,
             multi_line_mode: false,
@@ -294,7 +297,6 @@ impl ItemToString {
                 let config = RegionConfig {
                     max_columns: self.max_columns,
                     indent,
-                    trailing_columns: 0, // TODO: DELETE
                     allow_multi_line: true,
                     allow_too_long_line: true,
                     multi_line_mode,

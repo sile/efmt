@@ -1,4 +1,3 @@
-use crate::items::tokens::{CommentKind, CommentToken};
 use crate::span::{Position, Span};
 
 #[derive(Debug, thiserror::Error)]
@@ -16,7 +15,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct RegionConfig {
     pub indent: usize,
     pub max_columns: usize,
-    pub trailing_columns: usize,
     pub allow_multi_line: bool,
     pub allow_too_long_line: bool,
     pub multi_line_mode: bool,
@@ -27,7 +25,6 @@ impl RegionConfig {
         Self {
             indent: 0,
             max_columns,
-            trailing_columns: 0,
             allow_multi_line: true,
             allow_too_long_line: true,
             multi_line_mode: false,
@@ -41,7 +38,6 @@ struct RegionState {
     current_column: usize,
     formatted_text: String,
     popped_parent_chars: usize,
-    skip_whitespace_until: Option<Position>, // TODO: delete
 }
 
 #[derive(Debug)]
@@ -60,7 +56,6 @@ impl RegionWriter {
                 current_column: 0,
                 formatted_text: String::new(),
                 popped_parent_chars: 0,
-                skip_whitespace_until: None,
             },
             parent: None,
         }
@@ -79,7 +74,6 @@ impl RegionWriter {
             current_column: self.state.current_column,
             formatted_text: String::new(),
             popped_parent_chars: 0,
-            skip_whitespace_until: self.state.skip_whitespace_until,
         };
         let parent = std::mem::replace(
             self,
@@ -97,7 +91,6 @@ impl RegionWriter {
         let commited = std::mem::replace(self, parent);
         self.state.next_position = commited.state.next_position;
         self.state.current_column = commited.state.current_column;
-        self.state.skip_whitespace_until = commited.state.skip_whitespace_until;
         for _ in 0..commited.state.popped_parent_chars {
             self.pop_last_char();
         }
@@ -109,11 +102,6 @@ impl RegionWriter {
     pub fn abort_subregion(&mut self) {
         let parent = *self.parent.take().expect("bug");
         let _ = std::mem::replace(self, parent);
-    }
-
-    pub fn skip_whitespace_until(&mut self, position: Position) {
-        assert!(self.state.skip_whitespace_until.is_none());
-        self.state.skip_whitespace_until = Some(position);
     }
 
     pub fn config(&self) -> &RegionConfig {
@@ -146,10 +134,6 @@ impl RegionWriter {
     }
 
     pub fn write_space(&mut self, mut n: usize) -> Result<()> {
-        if self.state.skip_whitespace_until.is_some() {
-            return Ok(());
-        }
-
         if !matches!(self.last_char(), ' ' | '\n') {
             self.write(" ")?;
         }
@@ -162,10 +146,6 @@ impl RegionWriter {
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        if self.state.skip_whitespace_until.is_some() {
-            return Ok(());
-        }
-
         if self.last_char() != '\n' {
             if self.last_char() == ' ' && self.next_last_char() != '$' {
                 self.pop_last_char();
@@ -182,22 +162,11 @@ impl RegionWriter {
     }
 
     pub fn write_item(&mut self, text: &str, item: &impl Span) -> Result<()> {
-        if self
-            .state
-            .skip_whitespace_until
-            .map_or(false, |p| p < item.end_position())
-        {
-            self.state.skip_whitespace_until = None;
-        }
+        let start = item.start_position();
+        let end = item.end_position();
+        let text = &text[start.offset()..end.offset()];
 
-        // If macros have appeared in the text,
-        // an item's start and end positions could be smaller than `next_position`.
-        let start = std::cmp::max(item.start_position(), self.state.next_position);
-        let end = std::cmp::max(item.end_position(), start);
-
-        // `trim_start()` is sometimes needed for macros such as `?a(?b c)`.
-        let text = text[start.offset()..end.offset()].trim_start();
-
+        // TODO: move to `formatter.rs`
         if self.state.next_position.line() + 1 < item.start_position().line() {
             self.write("\n")?;
         }
@@ -211,52 +180,6 @@ impl RegionWriter {
 
         self.write(text)?;
         self.state.next_position = end;
-        Ok(())
-    }
-
-    pub fn write_comment(&mut self, text: &str, comment: &CommentToken) -> Result<()> {
-        assert!(!comment.is_empty());
-
-        if self
-            .state
-            .skip_whitespace_until
-            .map_or(false, |p| p < comment.end_position())
-        {
-            self.state.skip_whitespace_until = None;
-        }
-
-        match comment.kind() {
-            CommentKind::Post => {
-                self.write_newline()?;
-                // if self.last_char() != '\n' {
-                //     // self.write("\n")?;
-
-                // }
-
-                if self.state.next_position.line() + 1 < comment.start_position().line() {
-                    self.write("\n")?;
-                }
-
-                for _ in 0..self.config.indent {
-                    self.state.formatted_text.push(' ');
-                }
-            }
-            CommentKind::Trailing => {
-                if self.last_char() == '\n' {
-                    self.pop_last_char();
-                }
-                if self.last_char() != ' ' {
-                    self.state.formatted_text.push(' ');
-                }
-                self.state.formatted_text.push(' ');
-            }
-        }
-
-        let text = &text[comment.start_position().offset()..comment.end_position().offset()];
-        self.state.formatted_text.push_str(text);
-        self.state.next_position = comment.end_position();
-        self.write_newline()?;
-
         Ok(())
     }
 
