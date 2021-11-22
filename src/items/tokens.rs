@@ -1,5 +1,6 @@
 //! Erlang tokens.
 use crate::format::{Format, Formatter};
+use crate::items::generics::Element;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -91,7 +92,7 @@ impl Parse for Token {
 }
 
 macro_rules! impl_traits {
-    ($name:ident, $variant:ident, $should_be_packed:expr) => {
+    ($name:ident, $variant:ident) => {
         impl Span for $name {
             fn start_position(&self) -> Position {
                 self.start
@@ -152,7 +153,13 @@ impl AtomToken {
     }
 }
 
-impl_traits!(AtomToken, Atom, true);
+impl_traits!(AtomToken, Atom);
+
+impl Element for AtomToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CharToken {
@@ -166,7 +173,13 @@ impl CharToken {
     }
 }
 
-impl_traits!(CharToken, Char, true);
+impl_traits!(CharToken, Char);
+
+impl Element for CharToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct FloatToken {
@@ -180,7 +193,13 @@ impl FloatToken {
     }
 }
 
-impl_traits!(FloatToken, Float, true);
+impl_traits!(FloatToken, Float);
+
+impl Element for FloatToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct IntegerToken {
@@ -194,7 +213,13 @@ impl IntegerToken {
     }
 }
 
-impl_traits!(IntegerToken, Integer, true);
+impl_traits!(IntegerToken, Integer);
+
+impl Element for IntegerToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct KeywordToken {
@@ -213,7 +238,7 @@ impl KeywordToken {
     }
 }
 
-impl_traits!(KeywordToken, Keyword, false);
+impl_traits!(KeywordToken, Keyword);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct StringToken {
@@ -236,7 +261,13 @@ impl StringToken {
     }
 }
 
-impl_traits!(StringToken, String, true);
+impl_traits!(StringToken, String);
+
+impl Element for StringToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct SymbolToken {
@@ -255,7 +286,7 @@ impl SymbolToken {
     }
 }
 
-impl_traits!(SymbolToken, Symbol, false);
+impl_traits!(SymbolToken, Symbol);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct VariableToken {
@@ -278,7 +309,13 @@ impl VariableToken {
     }
 }
 
-impl_traits!(VariableToken, Variable, true);
+impl_traits!(VariableToken, Variable);
+
+impl Element for VariableToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CommentKind {

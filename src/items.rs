@@ -26,3 +26,10 @@ pub struct Form(self::forms::Form);
 /// One of [types].
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Type(self::types::UnionType);
+
+// TODO:
+impl crate::items::generics::Element for Type {
+    fn is_packable(&self) -> bool {
+        false
+    }
+}

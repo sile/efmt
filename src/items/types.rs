@@ -3,8 +3,8 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{Format, Formatter};
 use crate::items::generics::{
-    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, ListLike, Maybe, NonEmptyItems,
-    Params, Parenthesized, TupleLike, UnaryOpLike,
+    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, Maybe,
+    NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -224,11 +224,23 @@ pub struct MfargsType {
 ///
 /// - $ITEM: [Type] | `...`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListType(ListLike<Either<Type, TripleDotSymbol>>);
+pub struct ListType(ListLike<ListItem>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct ListItem(Either<Type, TripleDotSymbol>);
+
+impl Element for ListItem {
+    fn is_packable(&self) -> bool {
+        false
+    }
+}
 
 /// `{` ([Type] `,`)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleType(TupleLike<Type>);
+pub struct TupleType(TupleLike<TupleItem>);
+
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
+struct TupleItem(Type);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -237,7 +249,8 @@ pub struct MapType {
     items: TupleLike<MapItem>,
 }
 
-type MapItem = BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter, Type>;
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
+struct MapItem(BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter, Type>);
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -250,7 +263,8 @@ pub struct RecordType {
     fields: TupleLike<RecordItem>,
 }
 
-type RecordItem = BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>;
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
+struct RecordItem(BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct DoubleColonDelimiter(DoubleColonSymbol);
@@ -274,7 +288,16 @@ impl BinaryOpStyle for DoubleColonDelimiter {
 /// - $BITS_SIZE: `_` `:` [Type]
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringType(BitstringLike<Either<BitstringUnitSize, BitstringBitsSize>>);
+pub struct BitstringType(BitstringLike<BitstringItem>);
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct BitstringItem(Either<BitstringUnitSize, BitstringBitsSize>);
+
+impl Element for BitstringItem {
+    fn is_packable(&self) -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringBitsSize {
@@ -342,7 +365,8 @@ mod tests {
             "{atom, 1}",
             indoc::indoc! {"
             %---10---|%---20---|
-            {foo(), bar(),
+            {foo(),
+             bar(),
              [baz()]}"},
             indoc::indoc! {"
             %---10---|%---20---|
@@ -367,7 +391,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             #{atom() :=
-                  {aaa, bbb,
+                  {aaa,
+                   bbb,
                    ccc}}"},
             indoc::indoc! {"
             %---10---|%---20---|

@@ -34,21 +34,6 @@ impl Formatter {
         }
     }
 
-    pub fn item_to_text(&self, item: &impl Format) -> String {
-        let mut fmt = Formatter {
-            item: Item::new(),
-            text: Arc::clone(&self.text),
-            macros: Arc::clone(&self.macros),
-            comments: Default::default(),
-            next_position: item.start_position(),
-            last_comment_or_macro_position: None,
-            last_token: None,
-        };
-        item.format(&mut fmt);
-        let text = fmt.format(usize::MAX);
-        text.trim().to_owned()
-    }
-
     pub fn add_token(&mut self, token: VisibleToken) {
         let start_position = token.start_position();
         let end_position = token.end_position();

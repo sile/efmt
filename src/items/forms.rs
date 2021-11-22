@@ -7,7 +7,7 @@ use crate::items::atoms::{
 use crate::items::expressions::functions::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{
-    Args, Clauses, Either, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
+    Args, Clauses, Either, Element, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
 use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
@@ -74,7 +74,7 @@ impl Format for RecordDecl {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Element)]
 struct RecordField {
     name: AtomToken,
     default: Maybe<(MatchSymbol, Expr)>,

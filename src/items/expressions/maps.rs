@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::expressions::Expr;
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, TupleLike};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, Element, TupleLike};
 use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -35,7 +35,7 @@ impl ResumeParse<Expr> for MapUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
 struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
 
 // TODO

@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::expressions::{Either, Expr};
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, TupleLike};
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
@@ -96,7 +96,7 @@ impl ResumeParse<Expr> for RecordUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
 struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFieldDelimiter, Expr>);
 
 #[derive(Debug, Clone, Span, Parse, Format)]

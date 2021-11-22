@@ -45,6 +45,12 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
 
+impl UnaryOpCallExpr {
+    pub fn item(&self) -> &BaseExpr {
+        self.0.item()
+    }
+}
+
 /// `+` | `-` | `not` | `bnot`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum UnaryOp {

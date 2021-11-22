@@ -4,7 +4,9 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, NonEmptyItems, Parenthesized};
+use crate::items::generics::{
+    BinaryOpLike, BinaryOpStyle, Either, Element, NonEmptyItems, Parenthesized,
+};
 use crate::items::symbols::{CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
@@ -109,9 +111,15 @@ impl BaseExpr {
     pub fn is_integer_token(&self) -> bool {
         matches!(self, Self::Literal(LiteralExpr::Integer(_)))
     }
+}
 
-    pub fn is_unary_op_call_expr(&self) -> bool {
-        matches!(self, Self::UnaryOpCall(_))
+impl Element for BaseExpr {
+    fn is_packable(&self) -> bool {
+        match self {
+            Self::UnaryOpCall(x) => x.item().is_packable(),
+            Self::Literal(x) => x.is_packable(),
+            _ => false,
+        }
     }
 }
 
@@ -157,8 +165,18 @@ impl Expr {
     }
 }
 
+impl Element for Expr {
+    fn is_packable(&self) -> bool {
+        if let Self::Base(x) = self {
+            x.is_packable()
+        } else {
+            false
+        }
+    }
+}
+
 /// [AtomToken] | [CharToken] | [FloatToken] | [IntegerToken] | [VariableToken] | [StringExpr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
 pub enum LiteralExpr {
     Atom(AtomToken),
     Char(CharToken),

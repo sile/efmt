@@ -10,6 +10,8 @@ use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
+pub use efmt_derive::Element;
+
 #[derive(Debug, Clone)]
 pub struct Null(WhitespaceToken);
 
@@ -66,6 +68,12 @@ impl<T: Format> Format for Maybe<T> {
         if let Some(x) = self.get() {
             x.format(fmt);
         }
+    }
+}
+
+impl<T: Element> Element for Maybe<T> {
+    fn is_packable(&self) -> bool {
+        self.get().map_or(true, Element::is_packable)
     }
 }
 
@@ -259,15 +267,10 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
+impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
-        } else if self
-            .0
-            .items()
-            .iter() // TODO
-            .all(|x| !fmt.item_to_text(x).contains(&[' ', '\n', '/'][..]))
-        {
+        } else if self.0.items().iter().all(Element::is_packable) {
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 self.packed_format(fmt)
             });
@@ -277,22 +280,26 @@ impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
     }
 }
 
+pub trait Element {
+    fn is_packable(&self) -> bool;
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListLike<T, D = CommaDelimiter> {
+pub struct ListLike<T: Element, D = CommaDelimiter> {
     open: OpenSquareSymbol,
     items: MaybePackedItems<T, D>,
     close: CloseSquareSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleLike<T> {
+pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
     items: MaybePackedItems<T>,
     close: CloseBraceSymbol,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BitstringLike<T> {
+pub struct BitstringLike<T: Element> {
     open: DoubleLeftAngleSymbol,
     items: MaybePackedItems<T>,
     close: DoubleRightAngleSymbol,
@@ -323,6 +330,12 @@ pub struct UnaryOpLike<O, T> {
     item: T,
 }
 
+impl<O, T> UnaryOpLike<O, T> {
+    pub fn item(&self) -> &T {
+        &self.item
+    }
+}
+
 pub trait BinaryOpStyle {
     fn indent_offset(&self) -> usize;
 
@@ -344,6 +357,12 @@ pub struct BinaryOpLike<L, O, R> {
     pub left: L,
     pub op: O,
     pub right: R,
+}
+
+impl<L, O, R> Element for BinaryOpLike<L, O, R> {
+    fn is_packable(&self) -> bool {
+        false
+    }
 }
 
 impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {

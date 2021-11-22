@@ -1,6 +1,8 @@
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, BitstringLike, Maybe, NonEmptyItems};
+use crate::items::generics::{
+    BinaryOpLike, BinaryOpStyle, BitstringLike, Element, Maybe, NonEmptyItems,
+};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
     HyphenSymbol, SlashSymbol,
@@ -68,10 +70,22 @@ struct BitstringSegment {
     ty: Maybe<BitstringSegmentType>,
 }
 
+impl Element for BitstringSegment {
+    fn is_packable(&self) -> bool {
+        self.value.is_packable() && self.size.is_packable()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegmentSize {
     colon: ColonSymbol,
     size: BaseExpr,
+}
+
+impl Element for BitstringSegmentSize {
+    fn is_packable(&self) -> bool {
+        self.size.is_packable()
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
