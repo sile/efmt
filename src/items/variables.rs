@@ -1,4 +1,3 @@
-use crate::format::Format;
 use crate::format2::Format2;
 use crate::items::tokens::VariableToken;
 use crate::parse::{self, Parse, TokenStream};
@@ -19,6 +18,6 @@ macro_rules! impl_parse {
     };
 }
 
-#[derive(Debug, Clone, Span, Format, Format2)]
+#[derive(Debug, Clone, Span, Format2)]
 pub struct UnderscoreVariable(VariableToken);
 impl_parse!(UnderscoreVariable, "_");

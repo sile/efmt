@@ -1,4 +1,3 @@
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2, Indent, Newline};
 use crate::items::expressions::{Body, Expr};
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
@@ -11,7 +10,7 @@ use crate::items::tokens::{AtomToken, VariableToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct End(EndKeyword);
 
 impl Format2 for End {
@@ -22,7 +21,7 @@ impl Format2 for End {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum BlockExpr {
     Case(Box<CaseExpr>),
     If(Box<IfExpr>),
@@ -47,26 +46,6 @@ pub struct CaseExpr {
     end: End,
 }
 
-impl Format for CaseExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
-            self.case.format(fmt)?;
-            fmt.write_space()?;
-
-            fmt.subregion()
-                .reset_trailing_columns(3) // " of"
-                .enter(|fmt| self.value.format(fmt))?;
-            fmt.write_space()?;
-
-            self.of.format(fmt)?;
-            self.clauses.format(fmt)?;
-            self.end.format(fmt)?;
-
-            Ok(())
-        })
-    }
-}
-
 impl Format2 for CaseExpr {
     fn format2(&self, fmt: &mut Formatter2) {
         self.case.format2(fmt);
@@ -79,7 +58,7 @@ impl Format2 for CaseExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct CaseClause {
     pattern: WithArrow<WithGuard<Expr, Expr>>,
     body: Body,
@@ -97,30 +76,19 @@ pub struct IfExpr {
     end: End,
 }
 
-impl Format for IfExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
-            self.r#if.format(fmt)?;
-            self.clauses.format(fmt)?;
-            self.end.format(fmt)?;
-            Ok(())
-        })
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct IfClause {
     condigion: WithArrow<GuardCondition>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>);
 
 /// `begin` `$BODY` `end`
 ///
 /// - $BODY: ([Expr] `,`?)+
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Body,
@@ -142,19 +110,7 @@ pub struct ReceiveExpr {
     end: End,
 }
 
-impl Format for ReceiveExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
-            self.receive.format(fmt)?;
-            self.clauses.format(fmt)?;
-            self.timeout.format(fmt)?;
-            self.end.format(fmt)?;
-            Ok(())
-        })
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct ReceiveTimeout {
     after: AfterKeyword,
     clause: Block<ReceiveTimeoutClause>,
@@ -169,7 +125,7 @@ impl Format2 for ReceiveTimeout {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct ReceiveTimeoutClause {
     timeout: WithArrow<Expr>,
     body: Body,
@@ -197,22 +153,6 @@ pub struct TryExpr {
     end: End,
 }
 
-impl Format for TryExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion().clear_trailing_columns(true).enter(|fmt| {
-            self.r#try.format(fmt)?;
-            self.body.format(fmt)?;
-            fmt.write_newline()?;
-            self.clauses.format(fmt)?;
-            self.catch.format(fmt)?;
-            self.after.format(fmt)?;
-            fmt.write_newline()?;
-            self.end.format(fmt)?;
-            Ok(())
-        })
-    }
-}
-
 impl Format2 for TryExpr {
     fn format2(&self, fmt: &mut Formatter2) {
         self.r#try.format2(fmt);
@@ -229,26 +169,26 @@ impl Format2 for TryExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct TryCatch {
     catch: CatchKeyword,
     clauses: Block<Clauses<CatchClause>>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct CatchClause {
     pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
@@ -259,17 +199,6 @@ struct TryAfter {
 pub struct CatchExpr {
     catch: CatchKeyword,
     expr: Expr,
-}
-
-impl Format for CatchExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.catch.format(fmt)?;
-        fmt.write_space()?;
-        fmt.subregion()
-            .current_column_as_indent()
-            .enter(|fmt| self.expr.format(fmt))?;
-        Ok(())
-    }
 }
 
 impl Format2 for CatchExpr {
@@ -284,20 +213,6 @@ impl Format2 for CatchExpr {
 
 #[derive(Debug, Clone, Span, Parse)]
 struct Block<T>(T);
-
-impl<T: Format> Format for Block<T> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .clear_trailing_columns(true)
-            .indent_offset(4)
-            .enter(|fmt| {
-                fmt.write_newline()?;
-                self.0.format(fmt)?;
-                fmt.write_newline()?;
-                Ok(())
-            })
-    }
-}
 
 impl<T: Format2> Format2 for Block<T> {
     fn format2(&self, fmt: &mut Formatter2) {
@@ -332,7 +247,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -355,7 +269,6 @@ mod tests {
                 end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -397,7 +310,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -417,7 +329,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            //crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -478,7 +389,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -495,7 +405,6 @@ mod tests {
                   4"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }

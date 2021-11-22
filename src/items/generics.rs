@@ -1,5 +1,4 @@
 // s/generics/components/
-use crate::format::{self, Format, Formatter};
 use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
@@ -27,12 +26,6 @@ impl Span for Null {
 impl Parse for Null {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
         ts.current_whitespace_token().map(Self)
-    }
-}
-
-impl Format for Null {
-    fn format(&self, _: &mut format::Formatter) -> format::Result<()> {
-        Ok(())
     }
 }
 
@@ -68,19 +61,6 @@ impl<T> Maybe<T> {
     }
 }
 
-impl<T: Format> Format for Maybe<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        if let Some(x) = self.get() {
-            x.format(fmt)?;
-        }
-        Ok(())
-    }
-
-    fn should_be_packed(&self) -> bool {
-        self.get().map_or(true, |x| x.should_be_packed())
-    }
-}
-
 impl<T: Format2> Format2 for Maybe<T> {
     fn format2(&self, fmt: &mut Formatter2) {
         if let Some(x) = self.get() {
@@ -89,7 +69,7 @@ impl<T: Format2> Format2 for Maybe<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum Either<A, B> {
     A(A),
     B(B),
@@ -108,18 +88,6 @@ impl<T> Parenthesized<T> {
     }
 }
 
-impl<T: Format> Format for Parenthesized<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        fmt.subregion()
-            .current_column_as_indent()
-            .trailing_columns(1) // ")"
-            .enter(|fmt| self.item.format(fmt))?;
-        self.close.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl<T: Format2> Format2 for Parenthesized<T> {
     fn format2(&self, fmt: &mut Formatter2) {
         self.open.format2(fmt);
@@ -130,7 +98,7 @@ impl<T: Format2> Format2 for Parenthesized<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct Params<T>(Parenthesized<Items<T>>);
 
 impl<T> Params<T> {
@@ -139,7 +107,7 @@ impl<T> Params<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct Args<T>(Parenthesized<Items<T>>);
 
 impl<T> Args<T> {
@@ -148,7 +116,7 @@ impl<T> Args<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct CommaDelimiter(CommaSymbol);
 
 impl Format2 for CommaDelimiter {
@@ -207,46 +175,6 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
     }
 }
 
-impl<T: Format, D: Format> NonEmptyItems<T, D> {
-    fn format_items(&self, fmt: &mut Formatter, multi_line: bool) -> format::Result<()> {
-        for (item, delimiter) in self.items.iter().zip(self.delimiters.iter()) {
-            let trailing_columns = fmt
-                .item_formatted_text(delimiter)
-                .map_or(1, |s| s.trim_end().len());
-            fmt.subregion()
-                .reset_trailing_columns(trailing_columns)
-                .enter(|fmt| item.format(fmt))?;
-            delimiter.format(fmt)?;
-            if multi_line {
-                fmt.write_newline()?;
-            } else {
-                fmt.write_space()?;
-            }
-        }
-        self.items.last().expect("unreachable").format(fmt)?;
-        Ok(())
-    }
-
-    pub fn format_multiline(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .current_column_as_indent()
-            .enter(|fmt| self.format_items(fmt, true))
-    }
-}
-
-impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .check_trailing_columns(true)
-                .enter(|fmt| self.format_items(fmt, false))
-                .or_else(|_| self.format_items(fmt, true))
-        })
-    }
-}
-
 impl<T: Format2, D: Format2> Format2 for NonEmptyItems<T, D> {
     fn format2(&self, fmt: &mut Formatter2) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
@@ -281,7 +209,7 @@ impl<T: Format2, D: Format2> NonEmptyItems<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct Items<T, D = CommaDelimiter>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
@@ -304,64 +232,6 @@ impl<T, D> Items<T, D> {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
-
-impl<T: Format, D: Format> MaybePackedItems<T, D> {
-    fn format_packed_item(
-        &self,
-        fmt: &mut Formatter,
-        item: &T,
-        delimiter: Option<&D>,
-    ) -> format::Result<()> {
-        let format = |fmt: &mut Formatter| {
-            item.format(fmt)?;
-            if let Some(d) = delimiter {
-                d.format(fmt)?;
-                fmt.write_space()?;
-            }
-            Ok(())
-        };
-
-        let is_head = fmt.current_column() == fmt.region_config().indent;
-        if is_head {
-            format(fmt)
-        } else {
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .check_trailing_columns(delimiter.is_none())
-                .enter(format)
-                .or_else(|_| {
-                    fmt.write_newline()?;
-                    format(fmt)
-                })
-        }
-    }
-
-    fn format_packed_items(&self, fmt: &mut Formatter) -> format::Result<()> {
-        for (item, delimiter) in self.0.items().iter().zip(self.0.delimiters().iter()) {
-            self.format_packed_item(fmt, item, Some(delimiter))?;
-        }
-
-        let item = self.0.items().last().expect("unreachable");
-        self.format_packed_item(fmt, item, None)?;
-
-        Ok(())
-    }
-}
-
-impl<T: Format, D: Format> Format for MaybePackedItems<T, D> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        if self.0.items().is_empty() {
-            Ok(())
-        } else if self.0.items().iter().all(|x| x.should_be_packed()) {
-            fmt.subregion()
-                .current_column_as_indent()
-                .enter(|fmt| self.format_packed_items(fmt))
-        } else {
-            self.0.format(fmt)
-        }
-    }
-}
 
 impl<T: Format2, D: Format2> MaybePackedItems<T, D> {
     fn packed_format2(&self, fmt: &mut Formatter2) {
@@ -414,33 +284,11 @@ pub struct ListLike<T, D = CommaDelimiter> {
     close: CloseSquareSymbol,
 }
 
-impl<T: Format, D: Format> Format for ListLike<T, D> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        fmt.subregion()
-            .trailing_columns(1) // "]"
-            .enter(|fmt| self.items.format(fmt))?;
-        self.close.format(fmt)?;
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct TupleLike<T> {
     open: OpenBraceSymbol,
     items: MaybePackedItems<T>,
     close: CloseBraceSymbol,
-}
-
-impl<T: Format> Format for TupleLike<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        fmt.subregion()
-            .trailing_columns(1) // "}"
-            .enter(|fmt| self.items.format(fmt))?;
-        self.close.format(fmt)?;
-        Ok(())
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format2)]
@@ -450,17 +298,6 @@ pub struct BitstringLike<T> {
     close: DoubleRightAngleSymbol,
 }
 
-impl<T: Format> Format for BitstringLike<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        fmt.subregion()
-            .trailing_columns(2) // ">>"
-            .enter(|fmt| self.items.format(fmt))?;
-        self.close.format(fmt)?;
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
 
@@ -468,33 +305,9 @@ impl<T> Clauses<T> {
     pub fn items(&self) -> &[T] {
         self.0.items()
     }
-
-    // TODO
-    // pub fn map<F, U>(self, f: F) -> Clauses<U>
-    // where
-    //     F: Fn(T) -> U,
-    // {
-    //     Clauses(self.0.map(f))
-    // }
 }
 
-impl<T: Format> Format for Clauses<T> {
-    fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            for (item, delimiter) in self.0.items().iter().zip(self.0.delimiters().iter()) {
-                fmt.subregion()
-                    .reset_trailing_columns(1) // ";"
-                    .enter(|fmt| item.format(fmt))?;
-                delimiter.format(fmt)?;
-                fmt.write_newline()?;
-            }
-            self.0.items().last().expect("unreachable").format(fmt)?;
-            Ok(())
-        })
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct SemicolonDelimiter(SemicolonSymbol);
 
 impl Format2 for SemicolonDelimiter {
@@ -508,28 +321,6 @@ impl Format2 for SemicolonDelimiter {
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
-}
-
-impl<O: Format, T: Format> Format for UnaryOpLike<O, T> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if fmt
-            .item_formatted_text(&self.op)
-            .map_or(false, |s| s.starts_with(fmt.last_char()))
-        {
-            fmt.write_space()?;
-        }
-        self.op.format(fmt)?;
-        if fmt.last_char().is_alphabetic() {
-            fmt.write_space()?;
-        }
-
-        self.item.format(fmt)?;
-        Ok(())
-    }
-
-    fn should_be_packed(&self) -> bool {
-        self.item.should_be_packed()
-    }
 }
 
 pub trait BinaryOpStyle {
@@ -562,43 +353,6 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
             op: ts.parse()?,
             right: ts.parse()?,
         })
-    }
-}
-
-impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L, O, R> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let trailing_columns = fmt
-            .item_formatted_text(&self.op)
-            .map_or(1, |s| s.trim_end().len())
-            + 1;
-
-        fmt.subregion()
-            .reset_trailing_columns(trailing_columns)
-            .enter(|fmt| self.left.format(fmt))?;
-        fmt.write_space()?;
-        self.op.format(fmt)?;
-        fmt.write_space()?;
-
-        let indent_offset = self.op.indent_offset();
-        if !self.op.allow_newline() || fmt.current_relative_column() <= indent_offset {
-            // Inserting a newline is forbiddend or cannot shorten the line length.
-            return self.right.format(fmt);
-        }
-
-        let mut options = fmt
-            .subregion()
-            .forbid_too_long_line()
-            .check_trailing_columns(true);
-        if !self.op.should_pack() {
-            options = options.forbid_multi_line();
-        }
-        if options.enter(|fmt| self.right.format(fmt)).is_err() {
-            fmt.subregion().indent_offset(indent_offset).enter(|fmt| {
-                fmt.write_newline()?;
-                self.right.format(fmt)
-            })?;
-        }
-        Ok(())
     }
 }
 
@@ -638,21 +392,6 @@ pub struct WithArrow<T> {
     arrow: RightArrowSymbol,
 }
 
-impl<T: Format> Format for WithArrow<T> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .reset_trailing_columns(3) // " ->"
-            .enter(|fmt| {
-                self.item.format(fmt)?;
-                fmt.write_space()?;
-                self.arrow.format(fmt)?;
-                fmt.write_space()?;
-                Ok(())
-            })
-        // TODO: .enter_with_trailer(|fmt| {...}, |fmt| {})
-    }
-}
-
 impl<T: Format2> Format2 for WithArrow<T> {
     fn format2(&self, fmt: &mut Formatter2) {
         self.item.format2(fmt);
@@ -668,51 +407,10 @@ pub struct WithGuard<T, U, D = Either<CommaSymbol, SemicolonSymbol>> {
     guard: Maybe<Guard<U, D>>,
 }
 
-impl<T: Format, U: Format, D: Format> Format for WithGuard<T, U, D> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if let Some(guard) = self.guard.get() {
-            fmt.subregion()
-                .clear_trailing_columns(true)
-                .enter(|fmt| self.item.format(fmt))?;
-            fmt.write_space()?;
-            guard.format(fmt)?;
-        } else {
-            self.item.format(fmt)?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse)]
 struct Guard<T, D> {
     when: WhenKeyword,
     conditions: NonEmptyItems<T, D>,
-}
-
-impl<T: Format, D: Format> Format for Guard<T, D> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        let format = |fmt: &mut format::Formatter| {
-            self.when.format(fmt)?;
-            fmt.write_space()?;
-            self.conditions.format(fmt)?;
-            Ok(())
-        };
-
-        if fmt.current_relative_column() <= 2 {
-            format(fmt)?;
-        } else if fmt
-            .subregion()
-            .forbid_too_long_line()
-            .forbid_multi_line()
-            .check_trailing_columns(true)
-            .enter(format)
-            .is_err()
-        {
-            fmt.write_newline()?;
-            fmt.subregion().indent_offset(2).enter(format)?;
-        }
-        Ok(())
-    }
 }
 
 impl<T: Format2, D: Format2> Format2 for Guard<T, D> {

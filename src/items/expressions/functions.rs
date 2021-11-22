@@ -1,4 +1,3 @@
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
 use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr};
 use crate::items::generics::{Clauses, Maybe, Null, Params, WithArrow, WithGuard};
@@ -8,7 +7,7 @@ use crate::items::tokens::VariableToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
@@ -20,7 +19,7 @@ pub enum FunctionExpr {
 /// - $MODULE: [Expr]
 /// - $NAME: [Expr]
 /// - $ARITY: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct DefinedFunctionExpr {
     fun: Fun,
     module: Maybe<(AtomLikeExpr, ColonSymbol)>,
@@ -34,7 +33,7 @@ pub struct DefinedFunctionExpr {
 /// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<Null>,
@@ -80,7 +79,7 @@ impl Format2 for AnonymousFunctionExpr {
 /// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct NamedFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<VariableToken>,
@@ -130,85 +129,17 @@ impl Format2 for Fun {
     }
 }
 
-impl Format for Fun {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.0.format(fmt)?;
-        fmt.write_space()?;
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse, Format2)]
 struct FunctionClauses<Name>(Clauses<FunctionClause<Name>>);
 
-impl<Name: Format> Format for FunctionClauses<Name> {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if self.0.items().len() == 1 && self.0.items()[0].body.exprs().len() == 1 {
-            let ok = fmt
-                .subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .trailing_columns(4) // "end"
-                .check_trailing_columns(true)
-                .enter(|fmt| {
-                    let clause = &self.0.items()[0];
-                    clause.name.format(fmt)?;
-                    clause.params.format(fmt)?;
-                    fmt.write_space()?;
-                    clause.body.exprs()[0].format(fmt)?;
-                    fmt.write_space()?;
-                    Ok(())
-                })
-                .is_ok();
-            if ok {
-                return Ok(());
-            }
-        }
-
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.0.format(fmt)?;
-            fmt.write_newline()?;
-            Ok(())
-        })
-    }
-}
-
-// TODO
-// impl<Name: Format2 + Clone> Format2 for FunctionClauses<Name> {
-//     fn format2(&self, fmt: &mut Formatter2) {
-//         if self.0.items().len() == 1 && self.0.items()[0].body.exprs().len() == 1 {
-//             self.0
-//                 .clone()
-//                 .map(|clause| FunctionClause {
-//                     name: clause.name,
-//                     params: clause.params,
-//                     body: MaybeOnelineBody(clause.body),
-//                 })
-//                 .format2(fmt);
-//         } else {
-//             self.0.format2(fmt);
-//             //fmt.add_newline(self.0.start_position());
-//         }
-//         // TODO: remove
-//         // fmt.subregion(
-//         //     Indent::Inherit,
-//         //     Newline::If(NewlineIf {
-//         //         multi_line_parent: true,
-//         //         ..Default::default()
-//         //     }),
-//         //     |_| {},
-//         // );
-//     }
-// }
-
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub(crate) struct FunctionClause<Name, B = Body> {
     name: Name,
     params: WithArrow<WithGuard<Params<Expr>, Expr>>,
     body: B,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct MaybeOnelineBody(Body);
 
 impl Format2 for MaybeOnelineBody {
@@ -233,7 +164,6 @@ mod tests {
     fn defined_function_works() {
         let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -276,7 +206,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -308,7 +237,6 @@ mod tests {
             end"},
         ];
         for text in texts {
-            //crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }

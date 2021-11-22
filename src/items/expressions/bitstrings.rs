@@ -1,4 +1,3 @@
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2, Indent, Newline};
 use crate::items::expressions::{BaseExpr, Expr, Qualifier};
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, BitstringLike, Maybe, NonEmptyItems};
@@ -10,7 +9,7 @@ use crate::items::tokens::{AtomToken, IntegerToken};
 use crate::parse::Parse;
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum BitstringExpr {
     Construct(BitstringConstructExpr),
     Comprehension(BitstringComprehensionExpr),
@@ -21,7 +20,7 @@ pub enum BitstringExpr {
 /// - $SEGMENT: [Expr] `$SIZE`? `$TYPE`?
 /// - $SIZE: `:` [Expr]
 /// - $TYPE: `/` ([AtomToken] `-`?)+
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
@@ -31,18 +30,6 @@ pub struct BitstringComprehensionExpr {
     open: DoubleLeftAngleSymbol,
     body: ComprehensionBody,
     close: DoubleRightAngleSymbol,
-}
-
-impl Format for BitstringComprehensionExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.open.format(fmt)?;
-        fmt.subregion()
-            .current_column_as_indent()
-            .reset_trailing_columns(2) // ">>"
-            .enter(|fmt| self.body.format(fmt))?;
-        self.close.format(fmt)?;
-        Ok(())
-    }
 }
 
 impl Format2 for BitstringComprehensionExpr {
@@ -57,7 +44,7 @@ impl Format2 for BitstringComprehensionExpr {
 
 type ComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
 
 impl BinaryOpStyle for ComprehensionDelimiter {
@@ -81,20 +68,7 @@ struct BitstringSegment {
     ty: Maybe<BitstringSegmentType>,
 }
 
-impl Format for BitstringSegment {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.value.format(fmt)?;
-        self.size.format(fmt)?;
-        self.ty.format(fmt)?;
-        Ok(())
-    }
-
-    fn should_be_packed(&self) -> bool {
-        self.value.should_be_packed() && self.size.get().map_or(true, |x| x.size.should_be_packed())
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct BitstringSegmentSize {
     colon: ColonSymbol,
     size: BaseExpr,
@@ -104,27 +78,6 @@ struct BitstringSegmentSize {
 struct BitstringSegmentType {
     slash: SlashSymbol,
     specifiers: NonEmptyItems<BitstringSegmentTypeSpecifier, HyphenSymbol>,
-}
-
-impl Format for BitstringSegmentType {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.slash.format(fmt)?;
-        for (item, delimiter) in self
-            .specifiers
-            .items()
-            .iter()
-            .zip(self.specifiers.delimiters().iter())
-        {
-            item.format(fmt)?;
-            delimiter.format(fmt)?;
-        }
-        self.specifiers
-            .items()
-            .last()
-            .expect("unreachable")
-            .format(fmt)?;
-        Ok(())
-    }
 }
 
 impl Format2 for BitstringSegmentType {
@@ -147,7 +100,7 @@ impl Format2 for BitstringSegmentType {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct BitstringSegmentTypeSpecifier {
     name: AtomToken,
     value: Maybe<(ColonSymbol, IntegerToken)>,
@@ -176,7 +129,6 @@ mod tests {
               C/binary>>"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -211,7 +163,6 @@ mod tests {
                 <<X:4>> <= B>>"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }

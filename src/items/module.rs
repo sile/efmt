@@ -1,4 +1,3 @@
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2};
 use crate::items::Form;
 use crate::parse::{self, Parse, TokenStream};
@@ -21,16 +20,6 @@ impl Parse for Module {
         }
         let eof = ts.current_whitespace_token()?.end_position();
         Ok(Self { sof, forms, eof })
-    }
-}
-
-impl Format for Module {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        for form in &self.forms {
-            form.format(fmt)?;
-            fmt.write_newline()?;
-        }
-        Ok(())
     }
 }
 

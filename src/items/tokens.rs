@@ -1,5 +1,4 @@
 //! Erlang tokens.
-use crate::format::{self, Format, Formatter};
 use crate::format2::{Format2, Formatter2};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
@@ -52,7 +51,7 @@ impl VisibleToken {
 // TODO(?): s/Token/LexicalToken/
 // Note that the `Parse` trait for `Token` is implemented in the `parse` module.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, Span, Format, Format2, serde::Serialize, serde::Deserialize,
+    Debug, Clone, PartialEq, Eq, Hash, Span, Format2, serde::Serialize, serde::Deserialize,
 )]
 pub enum Token {
     Atom(AtomToken),
@@ -111,16 +110,6 @@ macro_rules! impl_traits {
                     Token::$variant(token) => Ok(token),
                     token => Err(parse::Error::unexpected_token(ts, token)),
                 }
-            }
-        }
-
-        impl Format for $name {
-            fn format(&self, fmt: &mut Formatter) -> format::Result<()> {
-                fmt.write_text(self)
-            }
-
-            fn should_be_packed(&self) -> bool {
-                $should_be_packed
             }
         }
 
@@ -360,50 +349,5 @@ impl Span for WhitespaceToken {
 
     fn end_position(&self) -> Position {
         self.end
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn atom_works() {
-        crate::assert_format!("foo", Token);
-    }
-
-    #[test]
-    fn char_works() {
-        crate::assert_format!("$a", Token);
-    }
-
-    #[test]
-    fn float_works() {
-        crate::assert_format!("12.3", Token);
-    }
-
-    #[test]
-    fn integer_works() {
-        crate::assert_format!("12", Token);
-    }
-
-    #[test]
-    fn keyword_works() {
-        crate::assert_format!("case", Token);
-    }
-
-    #[test]
-    fn string_works() {
-        crate::assert_format!("\"foo\"", Token);
-    }
-
-    #[test]
-    fn symbol_works() {
-        crate::assert_format!("-", Token);
-    }
-
-    #[test]
-    fn variable_works() {
-        crate::assert_format!("Foo", Token);
     }
 }

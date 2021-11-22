@@ -1,4 +1,3 @@
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2};
 use crate::items::expressions::{BaseExpr, Expr};
 use crate::items::generics::{Args, BinaryOpLike, BinaryOpStyle, Maybe, UnaryOpLike};
@@ -14,7 +13,7 @@ use erl_tokenize::values::{Keyword, Symbol};
 /// - $MODULE: [Expr] `:`
 /// - $NAME: [Expr]
 /// - $ARG: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct FunctionCallExpr {
     module: Maybe<(BaseExpr, ColonSymbol)>,
     function: BaseExpr,
@@ -43,11 +42,11 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
 }
 
 /// [UnaryOp] [Expr]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
 
 /// `+` | `-` | `not` | `bnot`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum UnaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
@@ -73,20 +72,6 @@ impl BinaryOpCallExpr {
     }
 }
 
-impl Format for BinaryOpCallExpr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if self.is_name_and_arity() {
-            // A workaround for some attributes such as `-export` and `-import`.
-            self.0.left.format(fmt)?;
-            self.0.op.format(fmt)?;
-            self.0.right.format(fmt)?;
-        } else {
-            self.0.format(fmt)?;
-        }
-        Ok(())
-    }
-}
-
 impl Format2 for BinaryOpCallExpr {
     fn format2(&self, fmt: &mut Formatter2) {
         if self.is_name_and_arity() {
@@ -100,7 +85,7 @@ impl Format2 for BinaryOpCallExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Format, Format2)]
+#[derive(Debug, Clone, Span, Format2)]
 pub enum BinaryOp {
     Plus(symbols::PlusSymbol),
     Minus(symbols::HyphenSymbol),
@@ -218,7 +203,7 @@ mod tests {
                 1_0.0)"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 
@@ -226,7 +211,6 @@ mod tests {
     fn unary_op_call_works() {
         let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ +-3"];
         for text in texts {
-            crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }
@@ -249,7 +233,7 @@ mod tests {
                     quux() div 2"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
+            crate::assert_format2!(text, Expr);
         }
     }
 }

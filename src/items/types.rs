@@ -1,7 +1,6 @@
 //! Erlang types.
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2};
 use crate::items::generics::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, ListLike, Maybe, NonEmptyItems,
@@ -21,7 +20,7 @@ use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Format, Format2)]
+#[derive(Debug, Clone, Span, Format2)]
 enum NonUnionType {
     BinaryOp(Box<BinaryOpType>),
     NonLeftRecursive(NonLeftRecursiveType),
@@ -39,7 +38,7 @@ impl Parse for NonUnionType {
 }
 
 /// [Type] `|` [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
 
 impl Format2 for UnionType {
@@ -51,14 +50,6 @@ impl Format2 for UnionType {
 #[derive(Debug, Clone, Span, Parse)]
 struct UnionDelimiter(VerticalBarSymbol);
 
-impl Format for UnionDelimiter {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.write_space()?;
-        self.0.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl Format2 for UnionDelimiter {
     fn format2(&self, fmt: &mut Formatter2) {
         fmt.add_space();
@@ -67,7 +58,7 @@ impl Format2 for UnionDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 enum NonLeftRecursiveType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
@@ -90,17 +81,6 @@ pub struct AnnotatedVariableType {
     ty: Type,
 }
 
-impl Format for AnnotatedVariableType {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.variable.format(fmt)?;
-        fmt.write_space()?;
-        self.colon.format(fmt)?;
-        fmt.write_space()?;
-        self.ty.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl Format2 for AnnotatedVariableType {
     fn format2(&self, fmt: &mut Formatter2) {
         self.variable.format2(fmt);
@@ -114,7 +94,7 @@ impl Format2 for AnnotatedVariableType {
 /// [Type] `$OP` [Type]
 ///
 /// - $OP: [BinaryOp]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type>);
 
 impl Format2 for BinaryOpType {
@@ -133,7 +113,7 @@ impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
 }
 
 /// `*` | `+` | `-` | `div` | `rem` | `band` | `bor` | `bxor` | `bsl` | `bsr` | `..`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum BinaryOp {
     Mul(MultiplySymbol),
     Plus(PlusSymbol),
@@ -165,11 +145,11 @@ impl BinaryOpStyle for BinaryOp {
 /// `$OP` [Type]
 ///
 /// - $OP: [UnaryOp]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct UnaryOpType(UnaryOpLike<UnaryOp, NonLeftRecursiveType>);
 
 /// `+` | `-` | `bnot`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum UnaryOp {
     Plus(PlusSymbol),
     Minus(HyphenSymbol),
@@ -186,15 +166,6 @@ pub struct FunctionType {
     params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
 }
 
-impl Format for FunctionType {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.fun.format(fmt)?;
-        fmt.write_space()?;
-        self.params_and_return.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl Format2 for FunctionType {
     fn format2(&self, fmt: &mut Formatter2) {
         self.fun.format2(fmt);
@@ -205,7 +176,7 @@ impl Format2 for FunctionType {
 
 type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter, Type>;
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct RightArrowDelimiter(RightArrowSymbol);
 
 impl BinaryOpStyle for RightArrowDelimiter {
@@ -222,14 +193,14 @@ impl BinaryOpStyle for RightArrowDelimiter {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 enum FunctionParams {
     Any(Parenthesized<TripleDotSymbol>),
     Params(Params<Type>),
 }
 
 /// [AtomToken] | [CharToken] | [IntegerToken] | [VariableToken]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub enum LiteralType {
     Atom(AtomToken),
     Char(CharToken),
@@ -242,7 +213,7 @@ pub enum LiteralType {
 /// - $MODULE: [AtomToken]
 /// - $NAME: [AtomToken]
 /// - $ARG: [Type]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct MfargsType {
     module: Maybe<(AtomToken, ColonSymbol)>,
     name: AtomToken,
@@ -252,15 +223,15 @@ pub struct MfargsType {
 /// `[` (`$ITEM` `,`?)* `]`
 ///
 /// - $ITEM: [Type] | `...`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct ListType(ListLike<Either<Type, TripleDotSymbol>>);
 
 /// `{` ([Type] `,`)* `}`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct TupleType(TupleLike<Type>);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct MapType {
     sharp: SharpSymbol,
     items: TupleLike<MapItem>,
@@ -272,7 +243,7 @@ type MapItem = BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter,
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken] `::` [Type]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
@@ -281,7 +252,7 @@ pub struct RecordType {
 
 type RecordItem = BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>;
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct DoubleColonDelimiter(DoubleColonSymbol);
 
 impl BinaryOpStyle for DoubleColonDelimiter {
@@ -302,17 +273,17 @@ impl BinaryOpStyle for DoubleColonDelimiter {
 ///
 /// - $BITS_SIZE: `_` `:` [Type]
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct BitstringType(BitstringLike<Either<BitstringUnitSize, BitstringBitsSize>>);
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct BitstringBitsSize {
     underscore: UnderscoreVariable,
     colon: ColonSymbol,
     size: Type,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct BitstringUnitSize {
     underscore0: UnderscoreVariable,
     colon: ColonSymbol,
@@ -343,7 +314,6 @@ mod tests {
                     qux())"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -360,7 +330,6 @@ mod tests {
              ...]"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -382,7 +351,6 @@ mod tests {
              [baz(A, B)]}"},
         ];
         for text in texts {
-            //crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -408,7 +376,6 @@ mod tests {
               atom() := atom()}"},
         ];
         for text in expected {
-            //crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -427,7 +394,6 @@ mod tests {
                  baz :: 2}"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -454,7 +420,6 @@ mod tests {
                          tuple())"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -463,7 +428,6 @@ mod tests {
     fn unary_op_works() {
         let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -479,7 +443,6 @@ mod tests {
             -1 .. +20"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -497,7 +460,6 @@ mod tests {
               _:_*4>>"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }
@@ -516,7 +478,6 @@ mod tests {
                    bar"},
         ];
         for text in texts {
-            crate::assert_format!(text, Type);
             crate::assert_format2!(text, Type);
         }
     }

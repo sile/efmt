@@ -1,5 +1,4 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format::{self, Format};
 use crate::format2::{Format2, Formatter2, Indent, Newline, NewlineIf};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
@@ -22,7 +21,7 @@ use crate::parse::Parse;
 use crate::span::Span;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub(super) enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
@@ -47,34 +46,6 @@ pub struct RecordDecl {
     fields: TupleLike<RecordField>,
     close: CloseParenSymbol,
     dot: DotSymbol,
-}
-
-impl Format for RecordDecl {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.record.format(fmt)?;
-        self.open.format(fmt)?;
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.name.format(fmt)?;
-            self.comma.format(fmt)?;
-            fmt.write_space()?;
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .reset_trailing_columns(2) // ")."
-                .check_trailing_columns(true)
-                .enter(|fmt| self.fields.format(fmt))
-                .or_else(|_| {
-                    fmt.write_newline()?;
-                    fmt.subregion()
-                        .reset_trailing_columns(2) // ")."
-                        .enter(|fmt| self.fields.format(fmt))
-                })
-        })?;
-        self.close.format(fmt)?;
-        self.dot.format(fmt)?;
-        Ok(())
-    }
 }
 
 impl Format2 for RecordDecl {
@@ -110,25 +81,6 @@ struct RecordField {
     r#type: Maybe<(DoubleColonSymbol, Type)>,
 }
 
-impl Format for RecordField {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.name.format(fmt)?;
-        if let Some((x, y)) = self.default.get() {
-            fmt.write_space()?;
-            x.format(fmt)?;
-            fmt.write_space()?;
-            y.format(fmt)?;
-        }
-        if let Some((x, y)) = self.r#type.get() {
-            fmt.write_space()?;
-            x.format(fmt)?;
-            fmt.write_space()?;
-            y.format(fmt)?;
-        }
-        Ok(())
-    }
-}
-
 impl Format2 for RecordField {
     fn format2(&self, fmt: &mut Formatter2) {
         self.name.format2(fmt);
@@ -154,7 +106,7 @@ impl Format2 for RecordField {
 /// - $TYPE: [Type]
 ///
 /// Note that the parenthesized notation like `-type(foo() :: bar()).` is also acceptable
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct TypeDecl {
     hyphen: HyphenSymbol,
     kind: Either<TypeAtom, OpaqueAtom>,
@@ -180,39 +132,6 @@ struct TypeDeclItem {
     params: Params<VariableToken>,
     delimiter: DoubleColonSymbol,
     r#type: Type,
-}
-
-impl Format for TypeDeclItem {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if fmt.last_char() != '(' {
-            fmt.write_space()?;
-        }
-
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.name.format(fmt)?;
-            fmt.subregion()
-                .reset_trailing_columns(3) // " ::"
-                .enter(|fmt| self.params.format(fmt))?;
-            fmt.write_space()?;
-            self.delimiter.format(fmt)?;
-            fmt.write_space()?;
-            fmt.subregion()
-                .current_column_as_indent()
-                .forbid_too_long_line()
-                .trailing_columns(1) // "."
-                .check_trailing_columns(true)
-                .enter(|fmt| self.r#type.format(fmt))
-                .or_else(|_| {
-                    fmt.write_newline()?;
-                    fmt.subregion()
-                        .trailing_columns(1) // "."
-                        .indent_offset(2)
-                        .enter(|fmt| self.r#type.format(fmt))
-                })?;
-            Ok(())
-        })?;
-        Ok(())
-    }
 }
 
 impl Format2 for TypeDeclItem {
@@ -250,18 +169,6 @@ pub struct FunSpec {
     dot: DotSymbol,
 }
 
-impl Format for FunSpec {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.kind.format(fmt)?;
-        fmt.subregion()
-            .reset_trailing_columns(1) // "."
-            .enter(|fmt| self.item.format(fmt))?;
-        self.dot.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl Format2 for FunSpec {
     fn format2(&self, fmt: &mut Formatter2) {
         self.hyphen.format2(fmt);
@@ -281,21 +188,6 @@ struct FunSpecItem {
     clauses: Clauses<SpecClause>,
 }
 
-impl Format for FunSpecItem {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        if fmt.last_char() != '(' {
-            fmt.write_space()?;
-        }
-
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.module_name.format(fmt)?;
-            self.function_name.format(fmt)?;
-            self.clauses.format(fmt)
-        })?;
-        Ok(())
-    }
-}
-
 impl Format2 for FunSpecItem {
     fn format2(&self, fmt: &mut Formatter2) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
@@ -310,28 +202,6 @@ impl Format2 for FunSpecItem {
 struct SpecClause {
     params: WithArrow<Params<Type>>,
     r#return: WithGuard<Type, Type, CommaSymbol>,
-}
-
-impl Format for SpecClause {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .clear_trailing_columns(true)
-            .enter(|fmt| self.params.format(fmt))?;
-
-        fmt.subregion()
-            .forbid_multi_line()
-            .forbid_too_long_line()
-            .check_trailing_columns(true)
-            .enter(|fmt| self.r#return.format(fmt))
-            .or_else(|_| {
-                fmt.write_newline()?;
-                fmt.subregion()
-                    .parent_indent()
-                    .indent_offset(4)
-                    .enter(|fmt| self.r#return.format(fmt))
-            })?;
-        Ok(())
-    }
 }
 
 impl Format2 for SpecClause {
@@ -363,16 +233,6 @@ pub struct FunDecl {
     dot: DotSymbol,
 }
 
-impl Format for FunDecl {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        fmt.subregion()
-            .reset_trailing_columns(1) // "."
-            .enter(|fmt| self.clauses.format(fmt))?;
-        self.dot.format(fmt)?;
-        Ok(())
-    }
-}
-
 /// `-` `$NAME` `$ARGS`? `.`
 ///
 /// - $NAME: [AtomToken] | `if`
@@ -384,20 +244,6 @@ pub struct Attr {
     name: Either<AtomToken, IfKeyword>,
     items: Maybe<Args<Expr>>,
     dot: DotSymbol,
-}
-
-impl Format for Attr {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.name.format(fmt)?;
-        if let Some(items) = self.items.get() {
-            fmt.subregion()
-                .reset_trailing_columns(1) // "."
-                .enter(|fmt| items.format(fmt))?;
-        }
-        self.dot.format(fmt)?;
-        Ok(())
-    }
 }
 
 /// `-` `define` `(` `$NAME` `$VARS`? `,` `REPLACEMENT`* `)` `.`
@@ -432,35 +278,6 @@ impl DefineDirective {
     }
 }
 
-impl Format for DefineDirective {
-    fn format(&self, fmt: &mut format::Formatter) -> format::Result<()> {
-        self.hyphen.format(fmt)?;
-        self.define.format(fmt)?;
-        self.open.format(fmt)?;
-        fmt.subregion().current_column_as_indent().enter(|fmt| {
-            self.macro_name.format(fmt)?;
-            self.variables.format(fmt)?;
-            self.comma.format(fmt)?;
-            fmt.write_space()?;
-            fmt.subregion()
-                .forbid_multi_line()
-                .forbid_too_long_line()
-                .reset_trailing_columns(2) // ")."
-                .check_trailing_columns(true)
-                .enter(|fmt| self.replacement.format(fmt))
-                .or_else(|_| {
-                    fmt.write_newline()?;
-                    fmt.subregion()
-                        .reset_trailing_columns(2) // ")."
-                        .enter(|fmt| self.replacement.format(fmt))
-                })
-        })?;
-        self.close.format(fmt)?;
-        self.dot.format(fmt)?;
-        Ok(())
-    }
-}
-
 impl Format2 for DefineDirective {
     fn format2(&self, fmt: &mut Formatter2) {
         self.hyphen.format2(fmt);
@@ -489,7 +306,7 @@ impl Format2 for DefineDirective {
 /// `-` (`include` | `include_lib`) `(` `$PATH` `)` `.`
 ///
 /// - $PATH: [StringToken]
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 pub struct IncludeDirective {
     hyphen: HyphenSymbol,
     include: Either<IncludeAtom, IncludeLibAtom>,
@@ -590,7 +407,6 @@ mod tests {
                         E), F)."},
         ];
         for text in texts {
-            //crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -602,7 +418,6 @@ mod tests {
             r#"-include_lib("path/to/hrl")."#,
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -619,7 +434,6 @@ mod tests {
             "-elif(true).",
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -642,7 +456,6 @@ mod tests {
                         h/0]})."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -662,7 +475,6 @@ mod tests {
                      field3 = 421})."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -687,7 +499,6 @@ mod tests {
                 qux."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -734,7 +545,6 @@ mod tests {
                       baz())."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
@@ -762,7 +572,6 @@ mod tests {
                         Val}]."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }
