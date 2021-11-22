@@ -34,11 +34,45 @@ pub struct DefinedFunctionExpr {
 /// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<Null>,
     end: EndKeyword,
+}
+
+impl Format2 for AnonymousFunctionExpr {
+    fn format2(&self, fmt: &mut Formatter2) {
+        // TODO: refactor
+        if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
+            let clause = self.clauses.0.items()[0].clone();
+            let clause = FunctionClause {
+                name: clause.name,
+                params: clause.params,
+                body: MaybeOnelineBody(clause.body),
+            };
+            self.fun.format2(fmt);
+            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                clause.format2(fmt);
+                fmt.subregion(
+                    Indent::ParentOffset(0),
+                    Newline::If(NewlineIf {
+                        too_long: true,
+                        multi_line_parent: true,
+                        ..Default::default()
+                    }),
+                    |fmt| {
+                        self.end.format2(fmt);
+                    },
+                );
+            });
+        } else {
+            self.fun.format2(fmt);
+            self.clauses.format2(fmt);
+            fmt.add_newline();
+            self.end.format2(fmt);
+        }
+    }
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -46,14 +80,46 @@ pub struct AnonymousFunctionExpr {
 /// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format, Format2)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
     fun: Fun,
     clauses: FunctionClauses<VariableToken>,
     end: EndKeyword,
 }
 
-// TODO: delete
+impl Format2 for NamedFunctionExpr {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
+            let clause = self.clauses.0.items()[0].clone();
+            let clause = FunctionClause {
+                name: clause.name,
+                params: clause.params,
+                body: MaybeOnelineBody(clause.body),
+            };
+            self.fun.format2(fmt);
+            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                clause.format2(fmt);
+                fmt.subregion(
+                    Indent::ParentOffset(0),
+                    Newline::If(NewlineIf {
+                        too_long: true,
+                        multi_line_parent: true,
+                        ..Default::default()
+                    }),
+                    |fmt| {
+                        self.end.format2(fmt);
+                    },
+                );
+            });
+        } else {
+            self.fun.format2(fmt);
+            self.clauses.format2(fmt);
+            fmt.add_newline();
+            self.end.format2(fmt);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct Fun(FunKeyword);
 
@@ -72,7 +138,7 @@ impl Format for Fun {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format2)]
 struct FunctionClauses<Name>(Clauses<FunctionClause<Name>>);
 
 impl<Name: Format> Format for FunctionClauses<Name> {
@@ -107,30 +173,33 @@ impl<Name: Format> Format for FunctionClauses<Name> {
     }
 }
 
-impl<Name: Format2 + Clone> Format2 for FunctionClauses<Name> {
-    fn format2(&self, fmt: &mut Formatter2) {
-        if self.0.items().len() == 1 && self.0.items()[0].body.exprs().len() == 1 {
-            self.0
-                .clone()
-                .map(|clause| FunctionClause {
-                    name: clause.name,
-                    params: clause.params,
-                    body: MaybeOnelineBody(clause.body),
-                })
-                .format2(fmt);
-        } else {
-            self.0.format2(fmt);
-        }
-        fmt.subregion(
-            Indent::Inherit,
-            Newline::If(NewlineIf {
-                multi_line_parent: true,
-                ..Default::default()
-            }),
-            |_| {},
-        );
-    }
-}
+// TODO
+// impl<Name: Format2 + Clone> Format2 for FunctionClauses<Name> {
+//     fn format2(&self, fmt: &mut Formatter2) {
+//         if self.0.items().len() == 1 && self.0.items()[0].body.exprs().len() == 1 {
+//             self.0
+//                 .clone()
+//                 .map(|clause| FunctionClause {
+//                     name: clause.name,
+//                     params: clause.params,
+//                     body: MaybeOnelineBody(clause.body),
+//                 })
+//                 .format2(fmt);
+//         } else {
+//             self.0.format2(fmt);
+//             //fmt.add_newline(self.0.start_position());
+//         }
+//         // TODO: remove
+//         // fmt.subregion(
+//         //     Indent::Inherit,
+//         //     Newline::If(NewlineIf {
+//         //         multi_line_parent: true,
+//         //         ..Default::default()
+//         //     }),
+//         //     |_| {},
+//         // );
+//     }
+// }
 
 #[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub(crate) struct FunctionClause<Name, B = Body> {
@@ -218,6 +287,11 @@ mod tests {
             "fun Foo() -> hi end",
             indoc::indoc! {"
             %---10---|%---20---|
+            fun Foo() ->
+                    hello
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
             fun Foo(a) ->
                     a;
                 Foo(A) ->
@@ -234,7 +308,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
+            //crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }

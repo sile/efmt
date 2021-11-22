@@ -31,9 +31,10 @@ pub struct Formatter2 {
     text: Arc<String>,
     macros: Arc<BTreeMap<Position, Macro>>,
     comments: Arc<BTreeMap<Position, CommentToken>>,
+    last_comment_or_macro_position: Option<Position>,
     next_position: Position,
     last_token: Option<VisibleToken>,
-    regino_seqno: usize,
+    regino_seqno: usize, // TODO: delete
 }
 
 impl Formatter2 {
@@ -47,6 +48,7 @@ impl Formatter2 {
             macros: Arc::new(macros),
             comments: Arc::new(comments),
             item: Item::new(),
+            last_comment_or_macro_position: None,
             next_position: Position::new(0, 0, 0),
             last_token: None,
             regino_seqno: 1,
@@ -60,6 +62,7 @@ impl Formatter2 {
             macros: Arc::clone(&self.macros),
             comments: Arc::clone(&self.comments),
             next_position: item.start_position(),
+            last_comment_or_macro_position: None,
             last_token: None,
             regino_seqno: 1,
         };
@@ -68,16 +71,23 @@ impl Formatter2 {
     }
 
     pub fn add_token(&mut self, token: VisibleToken) {
+        let start_position = token.start_position();
+        let end_position = token.end_position();
+
+        self.add_macros_and_comments(start_position);
+
+        if start_position < self.next_position {
+            // Macro expanded token.
+            self.item.cancel_whitespaces();
+            return;
+        }
+
         if let Some(last) = &self.last_token {
             if last.needs_space(&token) {
                 self.add_space();
             }
         }
 
-        let start_position = token.start_position();
-        let end_position = token.end_position();
-
-        self.add_macros_and_comments(start_position);
         self.last_token = Some(token.clone());
         self.item.add_token(token);
 
@@ -94,21 +104,38 @@ impl Formatter2 {
     }
 
     fn add_macros_and_comments(&mut self, next_position: Position) {
-        // TODO: handle macro
+        if self.last_comment_or_macro_position == Some(next_position) {
+            return;
+        }
         loop {
             let next_comment_start = self.next_comment_start();
-            if next_position < next_comment_start {
+            let next_macro_start = self.next_macro_start();
+            if next_position < next_comment_start && next_position < next_macro_start {
                 break;
             }
 
-            let comment = self.comments[&next_comment_start].clone();
-            self.next_position = comment.end_position();
-            comment.format2(self);
+            if next_comment_start < next_macro_start {
+                let comment = self.comments[&next_comment_start].clone();
+                self.last_comment_or_macro_position = Some(next_comment_start);
+                comment.format2(self);
+            } else {
+                let r#macro = self.macros[&next_macro_start].clone();
+                self.last_comment_or_macro_position = Some(next_macro_start);
+                r#macro.format2(self);
+            }
         }
     }
 
     fn next_comment_start(&self) -> Position {
         self.comments
+            .range(self.next_position..)
+            .next()
+            .map(|(k, _)| *k)
+            .unwrap_or_else(|| Position::new(usize::MAX, usize::MAX, usize::MAX))
+    }
+
+    fn next_macro_start(&self) -> Position {
+        self.macros
             .range(self.next_position..)
             .next()
             .map(|(k, _)| *k)
@@ -131,6 +158,10 @@ impl Formatter2 {
     where
         F: FnOnce(&mut Self),
     {
+        // if self.skip_whitespace && matches!(newline, Newline::Always) {
+        //     newline = Newline::Never;
+        // }
+
         let parent = std::mem::replace(
             &mut self.item,
             Item::Region {
@@ -143,10 +174,15 @@ impl Formatter2 {
         self.regino_seqno += 1;
         f(self);
         let child = std::mem::replace(&mut self.item, parent);
-        self.item.add_region(child);
+        if !child.is_empty() {
+            // TODO: If macros appears, ...
+            self.item.add_region(child);
+        }
     }
 
     pub fn format(mut self, max_columns: usize) -> String {
+        self.add_macros_and_comments(Position::new(usize::MAX - 1, usize::MAX, usize::MAX));
+
         let item = std::mem::replace(&mut self.item, Item::new());
         ItemToString::new(self, max_columns).into_string(&item)
     }
@@ -400,6 +436,31 @@ impl Item {
     fn add_newline(&mut self, n: usize) {
         if let Self::Region { items, .. } = self {
             items.push(Self::Newline(n));
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn cancel_whitespaces(&mut self) {
+        if let Self::Region { items, .. } = self {
+            while matches!(items.last(), Some(Self::Space(_) | Self::Newline(_))) {
+                items.pop();
+            }
+            if let Some(last @ Self::Region { .. }) = items.last_mut() {
+                last.cancel_whitespaces();
+            }
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        if let Self::Region { items, .. } = self {
+            items.iter().all(|item| match item {
+                Self::Region { items, .. } => items.is_empty(),
+                Self::Space(_) | Self::Newline(_) => true,
+                _ => false,
+            })
         } else {
             unreachable!();
         }

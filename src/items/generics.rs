@@ -173,15 +173,16 @@ impl<T, D> NonEmptyItems<T, D> {
         &self.delimiters
     }
 
-    pub fn map<F, U>(self, f: F) -> NonEmptyItems<U, D>
-    where
-        F: Fn(T) -> U,
-    {
-        NonEmptyItems {
-            items: self.items.into_iter().map(f).collect(),
-            delimiters: self.delimiters,
-        }
-    }
+    // TODO
+    // pub fn map<F, U>(self, f: F) -> NonEmptyItems<U, D>
+    // where
+    //     F: Fn(T) -> U,
+    // {
+    //     NonEmptyItems {
+    //         items: self.items.into_iter().map(f).collect(),
+    //         delimiters: self.delimiters,
+    //     }
+    // }
 }
 
 impl<T: Span, D> Span for NonEmptyItems<T, D> {
@@ -468,12 +469,13 @@ impl<T> Clauses<T> {
         self.0.items()
     }
 
-    pub fn map<F, U>(self, f: F) -> Clauses<U>
-    where
-        F: Fn(T) -> U,
-    {
-        Clauses(self.0.map(f))
-    }
+    // TODO
+    // pub fn map<F, U>(self, f: F) -> Clauses<U>
+    // where
+    //     F: Fn(T) -> U,
+    // {
+    //     Clauses(self.0.map(f))
+    // }
 }
 
 impl<T: Format> Format for Clauses<T> {

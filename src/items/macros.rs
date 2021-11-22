@@ -15,7 +15,7 @@ use std::collections::HashMap;
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
 /// - $ARG: [Token]+
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Format, Format2)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -167,6 +167,7 @@ impl Format2 for MacroReplacement {
     }
 }
 
+// TODO: Use `Null`
 #[derive(Debug, Clone)]
 struct Empty;
 
@@ -193,7 +194,13 @@ impl Format for Empty {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format2 for Empty {
+    fn format2(&self, _: &mut Formatter2) {
+        unreachable!();
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 enum MacroArgs {
     Empty(Args<Empty>),
     Args(Args<MacroArg>),
@@ -348,6 +355,16 @@ impl Format for MacroArg {
     }
 }
 
+impl Format2 for MacroArg {
+    fn format2(&self, fmt: &mut Formatter2) {
+        if let Some(expr) = &self.expr {
+            expr.format2(fmt);
+        } else {
+            fmt.add_span(self);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::items::module::Module;
@@ -387,17 +404,18 @@ mod tests {
             -define(FOO_CLOSE,
                     )).
             foo(A) ->
-                ?FOO_OPEN A ?FOO_CLOSE.
+                ?FOO_OPEN A?FOO_CLOSE.
             "},
             indoc::indoc! {"
             -define(EMPTY, ).
 
-            ?EMPTY hello ?EMPTY () ->
-                ?EMPTY ?EMPTY world.
+            ?EMPTY hello?EMPTY() ->
+                ?EMPTY?EMPTY world.
             ?EMPTY"},
         ];
         for text in texts {
-            crate::assert_format!(text, Module);
+            // crate::assert_format!(text, Module);
+            crate::assert_format2!(text, Module);
         }
     }
 
@@ -464,9 +482,20 @@ mod tests {
             foo() ->
                 ?FOO() + 10.
             "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO,
+                    begin
+                        1,
+                        2
+                    end).
+            foo() ->
+                ?FOO.
+            "},
         ];
         for text in texts {
-            crate::assert_format!(text, Module);
+            //crate::assert_format!(text, Module);
+            crate::assert_format2!(text, Module);
         }
     }
 

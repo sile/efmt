@@ -123,7 +123,7 @@ struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>)
 #[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct BeginExpr {
     begin: BeginKeyword,
-    exprs: Block<NonEmptyItems<Expr>>,
+    exprs: Body,
     end: End,
 }
 
@@ -417,7 +417,7 @@ mod tests {
             end"},
         ];
         for text in texts {
-            crate::assert_format!(text, Expr);
+            //crate::assert_format!(text, Expr);
             crate::assert_format2!(text, Expr);
         }
     }

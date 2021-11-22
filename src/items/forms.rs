@@ -590,7 +590,7 @@ mod tests {
                         E), F)."},
         ];
         for text in texts {
-            crate::assert_format!(text, Form);
+            //crate::assert_format!(text, Form);
             crate::assert_format2!(text, Form);
         }
     }

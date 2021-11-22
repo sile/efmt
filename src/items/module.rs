@@ -1,4 +1,5 @@
 use crate::format::{self, Format};
+use crate::format2::{Format2, Formatter2};
 use crate::items::Form;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
@@ -30,5 +31,14 @@ impl Format for Module {
             fmt.write_newline()?;
         }
         Ok(())
+    }
+}
+
+impl Format2 for Module {
+    fn format2(&self, fmt: &mut Formatter2) {
+        for form in &self.forms {
+            form.format2(fmt);
+            fmt.add_newline();
+        }
     }
 }

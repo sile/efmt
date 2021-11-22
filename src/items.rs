@@ -21,7 +21,7 @@ pub use self::macros::Macro;
 pub use self::module::Module;
 
 /// One of [forms].
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse, Format, Format2)]
 pub struct Form(self::forms::Form);
 
 /// One of [types].
