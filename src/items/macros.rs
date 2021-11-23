@@ -104,7 +104,6 @@ impl MacroName {
 #[derive(Debug, Clone)]
 pub(crate) struct MacroReplacement {
     tokens: Vec<LexicalToken>,
-    expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
     start_position: Position,
 }
 
@@ -132,16 +131,12 @@ impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         ts.enter_macro_replacement(|ts| {
             let start_position = ts.next_token_start_position()?;
-            let expr = ts
-                .peek::<(Expr, (CloseParenSymbol, DotSymbol))>()
-                .map(|(expr, _)| expr);
             let mut tokens = Vec::new();
             while ts.peek::<(CloseParenSymbol, DotSymbol)>().is_none() {
                 tokens.push(ts.parse()?);
             }
             Ok(Self {
                 tokens,
-                expr,
                 start_position,
             })
         })
@@ -150,11 +145,7 @@ impl Parse for MacroReplacement {
 
 impl Format for MacroReplacement {
     fn format(&self, fmt: &mut Formatter) {
-        if let Some(expr) = &self.expr {
-            expr.format(fmt);
-        } else {
-            fmt.add_span(self);
-        }
+        fmt.add_span(self);
     }
 }
 
@@ -220,7 +211,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseParen => {
                         if level.paren == 0 {
-                            todo!("{:?}", ts.current_position());
+                            todo!("{:?}", ts.next_token_start_position()?);
                         }
                         level.paren -= 1;
                     }
@@ -229,7 +220,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseBrace => {
                         if level.brace == 0 {
-                            todo!("{:?}", ts.current_position());
+                            todo!("{:?}", ts.next_token_start_position()?);
                         }
                         level.brace -= 1;
                     }
@@ -238,7 +229,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::CloseSquare => {
                         if level.square == 0 {
-                            todo!("{:?}", ts.current_position());
+                            todo!("{:?}", ts.next_token_start_position()?);
                         }
 
                         level.square -= 1;
@@ -248,7 +239,7 @@ impl Parse for MacroArg {
                     }
                     Symbol::DoubleRightAngle => {
                         if level.bits == 0 {
-                            todo!("{:?}", ts.current_position());
+                            todo!("{:?}", ts.next_token_start_position()?);
                         }
                         level.bits -= 1;
                     }
@@ -271,7 +262,7 @@ impl Parse for MacroArg {
                     }
                     Keyword::End => {
                         if level.block == 0 {
-                            todo!("{:?}", ts.current_position());
+                            todo!("{:?}", ts.next_token_start_position()?);
                         }
                         level.block -= 1;
                     }

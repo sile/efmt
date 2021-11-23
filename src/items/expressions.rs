@@ -79,7 +79,7 @@ impl Parse for BaseExpr {
             },
             Some(_) => ts.parse().map(Self::Literal),
             None => Err(parse::Error::UnexpectedEof {
-                position: ts.current_position(),
+                position: ts.next_token_start_position()?,
             }),
         }?;
 

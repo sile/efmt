@@ -40,7 +40,7 @@ impl Parse for LexicalToken {
         if let Some(token) = ts.next().transpose()? {
             Ok(token)
         } else {
-            let position = ts.current_position();
+            let position = ts.next_token_start_position()?;
             Err(parse::Error::UnexpectedEof { position })
         }
     }

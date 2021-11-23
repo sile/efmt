@@ -109,20 +109,12 @@ impl TokenStream {
         result
     }
 
-    pub fn shared_text(&self) -> Arc<String> {
+    pub fn text(&self) -> Arc<String> {
         Arc::clone(&self.text)
     }
 
-    pub fn shared_path(&self) -> Option<Arc<PathBuf>> {
+    pub fn filepath(&self) -> Option<Arc<PathBuf>> {
         self.path.clone()
-    }
-
-    pub fn filepath(&self) -> Option<PathBuf> {
-        self.tokenizer.next_position().filepath().cloned()
-    }
-
-    pub fn text(&self) -> &str {
-        self.tokenizer.text()
     }
 
     pub fn comments(&self) -> &BTreeMap<Position, CommentToken> {
@@ -138,11 +130,6 @@ impl TokenStream {
         let eof = self.next().transpose()?.is_none();
         self.current_token_index = index;
         Ok(eof)
-    }
-
-    // TODO: delete or rename (should only be used for EOF)
-    pub fn current_position(&self) -> Position {
-        self.tokenizer.next_position().into()
     }
 
     pub fn enter_macro_replacement<F, T>(&mut self, f: F) -> Result<T>

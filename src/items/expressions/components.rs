@@ -189,7 +189,7 @@ impl Parse for BinaryOp {
             },
             Some(token) => Err(parse::Error::unexpected_token(ts, token)),
             None => Err(parse::Error::UnexpectedEof {
-                position: ts.current_position(),
+                position: ts.next_token_start_position()?,
             }),
         }
     }

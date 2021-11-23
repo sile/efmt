@@ -28,8 +28,8 @@ impl Error {
     pub fn unexpected_token(ts: &TokenStream, token: LexicalToken) -> Self {
         Self::UnexpectedToken {
             position: token.start_position(),
-            text: ts.shared_text(),
-            path: ts.shared_path(),
+            text: ts.text(),
+            path: ts.filepath(),
         }
     }
 

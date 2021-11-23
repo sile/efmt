@@ -76,7 +76,7 @@ impl FormatOptions {
         let mut ts = TokenStream::new(tokenizer, self.token_stream);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(
-            ts.text().to_owned(),
+            ts.text().as_ref().clone(),
             ts.macros().clone(),
             ts.comments().clone(),
         );
