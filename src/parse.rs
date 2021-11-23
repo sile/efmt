@@ -4,28 +4,34 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub use self::token_stream::{TokenStream, TokenStreamOptions};
+
+/// A procedural macro to derive [Parse].
 pub use efmt_derive::Parse;
 
 mod token_stream;
 
+/// Possible errors.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("unexpected EOF")]
+    /// Unexpected EOF.
+    #[error("Parse failed: Unexpected EOF")]
     UnexpectedEof { position: Position },
 
-    #[error("{}", unexpected_token_error_message(.position, .text, .path))]
+    /// Unexpected token.
+    #[error("Parse failed: {}", unexpected_token_error_message(.position, .text, .path))]
     UnexpectedToken {
         position: Position,
         text: Arc<String>,
         path: Option<Arc<PathBuf>>,
     },
 
+    /// Error during tokenization.
     #[error(transparent)]
     TokenizeError(#[from] erl_tokenize::Error),
 }
 
 impl Error {
-    pub fn unexpected_token(ts: &TokenStream, token: LexicalToken) -> Self {
+    pub(crate) fn unexpected_token(ts: &TokenStream, token: LexicalToken) -> Self {
         Self::UnexpectedToken {
             position: token.start_position(),
             text: ts.text(),
@@ -33,7 +39,7 @@ impl Error {
         }
     }
 
-    pub fn position(&self) -> Position {
+    pub(crate) fn position(&self) -> Position {
         match self {
             Self::UnexpectedEof { position } => *position,
             Self::UnexpectedToken { position, .. } => *position,
@@ -79,9 +85,12 @@ fn get_line_string<'a>(text: &'a str, position: &Position) -> &'a str {
     (&text[line_start..line_end]).trim_matches(char::is_control)
 }
 
+/// A specialized [Result][std::result::Result] type for this module.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// This trait allows parsing an item from a token stream.
 pub trait Parse: Sized {
+    /// Parse an item from the given token stream.
     fn parse(ts: &mut TokenStream) -> Result<Self>;
 }
 
@@ -97,7 +106,11 @@ impl<A: Parse, B: Parse> Parse for (A, B) {
     }
 }
 
+/// This trait allows resuming to parse an item from a token stream.
 pub trait ResumeParse<A>: Parse {
+    /// Resume to parse an item from the given token stream.
+    ///
+    /// The second argument is the item that has already been parsed from the stream.
     fn resume_parse(ts: &mut TokenStream, args: A) -> Result<Self>;
 }
 
