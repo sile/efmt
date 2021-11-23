@@ -18,7 +18,7 @@ use std::collections::HashMap;
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
-    args: Maybe<MacroArgs>,
+    args: Maybe<Args<MacroArg>>,
 }
 
 impl Macro {
@@ -160,48 +160,6 @@ impl Format for MacroReplacement {
     }
 }
 
-// TODO: Use `Null`
-#[derive(Debug, Clone)]
-struct Empty;
-
-impl Span for Empty {
-    fn start_position(&self) -> Position {
-        unreachable!()
-    }
-
-    fn end_position(&self) -> Position {
-        unreachable!()
-    }
-}
-
-impl Parse for Empty {
-    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        let token = ts.parse()?;
-        Err(parse::Error::unexpected_token(ts, token))
-    }
-}
-
-impl Format for Empty {
-    fn format(&self, _: &mut Formatter) {
-        unreachable!();
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-enum MacroArgs {
-    Empty(Args<Empty>),
-    Args(Args<MacroArg>),
-}
-
-impl MacroArgs {
-    fn get(&self) -> &[MacroArg] {
-        match self {
-            Self::Empty(_) => &[],
-            Self::Args(x) => x.get(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 struct MacroArg {
     tokens: Vec<LexicalToken>,
@@ -228,6 +186,11 @@ impl Span for MacroArg {
 
 impl Parse for MacroArg {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        if ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_some() {
+            let token = ts.parse()?;
+            return Err(parse::Error::unexpected_token(ts, token));
+        }
+
         let mut expr = ts.peek::<Expr>();
 
         #[derive(Debug, Default, PartialEq, Eq)]
