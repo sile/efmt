@@ -5,7 +5,7 @@ use crate::items::atoms::{
     TypeAtom,
 };
 use crate::items::expressions::components::FunctionClause;
-use crate::items::generics::{
+use crate::items::components::{
     Clauses, Either, Element, Items, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
 use crate::items::keywords::IfKeyword;

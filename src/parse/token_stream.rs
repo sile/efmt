@@ -1,5 +1,5 @@
 use crate::items::forms::{DefineDirective, IncludeDirective};
-use crate::items::generics::Either;
+use crate::items::components::Either;
 use crate::items::macros::{Macro, MacroName};
 use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{

@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::generics::MapLike;
+use crate::items::components::MapLike;
 use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;

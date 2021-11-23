@@ -253,7 +253,7 @@ pub fn derive_element_trait(input: proc_macro::TokenStream) -> proc_macro::Token
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let is_packable = generate_is_packable_method_body(&input.data);
     let expanded = quote! {
-        impl #impl_generics crate::items::generics::Element for #name #ty_generics #where_clause {
+        impl #impl_generics crate::items::components::Element for #name #ty_generics #where_clause {
             fn is_packable(&self) -> bool {
                 #is_packable
             }
@@ -267,7 +267,7 @@ fn add_element_trait_bounds(mut generics: Generics) -> Generics {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param
                 .bounds
-                .push(parse_quote!(crate::items::generics::Element));
+                .push(parse_quote!(crate::items::components::Element));
         }
     }
     generics

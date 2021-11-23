@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::generics::{Args, Either, Maybe};
+use crate::items::components::{Args, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };

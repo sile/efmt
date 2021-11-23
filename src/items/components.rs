@@ -1,4 +1,3 @@
-// s/generics/components/
 use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{

@@ -1,7 +1,7 @@
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
-use crate::items::generics::{Clauses, Maybe, Null};
+use crate::items::components::{Clauses, Maybe, Null};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;

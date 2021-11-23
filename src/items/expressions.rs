@@ -5,7 +5,7 @@ use self::functions::FunctionExpr;
 use self::lists::ListExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::Format;
-use crate::items::generics::{Either, Element, Parenthesized};
+use crate::items::components::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, LexicalToken, SymbolToken, VariableToken,

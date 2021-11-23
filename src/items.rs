@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::generics::Element;
+use crate::items::components::Element;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -9,7 +9,7 @@ pub mod tokens;
 pub mod types;
 
 pub(crate) mod atoms;
-pub(crate) mod generics;
+pub(crate) mod components;
 pub(crate) mod keywords;
 pub(crate) mod macros;
 pub(crate) mod symbols;

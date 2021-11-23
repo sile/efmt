@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::generics::Element;
+use crate::items::components::Element;
 use crate::items::tokens::StringToken;
 use crate::parse::{self, Parse};
 use crate::span::{Position, Span};

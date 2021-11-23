@@ -3,7 +3,7 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter};
-use crate::items::generics::{
+use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
     NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
 };

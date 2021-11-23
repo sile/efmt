@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::generics::Element;
+use crate::items::components::Element;
 use crate::items::tokens::AtomToken;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::Span;

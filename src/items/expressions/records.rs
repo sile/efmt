@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::items::expressions::Either;
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
+use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;

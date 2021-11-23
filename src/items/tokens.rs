@@ -1,6 +1,6 @@
 //! Erlang tokens.
 use crate::format::{Format, Formatter};
-use crate::items::generics::Element;
+use crate::items::components::Element;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};

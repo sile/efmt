@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::generics::{
+use crate::items::components::{
     BinaryOpLike, BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
 };
 use crate::items::keywords;

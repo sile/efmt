@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::generics::{BinaryOpStyle, Either, Element};
+use crate::items::components::{BinaryOpStyle, Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     RemKeyword,

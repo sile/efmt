@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::generics::TupleLike;
+use crate::items::components::TupleLike;
 use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;

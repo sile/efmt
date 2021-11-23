@@ -13,7 +13,7 @@ pub trait Span {
         if self.start_position() <= self.end_position() {
             self.end_position().offset() - self.start_position().offset()
         } else {
-            // This branch is for `crate::items::generics::Maybe<T>` that
+            // This branch is for `crate::items::components::Maybe<T>` that
             // can have a smaller end position than the start position
             // if `T` is missing and there are whitespaces between previous and next tokens.
             0
