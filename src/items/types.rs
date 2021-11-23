@@ -1,51 +1,27 @@
 //! Erlang types.
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
+use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter};
 use crate::items::generics::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
     NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
 };
-use crate::items::keywords::{
-    BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
-    FunKeyword, RemKeyword,
-};
+use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
-    ColonSymbol, DoubleColonSymbol, DoubleDotSymbol, HyphenSymbol, MultiplySymbol, PlusSymbol,
-    RightArrowSymbol, SharpSymbol, TripleDotSymbol, VerticalBarSymbol,
+    ColonSymbol, DoubleColonSymbol, RightArrowSymbol, SharpSymbol, TripleDotSymbol,
+    VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
-use crate::items::variables::UnderscoreVariable;
 use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
-#[derive(Debug, Clone, Span, Format)]
-enum NonUnionType {
-    BinaryOp(Box<BinaryOpType>),
-    NonLeftRecursive(NonLeftRecursiveType),
-}
-
-impl Parse for NonUnionType {
-    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        let expr: NonLeftRecursiveType = ts.parse()?;
-        if ts.peek::<BinaryOp>().is_some() {
-            ts.resume_parse(expr).map(Self::BinaryOp)
-        } else {
-            Ok(Self::NonLeftRecursive(expr))
-        }
-    }
-}
+pub mod components;
 
 /// [Type] `|` [Type]
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
-
-impl Format for UnionType {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-    }
-}
 
 #[derive(Debug, Clone, Span, Parse)]
 struct UnionDelimiter(VerticalBarSymbol);
@@ -58,8 +34,26 @@ impl Format for UnionDelimiter {
     }
 }
 
+#[derive(Debug, Clone, Span, Format)]
+enum NonUnionType {
+    Base(BaseType),
+    BinaryOp(Box<BinaryOpType>),
+}
+
+impl Parse for NonUnionType {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let expr: BaseType = ts.parse()?;
+        if ts.peek::<BinaryOp>().is_some() {
+            ts.resume_parse(expr).map(Self::BinaryOp)
+        } else {
+            Ok(Self::Base(expr))
+        }
+    }
+}
+
+// Non left-recursive type.
 #[derive(Debug, Clone, Span, Parse, Format)]
-enum NonLeftRecursiveType {
+enum BaseType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
     Tuple(Box<TupleType>),
@@ -91,70 +85,19 @@ impl Format for AnnotatedVariableType {
     }
 }
 
-/// [Type] `$OP` [Type]
-///
-/// - $OP: [BinaryOp]
-#[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpType(BinaryOpLike<NonLeftRecursiveType, BinaryOp, Type>);
+/// [Type] [BinaryOp] [Type]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct BinaryOpType(BinaryOpLike<BaseType, BinaryOp, Type>);
 
-impl Format for BinaryOpType {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-    }
-}
-
-impl ResumeParse<NonLeftRecursiveType> for BinaryOpType {
-    fn resume_parse(
-        ts: &mut parse::TokenStream,
-        left: NonLeftRecursiveType,
-    ) -> parse::Result<Self> {
+impl ResumeParse<BaseType> for BinaryOpType {
+    fn resume_parse(ts: &mut parse::TokenStream, left: BaseType) -> parse::Result<Self> {
         ts.resume_parse(left).map(Self)
     }
 }
 
-/// `*` | `+` | `-` | `div` | `rem` | `band` | `bor` | `bxor` | `bsl` | `bsr` | `..`
+/// [UnaryOp] [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub enum BinaryOp {
-    Mul(MultiplySymbol),
-    Plus(PlusSymbol),
-    Minus(HyphenSymbol),
-    Div(DivKeyword),
-    Rem(RemKeyword),
-    Band(BandKeyword),
-    Bor(BorKeyword),
-    Bxor(BxorKeyword),
-    Bsl(BslKeyword),
-    Bsr(BsrKeyword),
-    Range(DoubleDotSymbol),
-}
-
-impl BinaryOpStyle for BinaryOp {
-    fn indent_offset(&self) -> usize {
-        0
-    }
-
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        true
-    }
-}
-
-/// `$OP` [Type]
-///
-/// - $OP: [UnaryOp]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpType(UnaryOpLike<UnaryOp, NonLeftRecursiveType>);
-
-/// `+` | `-` | `bnot`
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub enum UnaryOp {
-    Plus(PlusSymbol),
-    Minus(HyphenSymbol),
-    Bnot(BnotKeyword),
-}
+pub struct UnaryOpType(UnaryOpLike<UnaryOp, BaseType>);
 
 /// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`
 ///
@@ -283,31 +226,6 @@ impl BinaryOpStyle for DoubleColonDelimiter {
 /// - $UNIT_SIZE: `_` `:` `_` `*` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringType(BitstringLike<BitstringItem>);
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct BitstringItem(Either<BitstringUnitSize, BitstringBitsSize>);
-
-impl Element for BitstringItem {
-    fn is_packable(&self) -> bool {
-        false
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct BitstringBitsSize {
-    underscore: UnderscoreVariable,
-    colon: ColonSymbol,
-    size: Type,
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct BitstringUnitSize {
-    underscore0: UnderscoreVariable,
-    colon: ColonSymbol,
-    underscore1: UnderscoreVariable,
-    mul: MultiplySymbol,
-    size: Type,
-}
 
 #[cfg(test)]
 mod tests {
