@@ -145,6 +145,16 @@ impl Parse for MacroReplacement {
 
 impl Format for MacroReplacement {
     fn format(&self, fmt: &mut Formatter) {
+        if let Ok(expr) = fmt
+            .token_stream_mut()
+            .parse_tokens::<Expr>(self.tokens.clone())
+        {
+            if expr.end_position() == self.end_position() {
+                expr.format(fmt);
+                return;
+            }
+        }
+
         fmt.add_span(self);
     }
 }
@@ -152,9 +162,6 @@ impl Format for MacroReplacement {
 #[derive(Debug, Clone)]
 struct MacroArg {
     tokens: Vec<LexicalToken>,
-
-    // TODO: Support macros in a macro arg
-    expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
 }
 
 impl MacroArg {
@@ -179,8 +186,6 @@ impl Parse for MacroArg {
             let token = ts.parse()?;
             return Err(parse::Error::unexpected_token(ts, token));
         }
-
-        let mut expr = ts.peek::<Expr>();
 
         #[derive(Debug, Default, PartialEq, Eq)]
         struct Level {
@@ -273,24 +278,23 @@ impl Parse for MacroArg {
             tokens.push(token);
         }
 
-        let is_expr = expr.as_ref().map_or(false, |x| {
-            x.end_position() == tokens[tokens.len() - 1].end_position()
-        });
-        if !is_expr {
-            expr = None;
-        }
-
-        Ok(Self { tokens, expr })
+        Ok(Self { tokens })
     }
 }
 
 impl Format for MacroArg {
     fn format(&self, fmt: &mut Formatter) {
-        if let Some(expr) = &self.expr {
-            expr.format(fmt);
-        } else {
-            fmt.add_span(self);
+        if let Ok(expr) = fmt
+            .token_stream_mut()
+            .parse_tokens::<Expr>(self.tokens.clone())
+        {
+            if expr.end_position() == self.end_position() {
+                expr.format(fmt);
+                return;
+            }
         }
+
+        fmt.add_span(self);
     }
 }
 
@@ -484,7 +488,7 @@ mod tests {
             -define(a(X), X X).
             foo() ->
                 1 ?a(?a(+1)).
-            "}, // TODO
+            "},
         ];
         for text in texts {
             crate::assert_format!(text, Module);
@@ -497,7 +501,9 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -define(BAR,
-                    ?FOO 1 end).
+                    ?FOO
+                        1
+                    end).
             -define(FOO, begin).
             baz() ->
                 ?BAR.

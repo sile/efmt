@@ -14,11 +14,7 @@ macro_rules! assert_format {
 
         let mut ts = crate::parse::TokenStream::new(tokenizer, Default::default());
         let item: $item_type = ts.parse().expect("cannot parse");
-        let mut formatter = crate::format::Formatter::new(
-            ts.text().as_ref().clone(),
-            ts.macros().clone(),
-            ts.comments().clone(),
-        );
+        let mut formatter = crate::format::Formatter::new(ts);
         item.format(&mut formatter);
         let formatted = formatter.format(20);
 

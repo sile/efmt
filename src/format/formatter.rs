@@ -1,32 +1,22 @@
 use crate::format::region::{Error, RegionConfig, RegionWriter, Result};
 use crate::format::Format;
-use crate::items::macros::Macro;
-use crate::items::tokens::{CommentToken, VisibleToken};
+use crate::items::tokens::VisibleToken;
+use crate::parse::TokenStream;
 use crate::span::{Position, Span};
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Formatter {
+    ts: TokenStream,
     item: Item,
-    text: Arc<String>,
-    macros: Arc<BTreeMap<Position, Macro>>,
-    comments: Arc<BTreeMap<Position, CommentToken>>,
     last_comment_or_macro_position: Option<Position>,
     next_position: Position,
     last_token: Option<VisibleToken>,
 }
 
 impl Formatter {
-    pub fn new(
-        text: String,
-        macros: BTreeMap<Position, Macro>,
-        comments: BTreeMap<Position, CommentToken>,
-    ) -> Self {
+    pub fn new(ts: TokenStream) -> Self {
         Self {
-            text: Arc::new(text),
-            macros: Arc::new(macros),
-            comments: Arc::new(comments),
+            ts,
             item: Item::new(),
             last_comment_or_macro_position: None,
             next_position: Position::new(0, 0, 0),
@@ -83,11 +73,11 @@ impl Formatter {
             }
 
             if next_comment_start < next_macro_start {
-                let comment = self.comments[&next_comment_start].clone();
+                let comment = self.ts.comments()[&next_comment_start].clone();
                 self.last_comment_or_macro_position = Some(next_comment_start);
                 comment.format(self);
             } else {
-                let r#macro = self.macros[&next_macro_start].clone();
+                let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
             }
@@ -95,7 +85,8 @@ impl Formatter {
     }
 
     fn next_comment_start(&self) -> Position {
-        self.comments
+        self.ts
+            .comments()
             .range(self.next_position..)
             .next()
             .map(|(k, _)| *k)
@@ -103,7 +94,8 @@ impl Formatter {
     }
 
     fn next_macro_start(&self) -> Position {
-        self.macros
+        self.ts
+            .macros()
             .range(self.next_position..)
             .next()
             .map(|(k, _)| *k)
@@ -130,10 +122,6 @@ impl Formatter {
     where
         F: FnOnce(&mut Self),
     {
-        // if self.skip_whitespace && matches!(newline, Newline::Always) {
-        //     newline = Newline::Never;
-        // }
-
         let parent = std::mem::replace(
             &mut self.item,
             Item::Region {
@@ -148,6 +136,10 @@ impl Formatter {
             // TODO: If macros appears, ...
             self.item.add_region(child);
         }
+    }
+
+    pub fn token_stream_mut(&mut self) -> &mut TokenStream {
+        &mut self.ts
     }
 
     pub fn format(mut self, max_columns: usize) -> String {
@@ -207,12 +199,12 @@ impl ItemToString {
     }
 
     fn format_token(&mut self, token: &VisibleToken) -> Result<()> {
-        self.writer.write_item(&self.fmt.text, token)
+        self.writer.write_item(&self.fmt.ts.text(), token)
     }
 
     fn format_span(&mut self, start_position: Position, end_position: Position) -> Result<()> {
         self.writer
-            .write_item(&self.fmt.text, &(start_position, end_position))
+            .write_item(&self.fmt.ts.text(), &(start_position, end_position))
     }
 
     fn format_space(&mut self, n: usize) -> Result<()> {

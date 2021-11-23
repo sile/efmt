@@ -51,6 +51,7 @@ pub struct TokenStream {
     included: HashSet<String>,
     parsing_macro_replacement: bool,
     parsing_macro_arg: bool,
+    parsing_tokens: bool,
     options: TokenStreamOptions,
     text: Arc<String>,
     path: Option<Arc<PathBuf>>,
@@ -75,10 +76,25 @@ impl TokenStream {
             included: HashSet::new(),
             parsing_macro_replacement: false,
             parsing_macro_arg: false,
+            parsing_tokens: false,
             options,
             text,
             path,
         }
+    }
+
+    pub fn parse_tokens<T: Parse>(&mut self, tokens: Vec<LexicalToken>) -> Result<T> {
+        let old_tokens = std::mem::replace(&mut self.tokens, tokens);
+        let old_index = self.current_token_index;
+        self.current_token_index = 0;
+
+        self.parsing_tokens = true;
+        let result = self.parse();
+        self.parsing_tokens = false;
+
+        let _ = std::mem::replace(&mut self.tokens, old_tokens);
+        self.current_token_index = old_index;
+        result
     }
 
     pub fn parse<T: Parse>(&mut self) -> Result<T> {
@@ -186,6 +202,9 @@ impl TokenStream {
             }
 
             return Ok(Some(token));
+        }
+        if self.parsing_tokens {
+            return Ok(None);
         }
 
         while let Some(token) = self.tokenizer.next().transpose()? {

@@ -75,11 +75,7 @@ impl FormatOptions {
     ) -> anyhow::Result<String> {
         let mut ts = TokenStream::new(tokenizer, self.token_stream);
         let item: T = ts.parse()?;
-        let mut formatter = Formatter::new(
-            ts.text().as_ref().clone(),
-            ts.macros().clone(),
-            ts.comments().clone(),
-        );
+        let mut formatter = Formatter::new(ts);
         item.format(&mut formatter);
         let formatted_text = formatter.format(self.max_columns);
         Ok(formatted_text)
