@@ -1,11 +1,11 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::expressions::{BaseExpr, Expr, Qualifier};
-use crate::items::generics::{
-    BinaryOpLike, BinaryOpStyle, BitstringLike, Element, Maybe, NonEmptyItems,
-};
+use crate::format::{Format, Formatter};
+use crate::items::expressions::components::ComprehensionExpr;
+use crate::items::expressions::BaseExpr;
+#[cfg(doc)]
+use crate::items::expressions::Expr;
+use crate::items::generics::{BitstringLike, Element, Maybe, NonEmptyItems};
 use crate::items::symbols::{
-    ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, DoubleVerticalBarSymbol,
-    HyphenSymbol, SlashSymbol,
+    ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, HyphenSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken};
 use crate::parse::Parse;
@@ -25,43 +25,15 @@ pub enum BitstringExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
-/// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
-// TODO: Use `ComprehensionLike`
-#[derive(Debug, Clone, Span, Parse)]
-pub struct BitstringComprehensionExpr {
-    open: DoubleLeftAngleSymbol,
-    body: ComprehensionBody,
-    close: DoubleRightAngleSymbol,
-}
-
-impl Format for BitstringComprehensionExpr {
-    fn format(&self, fmt: &mut Formatter) {
-        self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.body.format(fmt)
-        });
-        self.close.format(fmt);
-    }
-}
-
-type ComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
-
+/// `<<` [Expr] `||` (`$QUALIFIER` `,`?)+  `>>`
+///
+/// - $QUALIFIER: (`$GENERATOR` | `$FILTER` `,`?)+
+/// - $GENERATOR: `Expr` (`<-` | `<=`) `Expr`
+/// - $FILTER: `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
-
-impl BinaryOpStyle for ComprehensionDelimiter {
-    fn indent_offset(&self) -> usize {
-        2
-    }
-
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
-    }
-}
+pub struct BitstringComprehensionExpr(
+    ComprehensionExpr<DoubleLeftAngleSymbol, DoubleRightAngleSymbol>,
+);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegment {

@@ -3,8 +3,8 @@ use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
-    DoubleRightAngleSymbol, OpenBraceSymbol, OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol,
-    SemicolonSymbol,
+    DoubleRightAngleSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
+    OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol, SharpSymbol,
 };
 use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -148,17 +148,6 @@ impl<T, D> NonEmptyItems<T, D> {
     pub fn delimiters(&self) -> &[D] {
         &self.delimiters
     }
-
-    // TODO
-    // pub fn map<F, U>(self, f: F) -> NonEmptyItems<U, D>
-    // where
-    //     F: Fn(T) -> U,
-    // {
-    //     NonEmptyItems {
-    //         items: self.items.into_iter().map(f).collect(),
-    //         delimiters: self.delimiters,
-    //     }
-    // }
 }
 
 impl<T: Span, D> Span for NonEmptyItems<T, D> {
@@ -306,6 +295,38 @@ pub struct BitstringLike<T: Element> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
+pub struct MapLike<T> {
+    sharp: SharpSymbol,
+    items: TupleLike<MapItem<T>>,
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct MapItem<T>(BinaryOpLike<T, MapDelimiter, T>);
+
+impl<T> Element for MapItem<T> {
+    fn is_packable(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
+
+impl BinaryOpStyle for MapDelimiter {
+    fn indent_offset(&self) -> usize {
+        4
+    }
+
+    fn allow_newline(&self) -> bool {
+        true
+    }
+
+    fn should_pack(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
 
 impl<T> Clauses<T> {
@@ -342,6 +363,10 @@ pub trait BinaryOpStyle {
     fn allow_newline(&self) -> bool;
 
     fn should_pack(&self) -> bool;
+
+    fn parent_indent(&self) -> bool {
+        false
+    }
 
     fn needs_left_space(&self) -> bool {
         true
@@ -397,11 +422,15 @@ impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L,
             multi_line: !self.op.should_pack(),
             ..Default::default()
         };
-        fmt.subregion(
-            Indent::Offset(self.op.indent_offset()),
-            Newline::If(newline_cond),
-            |fmt| self.right.format(fmt),
-        );
+
+        let indent = if self.op.parent_indent() {
+            Indent::ParentOffset(self.op.indent_offset())
+        } else {
+            Indent::Offset(self.op.indent_offset())
+        };
+        fmt.subregion(indent, Newline::If(newline_cond), |fmt| {
+            self.right.format(fmt)
+        });
     }
 }
 

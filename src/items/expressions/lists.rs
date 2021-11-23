@@ -1,9 +1,8 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::expressions::{Expr, Qualifier};
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, ListLike, NonEmptyItems};
-use crate::items::symbols::{
-    CloseSquareSymbol, CommaSymbol, DoubleVerticalBarSymbol, OpenSquareSymbol, VerticalBarSymbol,
-};
+use crate::format::{Format, Formatter};
+use crate::items::expressions::components::ComprehensionExpr;
+use crate::items::expressions::Expr;
+use crate::items::generics::ListLike;
+use crate::items::symbols::{CloseSquareSymbol, CommaSymbol, OpenSquareSymbol, VerticalBarSymbol};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -40,42 +39,13 @@ impl Format for ListItemDelimiter {
     }
 }
 
-/// `[` [Expr] `||` ([Qualifier] `,`?)+ `]`
-#[derive(Debug, Clone, Span, Parse)]
-pub struct ListComprehensionExpr {
-    open: OpenSquareSymbol,
-    body: ListComprehensionBody,
-    close: CloseSquareSymbol,
-}
-
-impl Format for ListComprehensionExpr {
-    fn format(&self, fmt: &mut Formatter) {
-        self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.body.format(fmt)
-        });
-        self.close.format(fmt);
-    }
-}
-
-type ListComprehensionBody = BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>;
-
+/// `[` [Expr] `||` (`$QUALIFIER` `,`?)+  `]`
+///
+/// - $QUALIFIER: (`$GENERATOR` | `$FILTER` `,`?)+
+/// - $GENERATOR: `Expr` (`<-` | `<=`) `Expr`
+/// - $FILTER: `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
-
-impl BinaryOpStyle for ComprehensionDelimiter {
-    fn indent_offset(&self) -> usize {
-        3
-    }
-
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
-    }
-}
+pub struct ListComprehensionExpr(ComprehensionExpr<OpenSquareSymbol, CloseSquareSymbol>);
 
 #[cfg(test)]
 mod tests {

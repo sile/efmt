@@ -1,7 +1,6 @@
 use crate::format::Format;
 use crate::items::expressions::Expr;
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, Element, TupleLike};
-use crate::items::symbols::{DoubleRightArrowSymbol, MapMatchSymbol, SharpSymbol};
+use crate::items::generics::MapLike;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
@@ -9,10 +8,7 @@ use crate::span::Span;
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapConstructExpr {
-    sharp: SharpSymbol,
-    items: TupleLike<MapItem>,
-}
+pub struct MapConstructExpr(MapLike<Expr>);
 
 /// `$VALUE` `#` `{` (`$ENTRY`, `,`?)* `}`
 ///
@@ -21,38 +17,15 @@ pub struct MapConstructExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapUpdateExpr {
     value: Expr,
-    sharp: SharpSymbol,
-    items: TupleLike<MapItem>,
+    map: MapLike<Expr>,
 }
 
 impl ResumeParse<Expr> for MapUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
         Ok(Self {
             value,
-            sharp: ts.parse()?,
-            items: ts.parse()?,
+            map: ts.parse()?,
         })
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Element)]
-struct MapItem(BinaryOpLike<Expr, MapDelimiter, Expr>);
-
-// TODO
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
-
-impl BinaryOpStyle for MapDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
-    }
-
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
     }
 }
 

@@ -4,8 +4,8 @@ use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::Format;
-use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, Element, Parenthesized};
-use crate::items::symbols::{DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
+use crate::items::generics::{Either, Element, Parenthesized};
+use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
 };
@@ -20,7 +20,7 @@ mod blocks;
 mod calls;
 mod functions;
 mod lists;
-pub(crate) mod maps;
+mod maps;
 mod records;
 mod strings;
 mod tuples;
@@ -184,32 +184,6 @@ pub enum LiteralExpr {
     Integer(IntegerToken),
     String(StringExpr),
     VariableToken(VariableToken),
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-enum Qualifier {
-    Generator(Generator),
-    Filter(Expr),
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
-
-impl BinaryOpStyle for GeneratorDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
-    }
-
-    fn allow_newline(&self) -> bool {
-        false
-    }
-
-    fn should_pack(&self) -> bool {
-        false
-    }
 }
 
 #[cfg(test)]

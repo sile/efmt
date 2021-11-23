@@ -3,7 +3,7 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use crate::format::{Format, Formatter};
 use crate::items::generics::{
-    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, Maybe,
+    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
     NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::{
@@ -244,13 +244,7 @@ struct TupleItem(Type);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapType {
-    sharp: SharpSymbol,
-    items: TupleLike<MapItem>,
-}
-
-#[derive(Debug, Clone, Span, Parse, Format, Element)]
-struct MapItem(BinaryOpLike<Type, crate::items::expressions::maps::MapDelimiter, Type>);
+pub struct MapType(MapLike<Type>);
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
