@@ -1,8 +1,9 @@
-pub mod erl;
 pub mod format;
 pub mod items;
 pub mod parse;
 pub mod span;
+
+pub(crate) mod erl;
 
 #[cfg(test)]
 #[macro_export]

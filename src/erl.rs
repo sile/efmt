@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::Command;
 
 pub fn erl_eval(expr: &str) -> anyhow::Result<String> {
@@ -12,8 +13,12 @@ pub fn erl_eval(expr: &str) -> anyhow::Result<String> {
         .output()?;
     anyhow::ensure!(
         output.status.success(),
-        "could not evaluate an Erlang expr: {:?}",
+        "failed to evaluate an Erlang expr: {:?}",
         expr
     );
     Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn code_lib_dir(app_name: &str) -> anyhow::Result<PathBuf> {
+    erl_eval(&format!("code:lib_dir({})", app_name)).map(PathBuf::from)
 }

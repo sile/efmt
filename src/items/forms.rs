@@ -292,13 +292,12 @@ impl IncludeDirective {
             } else {
                 return None;
             };
-            match crate::erl::erl_eval(&format!("code:lib_dir({})", app_name)) {
+            match crate::erl::code_lib_dir(app_name) {
                 Err(e) => {
                     log::warn!("{}", e);
                     None
                 }
-                Ok(base_dir) => {
-                    let mut resolved_path = PathBuf::from(base_dir);
+                Ok(mut resolved_path) => {
                     resolved_path.extend(path.components().skip(1));
                     log::debug!("Resolved include path: {:?}", resolved_path);
                     Some(resolved_path)
