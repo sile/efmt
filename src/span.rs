@@ -3,22 +3,6 @@ pub use efmt_derive::Span;
 pub trait Span {
     fn start_position(&self) -> Position;
     fn end_position(&self) -> Position;
-
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    // TODO: delete (cannot work well with macros)
-    fn len(&self) -> usize {
-        if self.start_position() <= self.end_position() {
-            self.end_position().offset() - self.start_position().offset()
-        } else {
-            // This branch is for `crate::items::components::Maybe<T>` that
-            // can have a smaller end position than the start position
-            // if `T` is missing and there are whitespaces between previous and next tokens.
-            0
-        }
-    }
 }
 
 impl<T: Span + ?Sized> Span for &T {
