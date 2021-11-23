@@ -187,66 +187,29 @@ impl Parse for MacroArg {
             return Err(parse::Error::unexpected_token(ts, token));
         }
 
-        #[derive(Debug, Default, PartialEq, Eq)]
-        struct Level {
-            paren: usize,
-            brace: usize,
-            square: usize,
-            bits: usize,
-            block: usize,
-        }
-
-        impl Level {
-            fn is_toplevel(&self) -> bool {
-                *self == Self::default()
-            }
-        }
-
         let mut tokens = Vec::new();
-        let mut level = Level::default();
+        let mut level = 0;
         while tokens.is_empty()
-            || !level.is_toplevel()
+            || level > 0
             || ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_none()
         {
             let token: LexicalToken = ts.parse()?;
             match &token {
                 LexicalToken::Symbol(x) => match x.value() {
-                    Symbol::OpenParen => {
-                        level.paren += 1;
+                    Symbol::OpenParen
+                    | Symbol::OpenBrace
+                    | Symbol::OpenSquare
+                    | Symbol::DoubleLeftAngle => {
+                        level += 1;
                     }
-                    Symbol::CloseParen => {
-                        if level.paren == 0 {
-                            todo!("{:?}", ts.next_token_start_position()?);
+                    Symbol::CloseParen
+                    | Symbol::CloseBrace
+                    | Symbol::CloseSquare
+                    | Symbol::DoubleRightAngle => {
+                        if level == 0 {
+                            return Err(parse::Error::unexpected_token(ts, token));
                         }
-                        level.paren -= 1;
-                    }
-                    Symbol::OpenBrace => {
-                        level.brace += 1;
-                    }
-                    Symbol::CloseBrace => {
-                        if level.brace == 0 {
-                            todo!("{:?}", ts.next_token_start_position()?);
-                        }
-                        level.brace -= 1;
-                    }
-                    Symbol::OpenSquare => {
-                        level.square += 1;
-                    }
-                    Symbol::CloseSquare => {
-                        if level.square == 0 {
-                            todo!("{:?}", ts.next_token_start_position()?);
-                        }
-
-                        level.square -= 1;
-                    }
-                    Symbol::DoubleLeftAngle => {
-                        level.bits += 1;
-                    }
-                    Symbol::DoubleRightAngle => {
-                        if level.bits == 0 {
-                            todo!("{:?}", ts.next_token_start_position()?);
-                        }
-                        level.bits -= 1;
+                        level -= 1;
                     }
                     _ => {}
                 },
@@ -256,20 +219,20 @@ impl Parse for MacroArg {
                     | Keyword::Case
                     | Keyword::If
                     | Keyword::Receive => {
-                        level.block += 1;
+                        level += 1;
                     }
                     Keyword::Fun => {
                         if ts.peek::<OpenParenSymbol>().is_some()
                             || ts.peek::<(LexicalToken, OpenParenSymbol)>().is_some()
                         {
-                            level.block += 1;
+                            level += 1;
                         }
                     }
                     Keyword::End => {
-                        if level.block == 0 {
-                            todo!("{:?}", ts.next_token_start_position()?);
+                        if level == 0 {
+                            return Err(parse::Error::unexpected_token(ts, token));
                         }
-                        level.block -= 1;
+                        level -= 1;
                     }
                     _ => {}
                 },
