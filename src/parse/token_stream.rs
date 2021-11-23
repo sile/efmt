@@ -318,8 +318,8 @@ impl TokenStream {
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
 
-        let r#macro =
-            self.enter_macro_arg(|ts| Macro::parse(ts, question, macro_name.clone(), true))?;
+        let r#macro: Macro =
+            self.enter_macro_arg(|ts| ts.resume_parse((question, macro_name.clone(), true)))?;
         let arity = r#macro.arity();
         assert!(arity.is_some());
 
@@ -345,7 +345,7 @@ impl TokenStream {
         let start_index = self.current_token_index - 2;
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
-        let r#macro = Macro::parse(self, question, macro_name, false)?;
+        let r#macro: Macro = self.resume_parse((question, macro_name, false))?;
 
         let replacement = r#macro.expand(None, replacement);
         self.replace_tokens(start_index, replacement);

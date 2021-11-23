@@ -5,7 +5,7 @@ use crate::items::symbols::{
 };
 use crate::items::tokens::{AtomToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
-use crate::parse::{self, Parse, TokenStream};
+use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 use std::collections::HashMap;
@@ -14,20 +14,17 @@ use std::collections::HashMap;
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
 /// - $ARG: [LexicalToken]+
-#[derive(Debug, Clone, Span, Format)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
     args: Maybe<Args<MacroArg>>,
 }
 
-impl Macro {
-    // TODO: resume_parse
-    pub(crate) fn parse(
+impl ResumeParse<(QuestionSymbol, MacroName, bool)> for Macro {
+    fn resume_parse(
         ts: &mut TokenStream,
-        question: QuestionSymbol,
-        name: MacroName,
-        has_args: bool,
+        (question, name, has_args): (QuestionSymbol, MacroName, bool),
     ) -> parse::Result<Self> {
         if has_args {
             Ok(Self {
@@ -43,7 +40,9 @@ impl Macro {
             })
         }
     }
+}
 
+impl Macro {
     pub fn arity(&self) -> Option<usize> {
         self.args.get().map(|x| x.get().len())
     }
@@ -85,7 +84,6 @@ impl Macro {
             }
             do_stringify = false;
         }
-        // TODO: delete(?)
         tokens.iter_mut().for_each(|token| token.set_span(self));
         tokens
     }
