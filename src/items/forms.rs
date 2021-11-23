@@ -5,7 +5,6 @@ use crate::items::atoms::{
     TypeAtom,
 };
 use crate::items::expressions::components::FunctionClause;
-use crate::items::expressions::Expr;
 use crate::items::generics::{
     Args, Clauses, Either, Element, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
@@ -16,6 +15,7 @@ use crate::items::symbols::{
     MatchSymbol, OpenParenSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
+use crate::items::Expr;
 use crate::items::Type;
 use crate::parse::Parse;
 use crate::span::Span;

@@ -1,9 +1,10 @@
 use crate::format::Format;
-use crate::items::expressions::{Either, Expr};
+use crate::items::expressions::Either;
 use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
+use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 

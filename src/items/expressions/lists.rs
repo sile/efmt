@@ -1,8 +1,10 @@
 use crate::format::{Format, Formatter};
 use crate::items::expressions::components::ComprehensionExpr;
-use crate::items::expressions::Expr;
+#[cfg(doc)]
+use crate::items::expressions::components::Qualifier;
 use crate::items::generics::ListLike;
 use crate::items::symbols::{CloseSquareSymbol, CommaSymbol, OpenSquareSymbol, VerticalBarSymbol};
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -39,11 +41,7 @@ impl Format for ListItemDelimiter {
     }
 }
 
-/// `[` [Expr] `||` (`$QUALIFIER` `,`?)+  `]`
-///
-/// - $QUALIFIER: (`$GENERATOR` | `$FILTER` `,`?)+
-/// - $GENERATOR: `Expr` (`<-` | `<=`) `Expr`
-/// - $FILTER: `Expr`
+/// `[` [Expr] `||` ([Qualifier] `,`?)+  `]`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListComprehensionExpr(ComprehensionExpr<OpenSquareSymbol, CloseSquareSymbol>);
 

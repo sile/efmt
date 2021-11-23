@@ -1,10 +1,10 @@
 use crate::format::{Format, Formatter};
-use crate::items::expressions::Expr;
 use crate::items::generics::{Args, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
 use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
+use crate::items::Expr;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};

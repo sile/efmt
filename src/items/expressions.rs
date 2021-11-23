@@ -2,6 +2,7 @@
 use self::bitstrings::BitstringExpr;
 use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
+use self::lists::ListExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::Format;
 use crate::items::generics::{Either, Element, Parenthesized};
@@ -9,6 +10,7 @@ use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
 };
+use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
@@ -27,17 +29,16 @@ mod tuples;
 
 pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
 pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
-pub use self::calls::{BinaryOp, BinaryOpCallExpr, FunctionCallExpr, UnaryOp, UnaryOpCallExpr};
+pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
-pub use self::lists::{ListComprehensionExpr, ListConstructExpr, ListExpr};
+pub use self::lists::{ListComprehensionExpr, ListConstructExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
 pub use self::records::{RecordAccessExpr, RecordConstructExpr, RecordIndexExpr, RecordUpdateExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
-// TODO: refactor
 #[derive(Debug, Clone, Span, Format)]
-pub enum BaseExpr {
+pub(crate) enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
     MapConstruct(Box<MapConstructExpr>),
@@ -45,7 +46,7 @@ pub enum BaseExpr {
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
     UnaryOpCall(Box<UnaryOpCallExpr>),
-    Parenthesized(Box<Parenthesized<Expr>>),
+    Parenthesized(Box<Parenthesized<FullExpr>>),
     Literal(LiteralExpr),
     Block(Box<BlockExpr>),
 
@@ -88,10 +89,12 @@ impl Parse for BaseExpr {
                 Some(token) => match token.value() {
                     Symbol::Sharp => {
                         if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
-                            expr = ts.resume_parse(Expr::Base(expr)).map(Self::MapUpdate)?;
+                            expr = ts
+                                .resume_parse(Expr(FullExpr::Base(expr)))
+                                .map(Self::MapUpdate)?;
                         } else {
                             expr = ts
-                                .resume_parse(Expr::Base(expr))
+                                .resume_parse(Expr(FullExpr::Base(expr)))
                                 .map(Self::RecordAccessOrUpdate)?;
                         }
                     }
@@ -100,16 +103,6 @@ impl Parse for BaseExpr {
                 None => return Ok(expr),
             }
         }
-    }
-}
-
-impl BaseExpr {
-    pub fn is_atom_token(&self) -> bool {
-        matches!(self, Self::Literal(LiteralExpr::Atom(_)))
-    }
-
-    pub fn is_integer_token(&self) -> bool {
-        matches!(self, Self::Literal(LiteralExpr::Integer(_)))
     }
 }
 
@@ -124,13 +117,13 @@ impl Element for BaseExpr {
 }
 
 #[derive(Debug, Clone, Span, Format)]
-pub enum Expr {
+pub(crate) enum FullExpr {
     Base(BaseExpr),
     FunctionCall(Box<FunctionCallExpr>),
     BinaryOpCall(Box<BinaryOpCallExpr>),
 }
 
-impl Parse for Expr {
+impl Parse for FullExpr {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
         let expr: BaseExpr = ts.parse()?;
 
@@ -147,15 +140,15 @@ impl Parse for Expr {
             Self::Base(expr)
         };
 
-        if ts.peek::<BinaryOp>().is_some() {
-            ts.resume_parse(expr).map(Self::BinaryOpCall)
+        if ts.peek::<self::components::BinaryOp>().is_some() {
+            ts.resume_parse(Expr(expr)).map(Self::BinaryOpCall)
         } else {
             Ok(expr)
         }
     }
 }
 
-impl Expr {
+impl FullExpr {
     pub fn is_atom_token(&self) -> bool {
         matches!(self, Self::Base(BaseExpr::Literal(LiteralExpr::Atom(_))))
     }
@@ -165,7 +158,7 @@ impl Expr {
     }
 }
 
-impl Element for Expr {
+impl Element for FullExpr {
     fn is_packable(&self) -> bool {
         if let Self::Base(x) = self {
             x.is_packable()

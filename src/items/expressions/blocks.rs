@@ -1,6 +1,5 @@
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::components::Body;
-use crate::items::expressions::Expr;
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
@@ -8,19 +7,9 @@ use crate::items::keywords::{
 };
 use crate::items::symbols::{ColonSymbol, CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
-
-#[derive(Debug, Clone, Span, Parse)]
-struct End(EndKeyword);
-
-impl Format for End {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.0.format(fmt);
-        });
-    }
-}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BlockExpr {
@@ -34,10 +23,9 @@ pub enum BlockExpr {
 
 /// `case` [Expr] `of` (`$CLAUSE` `;`?)+ `end`
 ///
-/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct CaseExpr {
     case: CaseKeyword,
@@ -59,6 +47,15 @@ impl Format for CaseExpr {
     }
 }
 
+#[derive(Debug, Clone, Span, Parse)]
+struct End(EndKeyword);
+
+impl Format for End {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| self.0.format(fmt));
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct CaseClause {
     pattern: WithArrow<WithGuard<Expr, Expr>>,
@@ -67,9 +64,8 @@ struct CaseClause {
 
 /// `if` (`$CLAUSE` `;`?)+ `end`
 ///
-/// - $CLAUSE: `$GUARD` `->` `$BODY`
+/// - $CLAUSE: `$GUARD` `->` [Body]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
@@ -86,9 +82,8 @@ struct IfClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>);
 
-/// `begin` `$BODY` `end`
+/// `begin` [Body] `end`
 ///
-/// - $BODY: ([Expr] `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BeginExpr {
     begin: BeginKeyword,
@@ -98,11 +93,10 @@ pub struct BeginExpr {
 
 /// `receive` (`$CLAUSE` `;`?)* `$TIMEOUT`? `end`
 ///
-/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-/// - $TIMEOUT: `after` [Expr] `->` `$BODY`
-/// - $BODY: ([Expr] `,`?)+
+/// - $TIMEOUT: `after` [Expr] `->` [Body]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ReceiveExpr {
     receive: ReceiveKeyword,
@@ -132,18 +126,17 @@ struct ReceiveTimeoutClause {
     body: Body,
 }
 
-/// `try` `$BODY` `$BRANCHES`? `$CATCH`? `$AFTER`? `end`
+/// `try` [Body] `$BRANCHES`? `$CATCH`? `$AFTER`? `end`
 ///
-/// - $BODY: ([Expr] `,`?)+
 /// - $BRANCHES: (`of` (`$BRANCH_CLAUSE` `;`?)+)
-/// - $BRANCH_CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` `$BODY`
+/// - $BRANCH_CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $CATCH: `catch` (`$CATCH_CLAUSE` `;`?)+
-/// - $CATCH_CLAUSE: `$ERROR_CLASS`? [Expr] `$STACKTRACE`? (`when` `$GUARD`)? `->` `$BODY`
+/// - $CATCH_CLAUSE: `$ERROR_CLASS`? [Expr] `$STACKTRACE`? (`when` `$GUARD`)? `->` [Body]
 /// - $ERROR_CLASS: ([AtomToken] | [VariableToken]) `:`
 /// - $STACKTRACE: `:` [VariableToken]
-/// - $AFTER: `after` `$BODY`
+/// - $AFTER: `after` [Body]
 #[derive(Debug, Clone, Span, Parse)]
 pub struct TryExpr {
     r#try: TryKeyword,
@@ -161,10 +154,10 @@ impl Format for TryExpr {
         fmt.add_newline();
         self.clauses.format(fmt);
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.catch.format(fmt);
+            self.catch.format(fmt)
         });
         fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
-            self.after.format(fmt);
+            self.after.format(fmt)
         });
         self.end.format(fmt);
     }
@@ -207,7 +200,7 @@ impl Format for CatchExpr {
         self.catch.format(fmt);
         fmt.add_space();
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.expr.format(fmt);
+            self.expr.format(fmt)
         });
     }
 }

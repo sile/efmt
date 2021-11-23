@@ -1,13 +1,15 @@
 use crate::format::{Format, Formatter};
 use crate::items::expressions::components::ComprehensionExpr;
-use crate::items::expressions::BaseExpr;
 #[cfg(doc)]
-use crate::items::expressions::Expr;
+use crate::items::expressions::components::Qualifier;
+use crate::items::expressions::BaseExpr;
 use crate::items::generics::{BitstringLike, Element, Maybe, NonEmptyItems};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, HyphenSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken};
+#[cfg(doc)]
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -25,11 +27,7 @@ pub enum BitstringExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
-/// `<<` [Expr] `||` (`$QUALIFIER` `,`?)+  `>>`
-///
-/// - $QUALIFIER: (`$GENERATOR` | `$FILTER` `,`?)+
-/// - $GENERATOR: `Expr` (`<-` | `<=`) `Expr`
-/// - $FILTER: `Expr`
+/// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr(
     ComprehensionExpr<DoubleLeftAngleSymbol, DoubleRightAngleSymbol>,

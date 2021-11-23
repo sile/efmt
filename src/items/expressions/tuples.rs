@@ -1,6 +1,6 @@
 use crate::format::Format;
-use crate::items::expressions::Expr;
 use crate::items::generics::TupleLike;
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 

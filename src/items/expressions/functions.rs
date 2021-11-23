@@ -1,12 +1,12 @@
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
-#[cfg(doc)]
-use crate::items::expressions::Expr;
 use crate::items::generics::{Clauses, Maybe, Null};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
+#[cfg(doc)]
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 

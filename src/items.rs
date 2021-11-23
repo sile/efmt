@@ -1,4 +1,5 @@
 use crate::format::Format;
+use crate::items::generics::Element;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -27,9 +28,18 @@ pub struct Form(self::forms::Form);
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Type(self::types::UnionType);
 
-// TODO:
-impl crate::items::generics::Element for Type {
+impl Element for Type {
     fn is_packable(&self) -> bool {
         false
+    }
+}
+
+/// One of [expressions].
+#[derive(Debug, Clone, Span, Parse, Format, Element)]
+pub struct Expr(self::expressions::FullExpr);
+
+impl Expr {
+    pub(crate) fn get(&self) -> &self::expressions::FullExpr {
+        &self.0
     }
 }
