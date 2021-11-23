@@ -1,5 +1,6 @@
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::expressions::{Body, Expr};
+use crate::items::expressions::components::Body;
+use crate::items::expressions::Expr;
 use crate::items::generics::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,

@@ -3,11 +3,9 @@ use self::bitstrings::BitstringExpr;
 use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::generics::{
-    BinaryOpLike, BinaryOpStyle, Either, Element, NonEmptyItems, Parenthesized,
-};
-use crate::items::symbols::{CommaSymbol, DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
+use crate::format::Format;
+use crate::items::generics::{BinaryOpLike, BinaryOpStyle, Either, Element, Parenthesized};
+use crate::items::symbols::{DoubleLeftArrowSymbol, LeftArrowSymbol, OpenBraceSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
 };
@@ -15,10 +13,12 @@ use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
+pub mod components;
+
 mod bitstrings;
 mod blocks;
 mod calls;
-pub(crate) mod functions; // TODO
+mod functions;
 mod lists;
 pub(crate) mod maps;
 mod records;
@@ -184,50 +184,6 @@ pub enum LiteralExpr {
     Integer(IntegerToken),
     String(StringExpr),
     VariableToken(VariableToken),
-}
-
-// TODO: s/AtomLikExpr/LiteralOrParen.../
-#[derive(Debug, Clone, Span, Parse, Format)]
-enum AtomLikeExpr {
-    Atom(AtomToken),
-    Variable(VariableToken),
-    Expr(Parenthesized<Expr>),
-}
-
-impl From<AtomLikeExpr> for BaseExpr {
-    fn from(x: AtomLikeExpr) -> Self {
-        match x {
-            AtomLikeExpr::Atom(x) => Self::Literal(LiteralExpr::Atom(x)),
-            AtomLikeExpr::Variable(x) => Self::Literal(LiteralExpr::VariableToken(x)),
-            AtomLikeExpr::Expr(x) => Self::Parenthesized(Box::new(x)),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-enum IntegerLikeExpr {
-    Integer(IntegerToken),
-    Variable(VariableToken),
-    Expr(Parenthesized<Expr>),
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-pub(crate) struct Body {
-    exprs: NonEmptyItems<Expr, CommaSymbol>,
-}
-
-impl Body {
-    fn exprs(&self) -> &[Expr] {
-        self.exprs.items()
-    }
-}
-
-impl Format for Body {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
-            self.exprs.format_multi_line(fmt)
-        });
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

@@ -414,19 +414,6 @@ impl Item {
         } else {
             unreachable!();
         }
-
-        // if let Self::Region { items, .. } = self {
-        //     dbg!(items.last());
-        //     while matches!(items.last(), Some(Self::Space(_) | Self::Newline(_))) {
-        //         dbg!(items.pop());
-        //     }
-        //     if let Some(last @ Self::Region { .. }) = items.last_mut() {
-        //         dbg!("next");
-        //         last.cancel_whitespaces();
-        //     }
-        // } else {
-        //     unreachable!();
-        // }
     }
 
     fn is_empty(&self) -> bool {
@@ -455,6 +442,16 @@ pub enum Newline {
     Always,
     Never,
     If(NewlineIf),
+}
+
+impl Newline {
+    pub fn if_too_long_or_multi_line_parent() -> Self {
+        Newline::If(NewlineIf {
+            too_long: true,
+            multi_line_parent: true,
+            ..Default::default()
+        })
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]

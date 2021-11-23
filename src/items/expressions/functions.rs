@@ -1,6 +1,7 @@
-use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
-use crate::items::expressions::{AtomLikeExpr, Body, Expr, IntegerLikeExpr};
-use crate::items::generics::{Clauses, Maybe, Null, Params, WithArrow, WithGuard};
+use crate::format::{Format, Formatter, Indent, Newline};
+use crate::items::expressions::components::FunctionClause;
+use crate::items::expressions::BaseExpr;
+use crate::items::generics::{Clauses, Maybe, Null};
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::VariableToken;
@@ -22,10 +23,10 @@ pub enum FunctionExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct DefinedFunctionExpr {
     fun: Fun,
-    module: Maybe<(AtomLikeExpr, ColonSymbol)>,
-    name: AtomLikeExpr,
+    module: Maybe<(BaseExpr, ColonSymbol)>,
+    name: BaseExpr,
     slash: SlashSymbol,
-    arity: IntegerLikeExpr,
+    arity: BaseExpr,
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -33,45 +34,10 @@ pub struct DefinedFunctionExpr {
 /// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
-    clauses: FunctionClauses<Null>,
-    end: EndKeyword,
-}
-
-impl Format for AnonymousFunctionExpr {
-    fn format(&self, fmt: &mut Formatter) {
-        // TODO: refactor
-        if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
-            let clause = self.clauses.0.items()[0].clone();
-            let clause = FunctionClause {
-                name: clause.name,
-                params: clause.params,
-                body: MaybeOnelineBody(clause.body),
-            };
-            self.fun.format(fmt);
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                clause.format(fmt);
-                fmt.subregion(
-                    Indent::ParentOffset(0),
-                    Newline::If(NewlineIf {
-                        too_long: true,
-                        multi_line_parent: true,
-                        ..Default::default()
-                    }),
-                    |fmt| {
-                        self.end.format(fmt);
-                    },
-                );
-            });
-        } else {
-            self.fun.format(fmt);
-            self.clauses.format(fmt);
-            fmt.add_newline();
-            self.end.format(fmt);
-        }
-    }
+    clauses_and_end: FunctionClausesAndEnd<Null>,
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -79,44 +45,10 @@ impl Format for AnonymousFunctionExpr {
 /// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct NamedFunctionExpr {
     fun: Fun,
-    clauses: FunctionClauses<VariableToken>,
-    end: EndKeyword,
-}
-
-impl Format for NamedFunctionExpr {
-    fn format(&self, fmt: &mut Formatter) {
-        if self.clauses.0.items().len() == 1 && self.clauses.0.items()[0].body.exprs().len() == 1 {
-            let clause = self.clauses.0.items()[0].clone();
-            let clause = FunctionClause {
-                name: clause.name,
-                params: clause.params,
-                body: MaybeOnelineBody(clause.body),
-            };
-            self.fun.format(fmt);
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                clause.format(fmt);
-                fmt.subregion(
-                    Indent::ParentOffset(0),
-                    Newline::If(NewlineIf {
-                        too_long: true,
-                        multi_line_parent: true,
-                        ..Default::default()
-                    }),
-                    |fmt| {
-                        self.end.format(fmt);
-                    },
-                );
-            });
-        } else {
-            self.fun.format(fmt);
-            self.clauses.format(fmt);
-            fmt.add_newline();
-            self.end.format(fmt);
-        }
-    }
+    clauses_and_end: FunctionClausesAndEnd<VariableToken>,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -129,36 +61,35 @@ impl Format for Fun {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct FunctionClauses<Name>(Clauses<FunctionClause<Name>>);
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name, B = Body> {
-    name: Name,
-    params: WithArrow<WithGuard<Params<Expr>, Expr>>,
-    body: B,
+#[derive(Debug, Clone, Span, Parse)]
+struct FunctionClausesAndEnd<Name> {
+    clauses: Clauses<FunctionClause<Name>>,
+    end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-struct MaybeOnelineBody(Body);
-
-impl Format for MaybeOnelineBody {
+impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(
-            Indent::Offset(4),
-            Newline::If(NewlineIf {
-                too_long: true,
-                multi_line_parent: true,
-                ..Default::default()
-            }),
-            |fmt| self.0.exprs.format(fmt),
-        );
+        if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
+            let clause = &self.clauses.items()[0];
+            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                clause.format_maybe_one_line_body(fmt);
+                fmt.subregion(
+                    Indent::ParentOffset(0),
+                    Newline::if_too_long_or_multi_line_parent(),
+                    |fmt| self.end.format(fmt),
+                );
+            });
+        } else {
+            self.clauses.format(fmt);
+            fmt.add_newline();
+            self.end.format(fmt);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::items::expressions::Expr;
 
     #[test]
     fn defined_function_works() {

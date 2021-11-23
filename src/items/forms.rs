@@ -4,7 +4,7 @@ use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
 };
-use crate::items::expressions::functions::FunctionClause;
+use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::Expr;
 use crate::items::generics::{
     Args, Clauses, Either, Element, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
