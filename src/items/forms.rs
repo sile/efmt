@@ -14,7 +14,7 @@ use crate::items::symbols::{
     CloseParenSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
     MatchSymbol, OpenParenSymbol,
 };
-use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
+use crate::items::tokens::{AtomToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
 use crate::items::Type;
 use crate::parse::Parse;
@@ -250,7 +250,7 @@ pub struct Attr {
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
 /// - $VARS: `(` ([VariableToken] `,`?)* `)`
-/// - $REPLACEMENT: [Token]
+/// - $REPLACEMENT: [LexicalToken]
 #[derive(Debug, Clone, Span, Parse)]
 pub struct DefineDirective {
     hyphen: HyphenSymbol,
@@ -273,7 +273,7 @@ impl DefineDirective {
         self.variables.get().map(|x| x.get())
     }
 
-    pub fn replacement(&self) -> &[Token] {
+    pub fn replacement(&self) -> &[LexicalToken] {
         self.replacement.tokens()
     }
 }

@@ -1,4 +1,4 @@
-use crate::items::tokens::Token;
+use crate::items::tokens::LexicalToken;
 use crate::span::{Position, Span as _};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn unexpected_token(ts: &TokenStream, token: Token) -> Self {
+    pub fn unexpected_token(ts: &TokenStream, token: LexicalToken) -> Self {
         Self::UnexpectedToken {
             position: token.start_position(),
             text: ts.shared_text(),

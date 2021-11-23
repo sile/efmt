@@ -5,6 +5,48 @@ use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
+/// Token used in the parse phase.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
+pub enum LexicalToken {
+    Atom(AtomToken),
+    Char(CharToken),
+    Float(FloatToken),
+    Integer(IntegerToken),
+    Keyword(KeywordToken),
+    String(StringToken),
+    Symbol(SymbolToken),
+    Variable(VariableToken),
+}
+
+impl LexicalToken {
+    pub(crate) fn set_span(&mut self, span: &impl Span) {
+        let (start, end) = match self {
+            Self::Atom(x) => (&mut x.start, &mut x.end),
+            Self::Char(x) => (&mut x.start, &mut x.end),
+            Self::Float(x) => (&mut x.start, &mut x.end),
+            Self::Integer(x) => (&mut x.start, &mut x.end),
+            Self::Keyword(x) => (&mut x.start, &mut x.end),
+            Self::String(x) => (&mut x.start, &mut x.end),
+            Self::Symbol(x) => (&mut x.start, &mut x.end),
+            Self::Variable(x) => (&mut x.start, &mut x.end),
+        };
+        *start = span.start_position();
+        *end = span.end_position();
+    }
+}
+
+impl Parse for LexicalToken {
+    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
+        if let Some(token) = ts.next().transpose()? {
+            Ok(token)
+        } else {
+            let position = ts.current_position();
+            Err(parse::Error::UnexpectedEof { position })
+        }
+    }
+}
+
+/// Token used in the format phase.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format)]
 pub enum VisibleToken {
     Atom(AtomToken),
@@ -49,48 +91,6 @@ impl VisibleToken {
     }
 }
 
-// TODO(?): s/Token/LexicalToken/
-// Note that the `Parse` trait for `Token` is implemented in the `parse` module.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
-pub enum Token {
-    Atom(AtomToken),
-    Char(CharToken),
-    Float(FloatToken),
-    Integer(IntegerToken),
-    Keyword(KeywordToken),
-    String(StringToken),
-    Symbol(SymbolToken),
-    Variable(VariableToken),
-}
-
-impl Token {
-    pub fn set_span(&mut self, span: &impl Span) {
-        let (start, end) = match self {
-            Self::Atom(x) => (&mut x.start, &mut x.end),
-            Self::Char(x) => (&mut x.start, &mut x.end),
-            Self::Float(x) => (&mut x.start, &mut x.end),
-            Self::Integer(x) => (&mut x.start, &mut x.end),
-            Self::Keyword(x) => (&mut x.start, &mut x.end),
-            Self::String(x) => (&mut x.start, &mut x.end),
-            Self::Symbol(x) => (&mut x.start, &mut x.end),
-            Self::Variable(x) => (&mut x.start, &mut x.end),
-        };
-        *start = span.start_position();
-        *end = span.end_position();
-    }
-}
-
-impl Parse for Token {
-    fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        if let Some(token) = ts.next().transpose()? {
-            Ok(token)
-        } else {
-            let position = ts.current_position();
-            Err(parse::Error::UnexpectedEof { position })
-        }
-    }
-}
-
 macro_rules! impl_traits {
     ($name:ident, $variant:ident) => {
         impl Span for $name {
@@ -106,7 +106,7 @@ macro_rules! impl_traits {
         impl Parse for $name {
             fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
                 match ts.parse()? {
-                    Token::$variant(token) => Ok(token),
+                    LexicalToken::$variant(token) => Ok(token),
                     token => Err(parse::Error::unexpected_token(ts, token)),
                 }
             }
@@ -118,7 +118,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl From<$name> for Token {
+        impl From<$name> for LexicalToken {
             fn from(x: $name) -> Self {
                 Self::$variant(x)
             }

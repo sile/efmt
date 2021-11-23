@@ -3,7 +3,7 @@ use crate::items::generics::{Args, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
-use crate::items::tokens::{AtomToken, StringToken, Token, VariableToken};
+use crate::items::tokens::{AtomToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 /// `?` `$NAME` (`(` (`$ARG` `,`?)* `)`)?
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
-/// - $ARG: [Token]+
+/// - $ARG: [LexicalToken]+
 #[derive(Debug, Clone, Span, Format)]
 pub struct Macro {
     question: QuestionSymbol,
@@ -48,7 +48,11 @@ impl Macro {
         self.args.get().map(|x| x.get().len())
     }
 
-    pub fn expand(&self, variables: Option<Vec<String>>, replacement: Vec<Token>) -> Vec<Token> {
+    pub fn expand(
+        &self,
+        variables: Option<Vec<String>>,
+        replacement: Vec<LexicalToken>,
+    ) -> Vec<LexicalToken> {
         let args = if let (Some(vars), Some(vals)) = (&variables, self.args.get().map(|x| x.get()))
         {
             vars.iter()
@@ -63,15 +67,15 @@ impl Macro {
         let mut tokens = Vec::new();
         for token in replacement {
             match token {
-                Token::Variable(x) if do_stringify => {
+                LexicalToken::Variable(x) if do_stringify => {
                     let dummy =
                         StringToken::new("EFMT_DUMMY", x.start_position(), x.end_position());
                     tokens.push(dummy.into());
                 }
-                Token::Variable(x) if args.contains_key(x.value()) => {
+                LexicalToken::Variable(x) if args.contains_key(x.value()) => {
                     tokens.extend(args[x.value()].tokens().iter().cloned());
                 }
-                Token::Symbol(x) if x.value() == Symbol::DoubleQuestion => {
+                LexicalToken::Symbol(x) if x.value() == Symbol::DoubleQuestion => {
                     do_stringify = true;
                     continue;
                 }
@@ -101,13 +105,13 @@ impl MacroName {
 
 #[derive(Debug, Clone)]
 pub(crate) struct MacroReplacement {
-    tokens: Vec<Token>,
+    tokens: Vec<LexicalToken>,
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
     start_position: Position,
 }
 
 impl MacroReplacement {
-    pub fn tokens(&self) -> &[Token] {
+    pub fn tokens(&self) -> &[LexicalToken] {
         &self.tokens
     }
 }
@@ -200,14 +204,14 @@ impl MacroArgs {
 
 #[derive(Debug, Clone)]
 struct MacroArg {
-    tokens: Vec<Token>,
+    tokens: Vec<LexicalToken>,
 
     // TODO: Support macros in a macro arg
     expr: Option<Expr>, // The expression representation of `tokens` (for formatting)
 }
 
 impl MacroArg {
-    pub fn tokens(&self) -> &[Token] {
+    pub fn tokens(&self) -> &[LexicalToken] {
         &self.tokens
     }
 }
@@ -247,9 +251,9 @@ impl Parse for MacroArg {
             || !level.is_toplevel()
             || ts.peek::<Either<CommaSymbol, CloseParenSymbol>>().is_none()
         {
-            let token: Token = ts.parse()?;
+            let token: LexicalToken = ts.parse()?;
             match &token {
-                Token::Symbol(x) => match x.value() {
+                LexicalToken::Symbol(x) => match x.value() {
                     Symbol::OpenParen => {
                         level.paren += 1;
                     }
@@ -289,7 +293,7 @@ impl Parse for MacroArg {
                     }
                     _ => {}
                 },
-                Token::Keyword(x) => match x.value() {
+                LexicalToken::Keyword(x) => match x.value() {
                     Keyword::Begin
                     | Keyword::Try
                     | Keyword::Case
@@ -299,7 +303,7 @@ impl Parse for MacroArg {
                     }
                     Keyword::Fun => {
                         if ts.peek::<OpenParenSymbol>().is_some()
-                            || ts.peek::<(Token, OpenParenSymbol)>().is_some()
+                            || ts.peek::<(LexicalToken, OpenParenSymbol)>().is_some()
                         {
                             level.block += 1;
                         }

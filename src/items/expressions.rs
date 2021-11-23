@@ -8,7 +8,7 @@ use crate::format::Format;
 use crate::items::generics::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
-    AtomToken, CharToken, FloatToken, IntegerToken, SymbolToken, Token, VariableToken,
+    AtomToken, CharToken, FloatToken, IntegerToken, LexicalToken, SymbolToken, VariableToken,
 };
 use crate::items::Expr;
 use crate::parse::{self, Parse};
@@ -57,14 +57,14 @@ pub(crate) enum BaseExpr {
 
 impl Parse for BaseExpr {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        let expr = match ts.peek::<Token>() {
-            Some(Token::Symbol(token)) => match token.value() {
+        let expr = match ts.peek::<LexicalToken>() {
+            Some(LexicalToken::Symbol(token)) => match token.value() {
                 Symbol::OpenSquare => ts.parse().map(Self::List),
                 Symbol::OpenBrace => ts.parse().map(Self::Tuple),
                 Symbol::DoubleLeftAngle => ts.parse().map(Self::Bitstring),
                 Symbol::OpenParen => ts.parse().map(Self::Parenthesized),
                 Symbol::Sharp => {
-                    if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
+                    if ts.peek::<(LexicalToken, OpenBraceSymbol)>().is_some() {
                         ts.parse().map(Self::MapConstruct)
                     } else {
                         ts.parse().map(Self::RecordConstructOrIndex)
@@ -72,7 +72,7 @@ impl Parse for BaseExpr {
                 }
                 _ => ts.parse().map(Self::UnaryOpCall),
             },
-            Some(Token::Keyword(token)) => match token.value() {
+            Some(LexicalToken::Keyword(token)) => match token.value() {
                 Keyword::Fun => ts.parse().map(Self::Function),
                 Keyword::Bnot | Keyword::Not => ts.parse().map(Self::UnaryOpCall),
                 _ => ts.parse().map(Self::Block),
@@ -88,7 +88,7 @@ impl Parse for BaseExpr {
             match ts.peek::<SymbolToken>() {
                 Some(token) => match token.value() {
                     Symbol::Sharp => {
-                        if ts.peek::<(Token, OpenBraceSymbol)>().is_some() {
+                        if ts.peek::<(LexicalToken, OpenBraceSymbol)>().is_some() {
                             expr = ts
                                 .resume_parse(Expr(FullExpr::Base(expr)))
                                 .map(Self::MapUpdate)?;

@@ -4,7 +4,7 @@ use crate::items::macros::{Macro, MacroName};
 use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
-    StringToken, SymbolToken, Token, VariableToken, WhitespaceToken,
+    LexicalToken, StringToken, SymbolToken, VariableToken, WhitespaceToken,
 };
 use crate::items::Module;
 use crate::parse::{Parse, Result, ResumeParse};
@@ -41,13 +41,13 @@ impl TokenStreamOptions {
 #[derive(Debug)]
 pub struct TokenStream {
     tokenizer: Tokenizer<String>,
-    tokens: Vec<Token>,
+    tokens: Vec<LexicalToken>,
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
     macros: BTreeMap<Position, Macro>,
     macro_defines: BTreeMap<MacroDefineKey, MacroDefine>,
     missing_macros: HashSet<String>,
-    known_replacement: HashSet<(usize, Vec<Token>)>,
+    known_replacement: HashSet<(usize, Vec<LexicalToken>)>,
     included: HashSet<String>,
     parsing_macro_replacement: bool,
     parsing_macro_arg: bool,
@@ -190,14 +190,14 @@ impl TokenStream {
         }
     }
 
-    fn read_token(&mut self) -> Result<Option<Token>> {
+    fn read_token(&mut self) -> Result<Option<LexicalToken>> {
         if let Some(token) = self.tokens.get(self.current_token_index).cloned() {
             self.current_token_index += 1;
 
             if !self.parsing_macro_replacement {
                 // TODO: note comment
                 match &token {
-                    Token::Symbol(x) if x.value() == Symbol::Question => {
+                    LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
                         if !self.parsing_macro_arg {
                             return self.expand_macro_and_read_token();
                         }
@@ -212,7 +212,7 @@ impl TokenStream {
         while let Some(token) = self.tokenizer.next().transpose()? {
             let start_position = Position::from(token.start_position());
             let end_position = Position::from(token.end_position());
-            let token: Token = match token {
+            let token: LexicalToken = match token {
                 erl_tokenize::Token::Whitespace(_) => {
                     continue;
                 }
@@ -258,12 +258,12 @@ impl TokenStream {
             self.current_token_index += 1;
 
             match &token {
-                Token::Symbol(x) if x.value() == Symbol::Question => {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
                     if !self.parsing_macro_arg {
                         return self.expand_macro_and_read_token();
                     }
                 }
-                Token::Symbol(x) if x.value() == Symbol::Hyphen => {
+                LexicalToken::Symbol(x) if x.value() == Symbol::Hyphen => {
                     let index = self.current_token_index;
                     self.try_handle_directives()?;
                     self.current_token_index = index;
@@ -294,7 +294,7 @@ impl TokenStream {
         (without_args, with_args)
     }
 
-    fn expand_macro_and_read_token(&mut self) -> Result<Option<Token>> {
+    fn expand_macro_and_read_token(&mut self) -> Result<Option<LexicalToken>> {
         let macro_name: MacroName = self.parse()?;
         self.expand_macro(macro_name)?;
         self.read_token()
@@ -348,7 +348,7 @@ impl TokenStream {
     fn expand_macro_without_args(
         &mut self,
         macro_name: MacroName,
-        replacement: Vec<Token>,
+        replacement: Vec<LexicalToken>,
     ) -> Result<()> {
         let start_index = self.current_token_index - 2;
         let start_position = self.tokens[start_index].start_position();
@@ -385,12 +385,12 @@ impl TokenStream {
             }
             self.expand_macro_without_args(
                 macro_name,
-                vec![Token::from(dummy_atom(start_position))],
+                vec![LexicalToken::from(dummy_atom(start_position))],
             )
         }
     }
 
-    fn replace_tokens(&mut self, start_index: usize, mut replacement: Vec<Token>) {
+    fn replace_tokens(&mut self, start_index: usize, mut replacement: Vec<LexicalToken>) {
         if !replacement.is_empty()
             && !self
                 .known_replacement
@@ -400,7 +400,7 @@ impl TokenStream {
                 "A circular macro was detected. It was replaced with a dummy atom 'EFMT_DUMMY'."
             );
             let start_position = self.tokens[start_index].start_position();
-            replacement = vec![Token::from(dummy_atom(start_position))];
+            replacement = vec![LexicalToken::from(dummy_atom(start_position))];
         }
 
         let unread_tokens = self.tokens.split_off(self.current_token_index);
@@ -584,15 +584,15 @@ impl TokenStream {
 }
 
 impl Iterator for TokenStream {
-    type Item = Result<Token>;
+    type Item = Result<LexicalToken>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.read_token().transpose()
     }
 }
 
-fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<Token>> {
-    let token: Token = match name {
+fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<LexicalToken>> {
+    let token: LexicalToken = match name {
         "MODULE" | "FUNCTION_NAME" => dummy_atom(position).into(),
         "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer(position).into(),
         "MODULE_STRING" | "FILE" | "MACHINE" => dummy_string(position).into(),
@@ -628,7 +628,7 @@ impl MacroDefineKey {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct MacroDefine {
     variables: Option<Vec<String>>,
-    replacement: Vec<Token>,
+    replacement: Vec<LexicalToken>,
 }
 
 impl From<DefineDirective> for MacroDefine {

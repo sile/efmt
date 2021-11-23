@@ -6,7 +6,7 @@ use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
 };
-use crate::items::tokens::Token;
+use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
@@ -164,8 +164,8 @@ pub enum BinaryOp {
 
 impl Parse for BinaryOp {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        match ts.peek::<Token>() {
-            Some(Token::Symbol(token)) => match token.value() {
+        match ts.peek::<LexicalToken>() {
+            Some(LexicalToken::Symbol(token)) => match token.value() {
                 Symbol::Plus => ts.parse().map(Self::Plus),
                 Symbol::Hyphen => ts.parse().map(Self::Minus),
                 Symbol::Multiply => ts.parse().map(Self::Mul),
@@ -184,7 +184,7 @@ impl Parse for BinaryOp {
                 Symbol::Not => ts.parse().map(Self::Send),
                 _ => Err(parse::Error::unexpected_token(ts, token.into())),
             },
-            Some(Token::Keyword(token)) => match token.value() {
+            Some(LexicalToken::Keyword(token)) => match token.value() {
                 Keyword::Div => ts.parse().map(Self::IntDiv),
                 Keyword::Rem => ts.parse().map(Self::Rem),
                 Keyword::Bor => ts.parse().map(Self::Bor),
