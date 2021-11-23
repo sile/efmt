@@ -410,7 +410,11 @@ impl Item {
 
     fn cancel_whitespaces(&mut self) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::CancelWhitespace);
+            if let Some(last @ Self::Region { .. }) = items.last_mut() {
+                last.cancel_whitespaces();
+            } else {
+                items.push(Self::CancelWhitespace);
+            }
         } else {
             unreachable!();
         }
@@ -449,6 +453,21 @@ impl Newline {
         Newline::If(NewlineIf {
             too_long: true,
             multi_line_parent: true,
+            ..Default::default()
+        })
+    }
+
+    pub fn if_too_long_or_multi_line() -> Self {
+        Newline::If(NewlineIf {
+            too_long: true,
+            multi_line: true,
+            ..Default::default()
+        })
+    }
+
+    pub fn if_too_long() -> Self {
+        Newline::If(NewlineIf {
+            too_long: true,
             ..Default::default()
         })
     }

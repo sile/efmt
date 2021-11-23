@@ -1,12 +1,12 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::generics::{
-    Args, Clauses, Either, Element, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
+    Clauses, Either, Element, Items, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
 use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
@@ -36,41 +36,28 @@ pub(super) enum Form {
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken] (`=` [Expr])? (`::` [Type])? `,`?
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct RecordDecl(AttrLike<RecordAtom, RecordDeclValue>);
+
 #[derive(Debug, Clone, Span, Parse)]
-pub struct RecordDecl {
-    hyphen: HyphenSymbol,
-    record: RecordAtom,
-    open: OpenParenSymbol, // TODO: may be omitted
+struct RecordDeclValue {
     name: AtomToken,
     comma: CommaSymbol,
     fields: TupleLike<RecordField>,
-    close: CloseParenSymbol,
-    dot: DotSymbol,
 }
 
-impl Format for RecordDecl {
+impl Format for RecordDeclValue {
     fn format(&self, fmt: &mut Formatter) {
-        self.hyphen.format(fmt);
-        self.record.format(fmt);
-        self.open.format(fmt);
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             self.name.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
             fmt.subregion(
                 Indent::Inherit,
-                Newline::If(NewlineIf {
-                    too_long: true,
-                    multi_line: true,
-                    ..Default::default()
-                }),
-                |fmt| {
-                    self.fields.format(fmt);
-                },
+                Newline::if_too_long_or_multi_line(),
+                |fmt| self.fields.format(fmt),
             );
         });
-        self.close.format(fmt);
-        self.dot.format(fmt);
     }
 }
 
@@ -106,25 +93,10 @@ impl Format for RecordField {
 /// - $TYPE: [Type]
 ///
 /// Note that the parenthesized notation like `-type(foo() :: bar()).` is also acceptable
-#[derive(Debug, Clone, Span, Parse)]
-pub struct TypeDecl {
-    hyphen: HyphenSymbol,
-    kind: Either<TypeAtom, OpaqueAtom>,
-    item: Either<TypeDeclItem, Parenthesized<TypeDeclItem>>,
-    dot: DotSymbol,
-}
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct TypeDecl(AttrLike<TypeDeclName, TypeDeclItem>);
 
-impl Format for TypeDecl {
-    fn format(&self, fmt: &mut Formatter) {
-        self.hyphen.format(fmt);
-        self.kind.format(fmt);
-        if matches!(self.item, Either::A(_)) {
-            fmt.add_space();
-        }
-        self.item.format(fmt);
-        self.dot.format(fmt);
-    }
-}
+type TypeDeclName = Either<TypeAtom, OpaqueAtom>;
 
 #[derive(Debug, Clone, Span, Parse)]
 struct TypeDeclItem {
@@ -142,14 +114,9 @@ impl Format for TypeDeclItem {
             fmt.add_space();
             self.delimiter.format(fmt);
             fmt.add_space();
-            fmt.subregion(
-                Indent::Offset(2),
-                Newline::If(NewlineIf {
-                    too_long: true,
-                    ..Default::default()
-                }),
-                |fmt| self.r#type.format(fmt),
-            );
+            fmt.subregion(Indent::Offset(2), Newline::if_too_long(), |fmt| {
+                self.r#type.format(fmt)
+            });
         });
     }
 }
@@ -161,25 +128,10 @@ impl Format for TypeDeclItem {
 /// - $RETURN: [Type]
 ///
 /// Note that the parenthesized notation like `-spec(foo() -> bar()).` is also acceptable
-#[derive(Debug, Clone, Span, Parse)]
-pub struct FunSpec {
-    hyphen: HyphenSymbol,
-    kind: Either<SpecAtom, CallbackAtom>,
-    item: Either<FunSpecItem, Parenthesized<FunSpecItem>>,
-    dot: DotSymbol,
-}
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct FunSpec(AttrLike<FunSpecName, FunSpecItem>);
 
-impl Format for FunSpec {
-    fn format(&self, fmt: &mut Formatter) {
-        self.hyphen.format(fmt);
-        self.kind.format(fmt);
-        if matches!(self.item, Either::A(_)) {
-            fmt.add_space();
-        }
-        self.item.format(fmt);
-        self.dot.format(fmt);
-    }
-}
+type FunSpecName = Either<SpecAtom, CallbackAtom>;
 
 #[derive(Debug, Clone, Span, Parse)]
 struct FunSpecItem {
@@ -209,14 +161,8 @@ impl Format for SpecClause {
         self.params.format(fmt);
         fmt.subregion(
             Indent::ParentOffset(4),
-            Newline::If(NewlineIf {
-                too_long: true,
-                multi_line: true,
-                ..Default::default()
-            }),
-            |fmt| {
-                self.r#return.format(fmt);
-            },
+            Newline::if_too_long_or_multi_line(),
+            |fmt| self.r#return.format(fmt),
         );
     }
 }
@@ -239,11 +185,32 @@ pub struct FunDecl {
 /// - $ARGS: `(` (`$ARG` `,`?)* `)`
 /// - $ARG: [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Attr {
+pub struct Attr(AttrLike<AttrName, AttrValue>);
+
+type AttrName = Either<AtomToken, IfKeyword>;
+type AttrValue = Items<Expr>;
+
+#[derive(Debug, Clone, Span, Parse)]
+struct AttrLike<Name, Value> {
     hyphen: HyphenSymbol,
-    name: Either<AtomToken, IfKeyword>,
-    items: Maybe<Args<Expr>>, // TODO: parenthes may be omitted
+    name: Name,
+    value: Either<Parenthesized<Value>, Value>,
     dot: DotSymbol,
+}
+
+impl<Name: Format, Value: Format> Format for AttrLike<Name, Value> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.hyphen.format(fmt);
+        self.name.format(fmt);
+        if matches!(self.value, Either::B(_)) {
+            // Note that `self.value` may be empty.
+            // In that case, the additional space will be removed by the following `fmt.cancel_whitespaces()` call.
+            fmt.add_space();
+        }
+        self.value.format(fmt);
+        fmt.cancel_whitespaces();
+        self.dot.format(fmt);
+    }
 }
 
 /// `-` `define` `(` `$NAME` `$VARS`? `,` `REPLACEMENT`* `)` `.`
@@ -290,11 +257,7 @@ impl Format for DefineDirective {
             fmt.add_space();
             fmt.subregion(
                 Indent::Inherit,
-                Newline::If(NewlineIf {
-                    too_long: true,
-                    multi_line: true,
-                    ..Default::default()
-                }),
+                Newline::if_too_long_or_multi_line(),
                 |fmt| self.replacement.format(fmt),
             );
         });
@@ -454,6 +417,9 @@ mod tests {
                         no_match],
                        [g/0,
                         h/0]})."},
+            indoc::indoc! {"
+            -export [foo/0,
+                     bar/1]."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
