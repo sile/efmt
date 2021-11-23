@@ -365,25 +365,3 @@ impl Format for CommentToken {
         fmt.add_newline();
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WhitespaceToken {
-    start: Position,
-    end: Position,
-}
-
-impl WhitespaceToken {
-    pub fn new(start: Position, end: Position) -> Self {
-        Self { start, end }
-    }
-}
-
-impl Span for WhitespaceToken {
-    fn start_position(&self) -> Position {
-        self.start
-    }
-
-    fn end_position(&self) -> Position {
-        self.end
-    }
-}

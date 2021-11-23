@@ -1,7 +1,7 @@
 use crate::format::{Format, Formatter};
+use crate::items::components::{Args, BinaryOpLike, Maybe, UnaryOpLike};
 use crate::items::expressions::components::{BinaryOp, UnaryOp};
 use crate::items::expressions::BaseExpr;
-use crate::items::components::{Args, BinaryOpLike, Maybe, UnaryOpLike};
 use crate::items::symbols::ColonSymbol;
 use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
@@ -26,13 +26,13 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
     ) -> parse::Result<Self> {
         if is_remote {
             Ok(Self {
-                module: Maybe::from_item((expr, ts.parse()?)),
+                module: Maybe::some((expr, ts.parse()?)),
                 function: ts.parse()?,
                 args: ts.parse()?,
             })
         } else {
             Ok(Self {
-                module: Maybe::from_position(expr.start_position()),
+                module: Maybe::none_from_position(expr.start_position()),
                 function: expr,
                 args: ts.parse()?,
             })

@@ -1,10 +1,10 @@
-use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::components::Either;
+use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::macros::{Macro, MacroName};
 use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
-    LexicalToken, StringToken, SymbolToken, VariableToken, WhitespaceToken,
+    LexicalToken, StringToken, SymbolToken, VariableToken,
 };
 use crate::items::Module;
 use crate::parse::{Parse, Result, ResumeParse};
@@ -145,14 +145,6 @@ impl TokenStream {
         self.tokenizer.next_position().into()
     }
 
-    // TODO: rename (because this span may include comments and empty macros)
-    pub fn current_whitespace_token(&mut self) -> Result<WhitespaceToken> {
-        Ok(WhitespaceToken::new(
-            self.prev_token_end_position(),
-            self.next_token_start_position()?,
-        ))
-    }
-
     pub fn enter_macro_replacement<F, T>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
@@ -173,7 +165,7 @@ impl TokenStream {
         result
     }
 
-    fn prev_token_end_position(&mut self) -> Position {
+    pub fn prev_token_end_position(&mut self) -> Position {
         if let Some(i) = self.current_token_index.checked_sub(1) {
             self.tokens[i].end_position()
         } else {
@@ -181,7 +173,7 @@ impl TokenStream {
         }
     }
 
-    fn next_token_start_position(&mut self) -> Result<Position> {
+    pub fn next_token_start_position(&mut self) -> Result<Position> {
         let index = self.current_token_index;
         if index == self.tokens.len() && self.is_eof()? {
             Ok(self.tokenizer.next_position().into())

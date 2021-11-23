@@ -2,7 +2,7 @@
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
-use crate::format::{Format, Formatter};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
     NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
@@ -123,16 +123,12 @@ type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter,
 struct RightArrowDelimiter(RightArrowSymbol);
 
 impl BinaryOpStyle for RightArrowDelimiter {
-    fn indent_offset(&self) -> usize {
-        8
+    fn indent(&self) -> Indent {
+        Indent::Offset(8)
     }
 
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::if_too_long_or_multi_line()
     }
 }
 
@@ -207,16 +203,12 @@ struct RecordItem(BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>);
 struct DoubleColonDelimiter(DoubleColonSymbol);
 
 impl BinaryOpStyle for DoubleColonDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
+    fn indent(&self) -> Indent {
+        Indent::Offset(4)
     }
 
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::if_too_long_or_multi_line()
     }
 }
 

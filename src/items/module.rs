@@ -13,12 +13,12 @@ pub struct Module {
 
 impl Parse for Module {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        let sof = ts.current_whitespace_token()?.start_position();
+        let sof = ts.prev_token_end_position();
         let mut forms = Vec::new();
         while !ts.is_eof()? {
             forms.push(ts.parse()?);
         }
-        let eof = ts.current_whitespace_token()?.end_position();
+        let eof = ts.next_token_start_position()?;
         Ok(Self { sof, forms, eof })
     }
 }

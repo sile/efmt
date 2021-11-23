@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{Format, Indent, Newline};
 use crate::items::components::{BinaryOpStyle, Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -29,16 +29,12 @@ pub enum BinaryOp {
 }
 
 impl BinaryOpStyle for BinaryOp {
-    fn indent_offset(&self) -> usize {
-        0
+    fn indent(&self) -> Indent {
+        Indent::Inherit
     }
 
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        true
+    fn newline(&self) -> Newline {
+        Newline::if_too_long()
     }
 }
 

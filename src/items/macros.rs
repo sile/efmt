@@ -33,13 +33,13 @@ impl Macro {
             Ok(Self {
                 question,
                 name,
-                args: Maybe::from_item(ts.parse()?),
+                args: Maybe::some(ts.parse()?),
             })
         } else {
             Ok(Self {
                 question,
                 name,
-                args: Maybe::none(ts)?,
+                args: Maybe::parse_none(ts)?,
             })
         }
     }
@@ -133,7 +133,7 @@ impl Span for MacroReplacement {
 impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         ts.enter_macro_replacement(|ts| {
-            let start_position = ts.current_whitespace_token()?.end_position();
+            let start_position = ts.next_token_start_position()?;
             let expr = ts
                 .peek::<(Expr, (CloseParenSymbol, DotSymbol))>()
                 .map(|(expr, _)| expr);

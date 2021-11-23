@@ -1,6 +1,6 @@
-use crate::format::Format;
-use crate::items::expressions::Either;
+use crate::format::{Format, Indent, Newline};
 use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
+use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
@@ -104,16 +104,12 @@ struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFie
 struct RecordFieldDelimiter(MatchSymbol);
 
 impl BinaryOpStyle for RecordFieldDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
+    fn indent(&self) -> Indent {
+        Indent::Offset(4)
     }
 
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::if_too_long_or_multi_line()
     }
 }
 

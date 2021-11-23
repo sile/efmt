@@ -68,16 +68,12 @@ struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
 
 impl BinaryOpStyle for GeneratorDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
+    fn indent(&self) -> Indent {
+        Indent::Offset(4)
     }
 
-    fn allow_newline(&self) -> bool {
-        false
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::Never
     }
 }
 
@@ -104,20 +100,12 @@ impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
 struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
 
 impl BinaryOpStyle for ComprehensionDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
+    fn indent(&self) -> Indent {
+        Indent::ParentOffset(4)
     }
 
-    fn parent_indent(&self) -> bool {
-        true
-    }
-
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::if_too_long_or_multi_line()
     }
 }
 
@@ -208,19 +196,21 @@ impl Parse for BinaryOp {
 }
 
 impl BinaryOpStyle for BinaryOp {
-    fn indent_offset(&self) -> usize {
+    fn indent(&self) -> Indent {
         if matches!(self, Self::Match(_)) {
-            4
+            Indent::Offset(4)
         } else {
-            0
+            Indent::Inherit
         }
     }
 
-    fn allow_newline(&self) -> bool {
-        !matches!(self, Self::Send(_))
-    }
-
-    fn should_pack(&self) -> bool {
-        self.indent_offset() == 0
+    fn newline(&self) -> Newline {
+        if matches!(self, Self::Send(_)) {
+            Newline::Never
+        } else if matches!(self.indent(), Indent::Inherit) {
+            Newline::if_too_long()
+        } else {
+            Newline::if_too_long_or_multi_line()
+        }
     }
 }

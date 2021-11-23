@@ -1,32 +1,31 @@
-use crate::format::{Format, Formatter, Indent, Newline, NewlineIf};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
     DoubleRightAngleSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
     OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol, SharpSymbol,
 };
-use crate::items::tokens::WhitespaceToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
 pub use efmt_derive::Element;
 
-#[derive(Debug, Clone)]
-pub struct Null(WhitespaceToken);
-
-impl Span for Null {
-    fn start_position(&self) -> Position {
-        self.0.end_position() // TODO: note
-    }
-
-    fn end_position(&self) -> Position {
-        self.0.start_position() // TODO: note
-    }
+#[derive(Debug, Clone, Span)]
+pub struct Null {
+    // Note that `next_token_start_position` can be larger than `prev_token_end_position`
+    // because this behavior is required when using `Null` in other items
+    // (please imagine the case where `Null` is at the front (or last) of an item and
+    // `#[derive(Format)]` is specified on that item).
+    next_token_start_position: Position,
+    prev_token_end_position: Position,
 }
 
 impl Parse for Null {
     fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
-        ts.current_whitespace_token().map(Self)
+        Ok(Self {
+            next_token_start_position: ts.next_token_start_position()?,
+            prev_token_end_position: ts.prev_token_end_position(),
+        })
     }
 }
 
@@ -34,23 +33,23 @@ impl Format for Null {
     fn format(&self, _: &mut Formatter) {}
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Maybe<T>(Either<T, Null>);
 
 impl<T> Maybe<T> {
-    pub fn from_item(item: T) -> Self {
+    pub fn some(item: T) -> Self {
         Self(Either::A(item))
     }
 
-    pub fn from_position(position: Position) -> Self {
-        Self(Either::B(Null(WhitespaceToken::new(position, position))))
+    pub fn parse_none(ts: &mut TokenStream) -> parse::Result<Self> {
+        ts.parse().map(Either::B).map(Self)
     }
 
-    pub fn none(ts: &mut TokenStream) -> parse::Result<Self> {
-        ts.current_whitespace_token()
-            .map(Null)
-            .map(Either::B)
-            .map(Self)
+    pub fn none_from_position(position: Position) -> Self {
+        Self(Either::B(Null {
+            prev_token_end_position: position,
+            next_token_start_position: position,
+        }))
     }
 
     pub fn get(&self) -> Option<&T> {
@@ -58,14 +57,6 @@ impl<T> Maybe<T> {
             Some(x)
         } else {
             None
-        }
-    }
-}
-
-impl<T: Format> Format for Maybe<T> {
-    fn format(&self, fmt: &mut Formatter) {
-        if let Some(x) = self.get() {
-            x.format(fmt);
         }
     }
 }
@@ -180,11 +171,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
                 delimiter.format(fmt);
                 fmt.subregion(
                     Indent::Inherit,
-                    Newline::If(NewlineIf {
-                        too_long: true,
-                        multi_line_parent: true,
-                        ..Default::default()
-                    }),
+                    Newline::if_too_long_or_multi_line_parent(),
                     |fmt| item.format(fmt),
                 );
             }
@@ -242,14 +229,9 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(
-                    Indent::Inherit,
-                    Newline::If(NewlineIf {
-                        too_long: true,
-                        ..Default::default()
-                    }),
-                    |fmt| item.format(fmt),
-                );
+                fmt.subregion(Indent::Inherit, Newline::if_too_long(), |fmt| {
+                    item.format(fmt)
+                });
             }
         });
     }
@@ -312,16 +294,12 @@ impl<T> Element for MapItem<T> {
 struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
 
 impl BinaryOpStyle for MapDelimiter {
-    fn indent_offset(&self) -> usize {
-        4
+    fn indent(&self) -> Indent {
+        Indent::Offset(4)
     }
 
-    fn allow_newline(&self) -> bool {
-        true
-    }
-
-    fn should_pack(&self) -> bool {
-        false
+    fn newline(&self) -> Newline {
+        Newline::if_too_long_or_multi_line()
     }
 }
 
@@ -357,23 +335,9 @@ impl<O, T> UnaryOpLike<O, T> {
 }
 
 pub trait BinaryOpStyle {
-    fn indent_offset(&self) -> usize;
+    fn indent(&self) -> Indent;
 
-    fn allow_newline(&self) -> bool;
-
-    fn should_pack(&self) -> bool;
-
-    fn parent_indent(&self) -> bool {
-        false
-    }
-
-    fn needs_left_space(&self) -> bool {
-        true
-    }
-
-    fn needs_right_space(&self) -> bool {
-        true
-    }
+    fn newline(&self) -> Newline;
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -403,33 +367,13 @@ impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L,
     fn format(&self, fmt: &mut Formatter) {
         self.left.format(fmt);
 
-        if self.op.needs_left_space() {
-            fmt.add_space();
-        }
+        fmt.add_space();
         self.op.format(fmt);
-        if self.op.needs_right_space() {
-            fmt.add_space();
-        }
+        fmt.add_space();
 
-        if !self.op.allow_newline() {
-            self.right.format(fmt);
-            return;
-        }
-
-        let newline_cond = NewlineIf {
-            too_long: true,
-            multi_line: !self.op.should_pack(),
-            ..Default::default()
-        };
-
-        let indent = if self.op.parent_indent() {
-            Indent::ParentOffset(self.op.indent_offset())
-        } else {
-            Indent::Offset(self.op.indent_offset())
-        };
-        fmt.subregion(indent, Newline::If(newline_cond), |fmt| {
-            self.right.format(fmt)
-        });
+        let indent = self.op.indent();
+        let newline = self.op.newline();
+        fmt.subregion(indent, newline, |fmt| self.right.format(fmt));
     }
 }
 
@@ -464,11 +408,7 @@ impl<T: Format, D: Format> Format for Guard<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(
             Indent::Offset(2),
-            Newline::If(NewlineIf {
-                too_long: true,
-                multi_line: true,
-                ..Default::default()
-            }),
+            Newline::if_too_long_or_multi_line(),
             |fmt| {
                 fmt.add_space();
                 self.when.format(fmt);
