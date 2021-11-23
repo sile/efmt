@@ -1,8 +1,8 @@
 use crate::format::{Format, Formatter};
+use crate::items::components::ListLike;
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
-use crate::items::components::ListLike;
 use crate::items::symbols::{CloseSquareSymbol, CommaSymbol, OpenSquareSymbol, VerticalBarSymbol};
 use crate::items::Expr;
 use crate::parse::Parse;

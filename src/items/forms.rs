@@ -4,10 +4,10 @@ use crate::items::atoms::{
     CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
     TypeAtom,
 };
-use crate::items::expressions::components::FunctionClause;
 use crate::items::components::{
     Clauses, Either, Element, Items, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
 };
+use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{

@@ -1,9 +1,9 @@
 use crate::format::{Format, Formatter};
+use crate::items::components::{BitstringLike, Element, Maybe, NonEmptyItems};
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
 use crate::items::expressions::BaseExpr;
-use crate::items::components::{BitstringLike, Element, Maybe, NonEmptyItems};
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, HyphenSymbol, SlashSymbol,
 };
