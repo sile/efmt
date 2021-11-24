@@ -182,7 +182,6 @@ impl Formatter {
 #[derive(Debug)]
 struct ItemWriter<'a> {
     writer: Writer,
-    max_columns: usize,
     text: &'a str,
 }
 
@@ -190,7 +189,6 @@ impl<'a> ItemWriter<'a> {
     fn new(text: &'a str, max_columns: usize) -> Self {
         Self {
             writer: Writer::new(max_columns),
-            max_columns,
             text,
         }
     }
