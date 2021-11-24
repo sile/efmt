@@ -66,9 +66,9 @@ impl Macro {
         let mut tokens = Vec::new();
         for token in replacement {
             match token {
-                LexicalToken::Variable(x) if do_stringify => {
+                LexicalToken::Variable(_) if do_stringify => {
                     let dummy =
-                        StringToken::new("EFMT_DUMMY", x.start_position(), x.end_position());
+                        StringToken::new("EFMT_DUMMY", self.start_position(), self.end_position());
                     tokens.push(dummy.into());
                 }
                 LexicalToken::Variable(x) if args.contains_key(x.value()) => {
@@ -78,13 +78,13 @@ impl Macro {
                     do_stringify = true;
                     continue;
                 }
-                token => {
+                mut token => {
+                    token.set_span(self);
                     tokens.push(token);
                 }
             }
             do_stringify = false;
         }
-        tokens.iter_mut().for_each(|token| token.set_span(self));
         tokens
     }
 }

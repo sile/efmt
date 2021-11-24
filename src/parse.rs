@@ -187,7 +187,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::items::Form;
+    use crate::items::Module;
 
     #[test]
     fn unexpected_token_message_works() {
@@ -195,7 +195,7 @@ mod tests {
         foo() ->
             [a, b | #c].
         "};
-        let err = crate::format_text::<Form>(text).err().unwrap();
+        let err = crate::format_text::<Module>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {"
@@ -207,12 +207,30 @@ mod tests {
     }
 
     #[test]
+    fn unexpected_token_message_with_macro_works() {
+        let text = indoc::indoc! {"
+        -define(ID(A), A).
+        foo() ->
+            ?ID([a, b | #c]).
+        "};
+        let err = crate::format_text::<Module>(text).err().unwrap();
+        similar_asserts::assert_str_eq!(
+            err.to_string(),
+            indoc::indoc! {"
+        Parse failed:
+        --> <unknown>:3:19
+        3 |     ?ID([a, b | #c]).
+          |                   ^ unexpected token"}
+        );
+    }
+
+    #[test]
     fn unexpected_eof_message_works() {
         let text = indoc::indoc! {"
         foo() ->
             hello
         "};
-        let err = crate::format_text::<Form>(text).err().unwrap();
+        let err = crate::format_text::<Module>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {"
@@ -229,7 +247,7 @@ mod tests {
         foo() ->
             "hello
         "#};
-        let err = crate::format_text::<Form>(text).err().unwrap();
+        let err = crate::format_text::<Module>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {r#"
