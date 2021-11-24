@@ -34,7 +34,7 @@ impl BinaryOpStyle for BinaryOp {
     }
 
     fn newline(&self) -> Newline {
-        Newline::if_too_long()
+        Newline::IfTooLong
     }
 }
 

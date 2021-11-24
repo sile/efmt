@@ -68,6 +68,9 @@ impl VisibleToken {
                 return true;
             }
         }
+        if matches!((self, other), (Self::Comment(_), _) | (_, Self::Comment(_))) {
+            return false;
+        }
         if let (Self::Integer(_), Self::Symbol(b)) = (self, other) {
             if b.value() == Sharp {
                 return true;
@@ -86,6 +89,14 @@ impl VisibleToken {
             Self::Symbol(x) => Some(x.value().as_str()),
             Self::Keyword(x) => Some(x.value().as_str()),
             _ => None,
+        }
+    }
+
+    pub fn is_trailing_comment(&self) -> bool {
+        if let Self::Comment(x) = self {
+            x.kind() == CommentKind::Trailing
+        } else {
+            false
         }
     }
 }

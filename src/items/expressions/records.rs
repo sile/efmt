@@ -109,7 +109,7 @@ impl BinaryOpStyle for RecordFieldDelimiter {
     }
 
     fn newline(&self) -> Newline {
-        Newline::if_too_long_or_multi_line()
+        Newline::IfTooLongOrMultiLine
     }
 }
 

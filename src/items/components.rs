@@ -197,7 +197,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
                 delimiter.format(fmt);
                 fmt.subregion(
                     Indent::inherit(),
-                    Newline::if_too_long_or_multi_line_parent(),
+                    Newline::IfTooLongOrMultiLineParent,
                     |fmt| item.format(fmt),
                 );
             }
@@ -255,7 +255,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), Newline::if_too_long(), |fmt| {
+                fmt.subregion(Indent::inherit(), Newline::IfTooLong, |fmt| {
                     item.format(fmt)
                 });
             }
@@ -325,7 +325,7 @@ impl BinaryOpStyle for MapDelimiter {
     }
 
     fn newline(&self) -> Newline {
-        Newline::if_too_long_or_multi_line()
+        Newline::IfTooLongOrMultiLine
     }
 }
 
@@ -432,15 +432,11 @@ struct Guard<T, D> {
 
 impl<T: Format, D: Format> Format for Guard<T, D> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(
-            Indent::Offset(2),
-            Newline::if_too_long_or_multi_line(),
-            |fmt| {
-                fmt.add_space();
-                self.when.format(fmt);
-                fmt.add_space();
-                self.conditions.format(fmt);
-            },
-        );
+        fmt.subregion(Indent::Offset(2), Newline::IfTooLongOrMultiLine, |fmt| {
+            fmt.add_space();
+            self.when.format(fmt);
+            fmt.add_space();
+            self.conditions.format(fmt);
+        });
     }
 }

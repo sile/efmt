@@ -53,11 +53,9 @@ impl Format for RecordDeclValue {
             self.name.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
-            fmt.subregion(
-                Indent::inherit(),
-                Newline::if_too_long_or_multi_line(),
-                |fmt| self.fields.format(fmt),
-            );
+            fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
+                self.fields.format(fmt)
+            });
         });
     }
 }
@@ -115,7 +113,7 @@ impl Format for TypeDeclItem {
             fmt.add_space();
             self.delimiter.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::Offset(2), Newline::if_too_long(), |fmt| {
+            fmt.subregion(Indent::Offset(2), Newline::IfTooLong, |fmt| {
                 self.r#type.format(fmt)
             });
         });
@@ -162,7 +160,7 @@ impl Format for SpecClause {
         self.params.format(fmt);
         fmt.subregion(
             Indent::ParentOffset(4),
-            Newline::if_too_long_or_multi_line(),
+            Newline::IfTooLongOrMultiLine,
             |fmt| self.r#return.format(fmt),
         );
     }
@@ -253,11 +251,9 @@ impl Format for DefineDirective {
             self.variables.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
-            fmt.subregion(
-                Indent::inherit(),
-                Newline::if_too_long_or_multi_line(),
-                |fmt| self.replacement.format(fmt),
-            );
+            fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
+                self.replacement.format(fmt)
+            });
         });
         self.close.format(fmt);
         self.dot.format(fmt);

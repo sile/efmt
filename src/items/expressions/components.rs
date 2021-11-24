@@ -25,7 +25,7 @@ impl<Name: Format> FunctionClause<Name> {
         self.params.format(fmt);
         fmt.subregion(
             Indent::Offset(4),
-            Newline::if_too_long_or_multi_line_parent(),
+            Newline::IfTooLongOrMultiLineParent,
             |fmt| self.body.exprs.format(fmt),
         );
     }
@@ -105,7 +105,7 @@ impl BinaryOpStyle for ComprehensionDelimiter {
     }
 
     fn newline(&self) -> Newline {
-        Newline::if_too_long_or_multi_line()
+        Newline::IfTooLongOrMultiLine
     }
 }
 
@@ -206,9 +206,9 @@ impl BinaryOpStyle for BinaryOp {
         if matches!(self, Self::Send(_)) {
             Newline::Never
         } else if matches!(self.indent(), Indent::Offset(0)) {
-            Newline::if_too_long()
+            Newline::IfTooLong
         } else {
-            Newline::if_too_long_or_multi_line()
+            Newline::IfTooLongOrMultiLine
         }
     }
 }

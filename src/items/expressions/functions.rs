@@ -77,7 +77,7 @@ impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
                 clause.format_maybe_one_line_body(fmt);
                 fmt.subregion(
                     Indent::ParentOffset(0),
-                    Newline::if_too_long_or_multi_line_parent(),
+                    Newline::IfTooLongOrMultiLineParent,
                     |fmt| self.end.format(fmt),
                 );
             });
