@@ -78,9 +78,7 @@ impl Parse for BaseExpr {
                 _ => ts.parse().map(Self::Block),
             },
             Some(_) => ts.parse().map(Self::Literal),
-            None => Err(parse::Error::UnexpectedEof {
-                position: ts.next_token_start_position()?,
-            }),
+            None => Err(parse::Error::unexpected_eof(ts)),
         }?;
 
         let mut expr = expr;

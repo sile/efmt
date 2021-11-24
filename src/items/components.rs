@@ -214,7 +214,7 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
+struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
 
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {

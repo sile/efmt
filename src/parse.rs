@@ -11,14 +11,18 @@ pub use efmt_derive::Parse;
 mod token_stream;
 
 /// Possible errors.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     /// Unexpected EOF.
-    #[error("Parse failed: Unexpected EOF")]
-    UnexpectedEof { position: Position },
+    #[error("Parse failed:{}", Self::unexpected_eof_message(.position, .text, .path))]
+    UnexpectedEof {
+        position: Position,
+        text: Arc<String>,
+        path: Option<Arc<PathBuf>>,
+    },
 
     /// Unexpected token.
-    #[error("Parse failed: {}", unexpected_token_error_message(.position, .text, .path))]
+    #[error("Parse failed:{}", Self::unexpected_token_message(.position, .text, .path))]
     UnexpectedToken {
         position: Position,
         text: Arc<String>,
@@ -26,8 +30,11 @@ pub enum Error {
     },
 
     /// Error during tokenization.
-    #[error(transparent)]
-    TokenizeError(#[from] erl_tokenize::Error),
+    #[error("Tokenize failed:{}", Self::tokenize_error_message(.source, .text))]
+    TokenizeError {
+        source: erl_tokenize::Error,
+        text: Arc<String>,
+    },
 }
 
 impl Error {
@@ -39,50 +46,105 @@ impl Error {
         }
     }
 
-    pub(crate) fn position(&self) -> Position {
-        match self {
-            Self::UnexpectedEof { position } => *position,
-            Self::UnexpectedToken { position, .. } => *position,
-            Self::TokenizeError(x) => x.position().clone().into(),
+    pub(crate) fn unexpected_eof(ts: &TokenStream) -> Self {
+        Self::UnexpectedEof {
+            position: ts.prev_token_end_position(),
+            text: ts.text(),
+            path: ts.filepath(),
         }
     }
-}
 
-// TODO:
-fn unexpected_token_error_message(
-    position: &Position,
-    text: &Arc<String>,
-    path: &Option<Arc<PathBuf>>,
-) -> String {
-    let line = position.line();
-    let column = position.column();
-    let file = path
-        .as_ref()
-        .and_then(|x| x.to_str().map(|x| x.to_owned()))
-        .unwrap_or_else(|| "<anonymous>".to_owned());
-    let line_string = get_line_string(text, position);
+    pub(crate) fn tokenize_error(ts: &TokenStream, source: erl_tokenize::Error) -> Self {
+        Self::TokenizeError {
+            source,
+            text: ts.text(),
+        }
+    }
 
-    let mut m = String::new();
-    m.push_str(&format!("\n--> {}:{}:{}\n", file, line, column));
-    m.push_str(&format!("{} | {}\n", line, line_string));
-    m.push_str(&format!(
-        "{:line_width$} | {:>token_column$} unexpected token",
-        "",
-        "^",
-        line_width = line.to_string().len(),
-        token_column = column
-    ));
-    m
-}
+    pub(crate) fn position(&self) -> Position {
+        match self {
+            Self::UnexpectedEof { position, .. } => *position,
+            Self::UnexpectedToken { position, .. } => *position,
+            Self::TokenizeError { source, .. } => source.position().clone().into(),
+        }
+    }
 
-fn get_line_string<'a>(text: &'a str, position: &Position) -> &'a str {
-    let offset = position.offset();
-    let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
-    let line_end = (&text[offset..])
-        .find('\n')
-        .map(|x| x + offset)
-        .unwrap_or_else(|| text.len());
-    (&text[line_start..line_end]).trim_matches(char::is_control)
+    fn tokenize_error_message(source: &erl_tokenize::Error, text: &Arc<String>) -> String {
+        let source_message = source.to_string();
+        let source_message_end = source_message
+            .find(" (")
+            .unwrap_or_else(|| source_message.len());
+        Self::generate_error_message(
+            source.position().clone().into(),
+            text,
+            source.position().filepath(),
+            &source_message[..source_message_end],
+        )
+    }
+
+    fn unexpected_eof_message(
+        position: &Position,
+        text: &Arc<String>,
+        path: &Option<Arc<PathBuf>>,
+    ) -> String {
+        Self::generate_error_message(
+            *position,
+            text,
+            path.as_ref().map(|x| &**x),
+            "unexpected EOF",
+        )
+    }
+
+    fn unexpected_token_message(
+        position: &Position,
+        text: &Arc<String>,
+        path: &Option<Arc<PathBuf>>,
+    ) -> String {
+        Self::generate_error_message(
+            *position,
+            text,
+            path.as_ref().map(|x| &**x),
+            "unexpected token",
+        )
+    }
+
+    fn generate_error_message(
+        position: Position,
+        text: &str,
+        path: Option<&PathBuf>,
+        error_kind: &str,
+    ) -> String {
+        let line = position.line();
+        let column = position.column();
+        let file = path
+            .as_ref()
+            .and_then(|x| x.to_str().map(|x| x.to_owned()))
+            .unwrap_or_else(|| "<unknown>".to_owned());
+        let line_string = Self::get_line_string(text, position);
+
+        let mut m = String::new();
+        m.push_str(&format!("\n--> {}:{}:{}\n", file, line, column));
+        m.push_str(&format!("{} | {}\n", line, line_string));
+        m.push_str(&format!(
+            "{:line_width$} | {:>token_column$} {}",
+            "",
+            "^",
+            error_kind,
+            line_width = line.to_string().len(),
+            token_column = column
+        ));
+        m
+    }
+
+    fn get_line_string(text: &str, position: Position) -> &str {
+        let offset = position.offset();
+        let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
+        let line_end = (&text[offset..])
+            .find('\n')
+            .map(|x| x + offset)
+            .unwrap_or_else(|| text.len());
+        (&text[line_start..line_end]).trim_matches(char::is_control)
+    }
 }
 
 /// A specialized [Result][std::result::Result] type for this module.
@@ -120,5 +182,71 @@ where
 {
     fn resume_parse(ts: &mut TokenStream, args: A) -> Result<Self> {
         ts.resume_parse(args).map(Box::new)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::format::FormatOptions;
+    use crate::items::Form;
+
+    #[test]
+    fn unexpected_token_message_works() {
+        let text = indoc::indoc! {"
+        foo() ->
+            [a, b | #c].
+        "};
+        let err = FormatOptions::new()
+            .format_text::<Form>(text)
+            .err()
+            .unwrap();
+        similar_asserts::assert_str_eq!(
+            err.to_string(),
+            indoc::indoc! {"
+        Parse failed:
+        --> <unknown>:2:15
+        2 |     [a, b | #c].
+          |               ^ unexpected token"}
+        );
+    }
+
+    #[test]
+    fn unexpected_eof_message_works() {
+        let text = indoc::indoc! {"
+        foo() ->
+            hello
+        "};
+        let err = FormatOptions::new()
+            .format_text::<Form>(text)
+            .err()
+            .unwrap();
+        similar_asserts::assert_str_eq!(
+            err.to_string(),
+            indoc::indoc! {"
+        Parse failed:
+        --> <unknown>:2:10
+        2 |     hello
+          |          ^ unexpected EOF"}
+        );
+    }
+
+    #[test]
+    fn tokenize_error_message_works() {
+        let text = indoc::indoc! {r#"
+        foo() ->
+            "hello
+        "#};
+        let err = FormatOptions::new()
+            .format_text::<Form>(text)
+            .err()
+            .unwrap();
+        similar_asserts::assert_str_eq!(
+            err.to_string(),
+            indoc::indoc! {r#"
+        Tokenize failed:
+        --> <unknown>:2:5
+        2 |     "hello
+          |     ^ no closing quotation"#}
+        );
     }
 }

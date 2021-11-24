@@ -7,7 +7,7 @@ use crate::items::tokens::{
     LexicalToken, StringToken, SymbolToken, VariableToken,
 };
 use crate::items::Module;
-use crate::parse::{Parse, Result, ResumeParse};
+use crate::parse::{Error, Parse, Result, ResumeParse};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
@@ -55,6 +55,7 @@ pub struct TokenStream {
     options: TokenStreamOptions,
     text: Arc<String>,
     path: Option<Arc<PathBuf>>,
+    last_parse_error: Option<Error>,
 }
 
 impl TokenStream {
@@ -80,12 +81,14 @@ impl TokenStream {
             options,
             text,
             path,
+            last_parse_error: None,
         }
     }
 
     pub fn parse_tokens<T: Parse>(&mut self, tokens: Vec<LexicalToken>) -> Result<T> {
         let old_tokens = std::mem::replace(&mut self.tokens, tokens);
         let old_index = self.current_token_index;
+        let old_last_parse_error = self.last_parse_error.take();
         self.current_token_index = 0;
 
         self.parsing_tokens = true;
@@ -94,16 +97,38 @@ impl TokenStream {
 
         let _ = std::mem::replace(&mut self.tokens, old_tokens);
         self.current_token_index = old_index;
+        self.last_parse_error = old_last_parse_error;
+
         result
     }
 
     pub fn parse<T: Parse>(&mut self) -> Result<T> {
         let index = self.current_token_index;
         let result = T::parse(self);
-        if result.is_err() {
+        if let Err(e) = &result {
             self.current_token_index = index;
+            if self
+                .last_parse_error
+                .as_ref()
+                .map_or(true, |e0| e0.position() < e.position())
+            {
+                self.last_parse_error = Some(e.clone());
+            }
+        } else {
+            let succeeded_position = self.prev_token_end_position();
+            if self
+                .last_parse_error
+                .as_ref()
+                .map_or(false, |e| e.position() < succeeded_position)
+            {
+                self.last_parse_error = None;
+            }
         }
         result
+    }
+
+    pub fn take_last_error(&mut self) -> Option<Error> {
+        self.last_parse_error.take()
     }
 
     pub fn resume_parse<T, A>(&mut self, args: A) -> Result<T>
@@ -168,7 +193,7 @@ impl TokenStream {
         result
     }
 
-    pub fn prev_token_end_position(&mut self) -> Position {
+    pub fn prev_token_end_position(&self) -> Position {
         if let Some(i) = self.current_token_index.checked_sub(1) {
             self.tokens[i].end_position()
         } else {
@@ -207,7 +232,12 @@ impl TokenStream {
             return Ok(None);
         }
 
-        while let Some(token) = self.tokenizer.next().transpose()? {
+        while let Some(token) = self
+            .tokenizer
+            .next()
+            .transpose()
+            .map_err(|e| Error::tokenize_error(self, e))?
+        {
             let start_position = Position::from(token.start_position());
             let end_position = Position::from(token.end_position());
             let token: LexicalToken = match token {

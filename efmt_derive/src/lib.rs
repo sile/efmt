@@ -57,20 +57,13 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() => match ts.parse() {
-                    Ok(x) => return Ok(Self::#name(x)),
-                    Err(e) => {
-                        if error.as_ref().map_or(true, |x| x.position() < e.position()) {
-                            error = Some(e);
-                        }
-                    }
+                quote_spanned! { variant.span() => if let Ok(x) = ts.parse() {
+                    return Ok(Self::#name(x));
                 }}
             });
             quote! {
-
-                let mut error: Option<crate::parse::Error> = None;
                 #( #arms )*
-                Err(error.take().expect("unreachable"))
+                Err(ts.take_last_error().expect("unreachable"))
             }
         }
         Data::Union(_) => unimplemented!(),
