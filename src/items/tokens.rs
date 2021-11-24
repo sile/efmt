@@ -46,7 +46,7 @@ impl Parse for LexicalToken {
 }
 
 /// Token used in the format phase.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span)]
 pub enum VisibleToken {
     Atom(AtomToken),
     Char(CharToken),
@@ -346,21 +346,5 @@ impl Span for CommentToken {
 
     fn end_position(&self) -> Position {
         self.end
-    }
-}
-
-impl Format for CommentToken {
-    fn format(&self, fmt: &mut Formatter) {
-        match self.kind() {
-            CommentKind::Trailing => {
-                fmt.cancel_whitespaces();
-                fmt.add_spaces(2);
-            }
-            CommentKind::Post => {
-                fmt.add_newline();
-            }
-        }
-        fmt.add_token(VisibleToken::Comment(self.clone()));
-        fmt.add_newline();
     }
 }

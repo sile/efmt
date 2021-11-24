@@ -150,13 +150,7 @@ impl RegionWriter {
         Ok(())
     }
 
-    pub fn cancel_whitespaces(&mut self) {
-        while matches!(self.last_char(), '\n' | ' ') {
-            self.pop_last_char();
-        }
-    }
-
-    pub fn write_item(&mut self, text: &str, item: &impl Span) -> Result<()> {
+    pub fn write_item(&mut self, text: &str, item: &impl Span, is_comment: bool) -> Result<()> {
         let start = item.start_position();
         let end = item.end_position();
         let text = &text[start.offset()..end.offset()];
@@ -173,7 +167,14 @@ impl RegionWriter {
             self.state.current_column = self.config.indent;
         }
 
-        self.write(text)?;
+        if is_comment {
+            let old = self.config.max_columns.take();
+            let result = self.write(text);
+            self.config.max_columns = old;
+            result?;
+        } else {
+            self.write(text)?;
+        }
         self.state.next_position = end;
         Ok(())
     }

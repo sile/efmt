@@ -10,6 +10,32 @@ use crate::span::{Position, Span};
 
 pub use efmt_derive::Element;
 
+#[derive(Debug, Clone)]
+pub struct Never;
+
+impl Span for Never {
+    fn start_position(&self) -> Position {
+        unreachable!()
+    }
+
+    fn end_position(&self) -> Position {
+        unreachable!()
+    }
+}
+
+impl Parse for Never {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let token = ts.parse()?;
+        Err(parse::Error::unexpected_token(ts, token))
+    }
+}
+
+impl Format for Never {
+    fn format(&self, _: &mut Formatter) {
+        unreachable!()
+    }
+}
+
 #[derive(Debug, Clone, Span)]
 pub struct Null {
     // Note that `next_token_start_position` can be larger than `prev_token_end_position`

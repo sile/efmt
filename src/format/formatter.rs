@@ -1,6 +1,6 @@
 use crate::format::writer::{Error, RegionConfig, RegionWriter, Result};
 use crate::format::Format;
-use crate::items::tokens::VisibleToken;
+use crate::items::tokens::{CommentKind, CommentToken, VisibleToken};
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
 
@@ -8,9 +8,12 @@ use crate::span::{Position, Span};
 pub struct Formatter {
     ts: TokenStream,
     item: Item,
-    last_comment_or_macro_position: Option<Position>,
+    last_comment_or_macro_position: Option<Position>, // TODO: rename
     next_position: Position,
     last_token: Option<VisibleToken>,
+    skip_whitespaces: bool,
+    last_skipped_whitespace: Option<Item>,
+    pending_trailing_comments: Vec<VisibleToken>,
 }
 
 impl Formatter {
@@ -21,10 +24,17 @@ impl Formatter {
             last_comment_or_macro_position: None,
             next_position: Position::new(0, 0, 0),
             last_token: None,
+            skip_whitespaces: false,
+            last_skipped_whitespace: None,
+            pending_trailing_comments: Vec::new(),
         }
     }
 
     pub fn add_token(&mut self, token: VisibleToken) {
+        self.add_token_or_trailing_comment(token, false);
+    }
+
+    fn add_token_or_trailing_comment(&mut self, token: VisibleToken, trailing_comment: bool) {
         let start_position = token.start_position();
         let end_position = token.end_position();
 
@@ -32,8 +42,15 @@ impl Formatter {
 
         if start_position < self.next_position {
             // Macro expanded token.
-            self.item.cancel_whitespaces();
+            self.last_skipped_whitespace = None;
             return;
+        }
+        self.skip_whitespaces = false;
+        match self.last_skipped_whitespace.take() {
+            Some(Item::Space { .. }) => self.add_space(),
+            Some(Item::Newline) => self.add_newline(),
+            None => {}
+            _ => unreachable!(),
         }
 
         if let Some(last) = &self.last_token {
@@ -43,7 +60,13 @@ impl Formatter {
         }
 
         self.last_token = Some(token.clone());
-        self.item.add_token(token);
+        if trailing_comment {
+            if let Err(token) = self.item.add_trailing_comment(token) {
+                self.pending_trailing_comments.push(token);
+            }
+        } else {
+            self.item.add_token(token);
+        }
 
         assert!(self.next_position <= end_position);
         self.next_position = end_position;
@@ -75,11 +98,12 @@ impl Formatter {
             if next_comment_start < next_macro_start {
                 let comment = self.ts.comments()[&next_comment_start].clone();
                 self.last_comment_or_macro_position = Some(next_comment_start);
-                comment.format(self);
+                self.add_comment(comment);
             } else {
                 let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
+                self.skip_whitespaces = true;
             }
         }
     }
@@ -103,19 +127,41 @@ impl Formatter {
     }
 
     pub fn add_spaces(&mut self, n: usize) {
+        if self.skip_whitespaces {
+            self.last_skipped_whitespace = Some(Item::Space(n));
+            return;
+        }
         self.item.add_space(n);
     }
 
     pub fn add_space(&mut self) {
+        if self.skip_whitespaces {
+            self.last_skipped_whitespace = Some(Item::Space(1));
+            return;
+        }
         self.item.add_space(1);
     }
 
     pub fn add_newline(&mut self) {
+        if self.skip_whitespaces {
+            self.last_skipped_whitespace = Some(Item::Newline);
+            return;
+        }
         self.item.add_newline();
     }
 
-    pub fn cancel_whitespaces(&mut self) {
-        self.item.cancel_whitespaces();
+    pub fn add_comment(&mut self, comment: CommentToken) {
+        match comment.kind() {
+            CommentKind::Post => {
+                self.add_newline();
+                self.add_token(VisibleToken::Comment(comment));
+                self.add_newline();
+            }
+            CommentKind::Trailing => {
+                self.add_token_or_trailing_comment(VisibleToken::Comment(comment), true);
+                self.add_newline();
+            }
+        }
     }
 
     pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
@@ -132,6 +178,12 @@ impl Formatter {
         );
         f(self);
         let child = std::mem::replace(&mut self.item, parent);
+        while let Some(token) = self.pending_trailing_comments.pop() {
+            if let Err(token) = self.item.add_trailing_comment(token) {
+                self.pending_trailing_comments.push(token);
+                break;
+            }
+        }
         if !child.is_empty() {
             // TODO: If macros appears, ...
             self.item.add_region(child);
@@ -180,7 +232,6 @@ impl ItemToString {
             } => self.format_span(*start_position, *end_position)?,
             Item::Space(n) => self.format_space(*n)?,
             Item::Newline => self.format_newline()?,
-            Item::CancelWhitespace => self.writer.cancel_whitespaces(),
             Item::Region {
                 indent,
                 newline,
@@ -199,12 +250,14 @@ impl ItemToString {
     }
 
     fn format_token(&mut self, token: &VisibleToken) -> Result<()> {
-        self.writer.write_item(&self.fmt.ts.text(), token)
+        let is_comment = matches!(token, VisibleToken::Comment(_));
+        self.writer
+            .write_item(&self.fmt.ts.text(), token, is_comment)
     }
 
     fn format_span(&mut self, start_position: Position, end_position: Position) -> Result<()> {
         self.writer
-            .write_item(&self.fmt.ts.text(), &(start_position, end_position))
+            .write_item(&self.fmt.ts.text(), &(start_position, end_position), false)
     }
 
     fn format_space(&mut self, n: usize) -> Result<()> {
@@ -330,7 +383,6 @@ pub enum Item {
     },
     Space(usize),
     Newline,
-    CancelWhitespace,
     Region {
         indent: Indent,
         newline: Newline,
@@ -353,6 +405,36 @@ impl Item {
                 last.add_token(token);
             } else {
                 items.push(Self::Token(token));
+            }
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn add_trailing_comment(
+        &mut self,
+        token: VisibleToken,
+    ) -> std::result::Result<(), VisibleToken> {
+        if self
+            .end_position()
+            .map_or(true, |p| token.end_position() < p)
+        {
+            return Err(token);
+        }
+
+        if let Self::Region { items, .. } = self {
+            while matches!(items.last(), Some(Self::Space(_) | Self::Newline)) {
+                items.pop();
+            }
+            match items.last_mut() {
+                Some(last @ Self::Region { .. }) => last.add_trailing_comment(token),
+                Some(Self::Token(_) | Self::Span { .. }) => {
+                    items.push(Self::Space(2));
+                    items.push(Self::Token(token));
+                    Ok(())
+                }
+                Some(Self::Space(_) | Self::Newline) => unreachable!(),
+                None => Err(token),
             }
         } else {
             unreachable!();
@@ -398,18 +480,6 @@ impl Item {
         }
     }
 
-    fn cancel_whitespaces(&mut self) {
-        if let Self::Region { items, .. } = self {
-            if let Some(last @ Self::Region { .. }) = items.last_mut() {
-                last.cancel_whitespaces();
-            } else {
-                items.push(Self::CancelWhitespace);
-            }
-        } else {
-            unreachable!();
-        }
-    }
-
     fn is_empty(&self) -> bool {
         if let Self::Region { items, .. } = self {
             items.iter().all(|item| match item {
@@ -417,6 +487,26 @@ impl Item {
                 Self::Space(_) | Self::Newline => true,
                 _ => false,
             })
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn end_position(&self) -> Option<Position> {
+        if let Self::Region { items, .. } = self {
+            for item in items {
+                match item {
+                    region @ Self::Region { .. } => {
+                        if let Some(position) = region.end_position() {
+                            return Some(position);
+                        }
+                    }
+                    Self::Span { start_position, .. } => return Some(*start_position),
+                    Self::Token(x) => return Some(x.start_position()),
+                    Self::Newline | Self::Space(_) => {}
+                }
+            }
+            None
         } else {
             unreachable!();
         }

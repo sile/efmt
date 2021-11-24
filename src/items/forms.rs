@@ -5,7 +5,8 @@ use crate::items::atoms::{
     TypeAtom,
 };
 use crate::items::components::{
-    Clauses, Either, Element, Items, Maybe, Params, Parenthesized, TupleLike, WithArrow, WithGuard,
+    Clauses, Either, Element, Maybe, Never, NonEmptyItems, Null, Params, Parenthesized, TupleLike,
+    WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::IfKeyword;
@@ -185,30 +186,27 @@ pub struct FunDecl {
 /// - $ARGS: `(` (`$ARG` `,`?)* `)`
 /// - $ARG: [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Attr(AttrLike<AttrName, AttrValue>);
+pub struct Attr(AttrLike<AttrName, AttrValue, Null>);
 
 type AttrName = Either<AtomToken, IfKeyword>;
-type AttrValue = Items<Expr>;
+type AttrValue = NonEmptyItems<Expr>;
 
 #[derive(Debug, Clone, Span, Parse)]
-struct AttrLike<Name, Value> {
+struct AttrLike<Name, Value, Empty = Never> {
     hyphen: HyphenSymbol,
     name: Name,
-    value: Either<Parenthesized<Value>, Value>,
+    value: Either<Parenthesized<Value>, Either<Value, Empty>>,
     dot: DotSymbol,
 }
 
-impl<Name: Format, Value: Format> Format for AttrLike<Name, Value> {
+impl<Name: Format, Value: Format, Empty: Format> Format for AttrLike<Name, Value, Empty> {
     fn format(&self, fmt: &mut Formatter) {
         self.hyphen.format(fmt);
         self.name.format(fmt);
-        if matches!(self.value, Either::B(_)) {
-            // Note that `self.value` may be empty.
-            // In that case, the additional space will be removed by the following `fmt.cancel_whitespaces()` call.
+        if matches!(self.value, Either::B(Either::A(_))) {
             fmt.add_space();
         }
         self.value.format(fmt);
-        fmt.cancel_whitespaces();
         self.dot.format(fmt);
     }
 }
