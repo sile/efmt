@@ -7,26 +7,24 @@ use crate::span::{Position, Span};
 #[derive(Debug)]
 pub struct Formatter {
     ts: TokenStream,
-    item: Item,
+    item: RootItem,
     last_comment_or_macro_position: Option<Position>, // TODO: rename
     next_position: Position,
     last_token: Option<VisibleToken>,
     skip_whitespaces: bool,
     last_skipped_whitespace: Option<Item>,
-    pending_trailing_comments: Vec<VisibleToken>,
 }
 
 impl Formatter {
     pub fn new(ts: TokenStream) -> Self {
         Self {
             ts,
-            item: Item::new(),
+            item: RootItem::new(),
             last_comment_or_macro_position: None,
             next_position: Position::new(0, 0, 0),
             last_token: None,
             skip_whitespaces: false,
             last_skipped_whitespace: None,
-            pending_trailing_comments: Vec::new(),
         }
     }
 
@@ -61,9 +59,7 @@ impl Formatter {
 
         self.last_token = Some(token.clone());
         if trailing_comment {
-            if let Err(token) = self.item.add_trailing_comment(token) {
-                self.pending_trailing_comments.push(token);
-            }
+            self.item.add_trailing_comment(token);
         } else {
             self.item.add_token(token);
         }
@@ -168,26 +164,9 @@ impl Formatter {
     where
         F: FnOnce(&mut Self),
     {
-        let parent = std::mem::replace(
-            &mut self.item,
-            Item::Region {
-                indent,
-                newline,
-                items: Vec::new(),
-            },
-        );
+        self.item.enter_subregion(indent, newline);
         f(self);
-        let child = std::mem::replace(&mut self.item, parent);
-        while let Some(token) = self.pending_trailing_comments.pop() {
-            if let Err(token) = self.item.add_trailing_comment(token) {
-                self.pending_trailing_comments.push(token);
-                break;
-            }
-        }
-        if !child.is_empty() {
-            // TODO: If macros appears, ...
-            self.item.add_region(child);
-        }
+        self.item.leave_subregion();
     }
 
     pub fn token_stream_mut(&mut self) -> &mut TokenStream {
@@ -197,8 +176,8 @@ impl Formatter {
     pub fn format(mut self, max_columns: usize) -> String {
         self.add_macros_and_comments(Position::new(usize::MAX - 1, usize::MAX, usize::MAX));
 
-        let item = std::mem::replace(&mut self.item, Item::new());
-        ItemToString::new(self, max_columns).into_string(&item)
+        let root = std::mem::replace(&mut self.item, RootItem::new());
+        ItemToString::new(self, max_columns).into_string(&root.item)
     }
 }
 
@@ -375,7 +354,70 @@ impl ItemToString {
 }
 
 #[derive(Debug)]
-pub enum Item {
+struct RootItem {
+    item: Item,
+    prev: Option<Box<Self>>,
+}
+
+impl RootItem {
+    fn new() -> Self {
+        Self {
+            item: Item::new(),
+            prev: None,
+        }
+    }
+
+    fn enter_subregion(&mut self, indent: Indent, newline: Newline) {
+        let prev = std::mem::replace(
+            self,
+            Self {
+                item: Item::Region {
+                    indent,
+                    newline,
+                    items: Vec::new(),
+                },
+                prev: None,
+            },
+        );
+        self.prev = Some(Box::new(prev));
+    }
+
+    fn leave_subregion(&mut self) {
+        let prev = self.prev.take().expect("bug");
+        let item = std::mem::replace(self, *prev).item;
+
+        // If the items that were added during this subregion only contain macro expanded tokens,
+        // `item.is_empty()` returns `true`.
+        if !item.is_empty() {
+            self.item.add_region(item);
+        }
+    }
+
+    fn add_token(&mut self, token: VisibleToken) {
+        self.item.add_token(token)
+    }
+
+    fn add_trailing_comment(&mut self, token: VisibleToken) {
+        if let Err(token) = self.item.add_trailing_comment(token) {
+            self.prev.as_mut().expect("bug").add_trailing_comment(token);
+        }
+    }
+
+    fn add_span(&mut self, span: &impl Span) {
+        self.item.add_span(span)
+    }
+
+    fn add_space(&mut self, n: usize) {
+        self.item.add_space(n)
+    }
+
+    fn add_newline(&mut self) {
+        self.item.add_newline()
+    }
+}
+
+#[derive(Debug)]
+enum Item {
     Token(VisibleToken),
     Span {
         start_position: Position,
