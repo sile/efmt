@@ -14,20 +14,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone)]
 pub struct RegionConfig {
     pub indent: usize,
-    pub max_columns: usize,
+    pub max_columns: Option<usize>,
     pub allow_multi_line: bool,
-    pub allow_too_long_line: bool,
-    pub multi_line_mode: bool,
 }
 
 impl RegionConfig {
-    pub fn new(max_columns: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             indent: 0,
-            max_columns,
+            max_columns: None,
             allow_multi_line: true,
-            allow_too_long_line: true,
-            multi_line_mode: false,
         }
     }
 }
@@ -48,9 +44,9 @@ pub struct RegionWriter {
 }
 
 impl RegionWriter {
-    pub fn new(max_columns: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            config: RegionConfig::new(max_columns),
+            config: RegionConfig::new(),
             state: RegionState {
                 next_position: Position::new(0, 0, 0),
                 current_column: 0,
@@ -65,8 +61,11 @@ impl RegionWriter {
         if !self.config.allow_multi_line {
             config.allow_multi_line = false;
         }
-        if !self.config.allow_too_long_line {
-            config.allow_too_long_line = false;
+        if self.config.max_columns.is_some() {
+            if config.max_columns.is_some() {
+                assert_eq!(config.max_columns, self.config.max_columns);
+            }
+            config.max_columns = self.config.max_columns;
         }
 
         let state = RegionState {
@@ -187,8 +186,10 @@ impl RegionWriter {
                 }
                 self.state.current_column = 0;
             } else if (self.last_char() == '$' || c != ' ')
-                && self.state.current_column >= self.config.max_columns
-                && !self.config.allow_too_long_line
+                && self
+                    .config
+                    .max_columns
+                    .map_or(false, |n| self.state.current_column >= n)
             {
                 return Err(Error::LineTooLong);
             }
@@ -201,7 +202,7 @@ impl RegionWriter {
         Ok(())
     }
 
-    pub fn last_char(&self) -> char {
+    fn last_char(&self) -> char {
         self.n_last_char(0)
     }
 

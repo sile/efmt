@@ -198,14 +198,14 @@ impl BinaryOpStyle for BinaryOp {
         if matches!(self, Self::Match(_)) {
             Indent::Offset(4)
         } else {
-            Indent::Inherit
+            Indent::inherit()
         }
     }
 
     fn newline(&self) -> Newline {
         if matches!(self, Self::Send(_)) {
             Newline::Never
-        } else if matches!(self.indent(), Indent::Inherit) {
+        } else if matches!(self.indent(), Indent::Offset(0)) {
             Newline::if_too_long()
         } else {
             Newline::if_too_long_or_multi_line()

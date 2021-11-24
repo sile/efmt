@@ -30,7 +30,7 @@ pub enum BinaryOp {
 
 impl BinaryOpStyle for BinaryOp {
     fn indent(&self) -> Indent {
-        Indent::Inherit
+        Indent::inherit()
     }
 
     fn newline(&self) -> Newline {

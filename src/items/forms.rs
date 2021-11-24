@@ -53,7 +53,7 @@ impl Format for RecordDeclValue {
             self.comma.format(fmt);
             fmt.add_space();
             fmt.subregion(
-                Indent::Inherit,
+                Indent::inherit(),
                 Newline::if_too_long_or_multi_line(),
                 |fmt| self.fields.format(fmt),
             );
@@ -256,7 +256,7 @@ impl Format for DefineDirective {
             self.comma.format(fmt);
             fmt.add_space();
             fmt.subregion(
-                Indent::Inherit,
+                Indent::inherit(),
                 Newline::if_too_long_or_multi_line(),
                 |fmt| self.replacement.format(fmt),
             );

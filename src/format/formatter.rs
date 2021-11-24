@@ -111,7 +111,7 @@ impl Formatter {
     }
 
     pub fn add_newline(&mut self) {
-        self.item.add_newline(1);
+        self.item.add_newline();
     }
 
     pub fn cancel_whitespaces(&mut self) {
@@ -160,7 +160,7 @@ struct ItemToString {
 impl ItemToString {
     fn new(fmt: Formatter, max_columns: usize) -> Self {
         Self {
-            writer: RegionWriter::new(max_columns),
+            writer: RegionWriter::new(),
             max_columns,
             fmt,
         }
@@ -179,7 +179,7 @@ impl ItemToString {
                 end_position,
             } => self.format_span(*start_position, *end_position)?,
             Item::Space(n) => self.format_space(*n)?,
-            Item::Newline(n) => self.format_newline(*n)?,
+            Item::Newline => self.format_newline()?,
             Item::CancelWhitespace => self.writer.cancel_whitespaces(),
             Item::Region {
                 indent,
@@ -211,14 +211,12 @@ impl ItemToString {
         self.writer.write_space(n)
     }
 
-    fn format_newline(&mut self, n: usize) -> Result<()> {
-        assert_eq!(n, 1);
+    fn format_newline(&mut self) -> Result<()> {
         self.writer.write_newline()
     }
 
     fn format_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) -> Result<()> {
         let indent = match indent {
-            Indent::Inherit => self.writer.config().indent,
             Indent::Offset(n) => self.writer.config().indent + n,
             Indent::ParentOffset(n) => self.writer.parent_indent() + n,
             Indent::CurrentColumn => {
@@ -241,7 +239,7 @@ impl ItemToString {
                 allow_multi_line = !cond.multi_line;
                 allow_too_long_line = !cond.too_long;
 
-                if cond.multi_line_parent && self.writer.config().multi_line_mode {
+                if cond.multi_line_parent && self.writer.config().allow_multi_line {
                     needs_newline = true;
                 }
             }
@@ -266,11 +264,13 @@ impl ItemToString {
         }
 
         let config = RegionConfig {
-            max_columns: self.max_columns,
             indent,
+            max_columns: if allow_too_long_line {
+                None
+            } else {
+                Some(self.max_columns)
+            },
             allow_multi_line,
-            allow_too_long_line,
-            multi_line_mode: false,
         };
         let result = self.with_subregion(config, |this| {
             if needs_newline {
@@ -279,19 +279,17 @@ impl ItemToString {
             this.format_items(items)
         });
         if result.is_err() {
-            let (retry, needs_newline, multi_line_mode) = match &result {
-                Err(Error::MultiLine) if check_multi_line => (true, needs_newline, true),
-                Err(Error::MultiLine) if !allow_multi_line => (true, true, false),
-                Err(Error::LineTooLong) if !allow_too_long_line => (true, true, false),
-                _ => (false, false, false),
+            let (retry, needs_newline) = match &result {
+                Err(Error::MultiLine) if check_multi_line => (true, needs_newline),
+                Err(Error::MultiLine) if !allow_multi_line => (true, true),
+                Err(Error::LineTooLong) if !allow_too_long_line => (true, true),
+                _ => (false, false),
             };
             if retry {
                 let config = RegionConfig {
-                    max_columns: self.max_columns,
                     indent,
+                    max_columns: None,
                     allow_multi_line: true,
-                    allow_too_long_line: true,
-                    multi_line_mode,
                 };
 
                 return self.with_subregion(config, |this| {
@@ -331,7 +329,7 @@ pub enum Item {
         end_position: Position,
     },
     Space(usize),
-    Newline(usize),
+    Newline,
     CancelWhitespace,
     Region {
         indent: Indent,
@@ -392,9 +390,9 @@ impl Item {
         }
     }
 
-    fn add_newline(&mut self, n: usize) {
+    fn add_newline(&mut self) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::Newline(n));
+            items.push(Self::Newline);
         } else {
             unreachable!();
         }
@@ -416,7 +414,7 @@ impl Item {
         if let Self::Region { items, .. } = self {
             items.iter().all(|item| match item {
                 Self::Region { items, .. } => items.is_empty(),
-                Self::Space(_) | Self::Newline(_) => true,
+                Self::Space(_) | Self::Newline => true,
                 _ => false,
             })
         } else {
@@ -428,9 +426,14 @@ impl Item {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Indent {
     CurrentColumn,
-    Inherit,
     Offset(usize),
     ParentOffset(usize),
+}
+
+impl Indent {
+    pub fn inherit() -> Self {
+        Self::Offset(0)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -166,11 +166,11 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
+            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
                 delimiter.format(fmt);
                 fmt.subregion(
-                    Indent::Inherit,
+                    Indent::inherit(),
                     Newline::if_too_long_or_multi_line_parent(),
                     |fmt| item.format(fmt),
                 );
@@ -183,10 +183,10 @@ impl<T: Format, D: Format> NonEmptyItems<T, D> {
     pub fn format_multi_line(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
+            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::Inherit, Newline::Always, |fmt| item.format(fmt));
+                fmt.subregion(Indent::inherit(), Newline::Always, |fmt| item.format(fmt));
             }
         });
     }
@@ -220,7 +220,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.0.items().first().expect("unreachable");
-            fmt.subregion(Indent::Inherit, Newline::Never, |fmt| item.format(fmt));
+            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
             for (item, delimiter) in self
                 .0
                 .items()
@@ -229,7 +229,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::Inherit, Newline::if_too_long(), |fmt| {
+                fmt.subregion(Indent::inherit(), Newline::if_too_long(), |fmt| {
                     item.format(fmt)
                 });
             }

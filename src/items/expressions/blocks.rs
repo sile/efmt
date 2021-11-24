@@ -52,7 +52,7 @@ struct End(EndKeyword);
 
 impl Format for End {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| self.0.format(fmt));
+        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| self.0.format(fmt));
     }
 }
 
@@ -113,7 +113,7 @@ struct ReceiveTimeout {
 
 impl Format for ReceiveTimeout {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
             self.after.format(fmt);
             self.clause.format(fmt);
         });
@@ -153,10 +153,10 @@ impl Format for TryExpr {
         self.body.format(fmt);
         fmt.add_newline();
         self.clauses.format(fmt);
-        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
             self.catch.format(fmt)
         });
-        fmt.subregion(Indent::Inherit, Newline::Always, |fmt| {
+        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
             self.after.format(fmt)
         });
         self.end.format(fmt);
