@@ -62,14 +62,20 @@ impl Formatter {
 
     pub fn add_span(&mut self, span: &impl Span) {
         let next_macro_start = self.next_macro_start();
+        let mut span_start = span.start_position();
+        let span_end = span.end_position();
+
         if next_macro_start != span.start_position() {
             self.add_macros_and_comments(span.start_position());
+            if span_start < self.next_position {
+                span_start = self.next_position;
+            }
         }
 
-        self.item.add_span(span);
+        self.item.add_span(&(span_start, span_end));
         self.last_token = None;
-        assert!(self.next_position <= span.end_position());
-        self.next_position = span.end_position();
+        assert!(self.next_position <= span_end);
+        self.next_position = span_end;
     }
 
     fn add_macros_and_comments(&mut self, next_position: Position) {
@@ -183,7 +189,7 @@ struct ItemWriter<'a> {
 impl<'a> ItemWriter<'a> {
     fn new(text: &'a str, max_columns: usize) -> Self {
         Self {
-            writer: Writer::new(),
+            writer: Writer::new(max_columns),
             max_columns,
             text,
         }
@@ -248,6 +254,7 @@ impl<'a> ItemWriter<'a> {
         let mut needs_newline = false;
         let mut allow_multi_line = true;
         let mut allow_too_long_line = true;
+        let parent_allow_multi_line = self.writer.is_multi_line_allowed();
         match newline {
             Newline::Always => {
                 needs_newline = true;
@@ -261,22 +268,23 @@ impl<'a> ItemWriter<'a> {
                 allow_multi_line = false;
             }
             Newline::IfTooLongOrMultiLineParent => {
-                allow_too_long_line = false;
-                if self.writer.is_multi_line_allowed() {
+                if parent_allow_multi_line {
                     needs_newline = true;
+                } else {
+                    allow_too_long_line = false;
+                    allow_multi_line = false;
                 }
             }
         };
 
         let check_multi_line = items.iter().any(|item| {
-            if let Item::Region {
-                newline: Newline::IfTooLongOrMultiLineParent,
-                ..
-            } = item
-            {
-                return true;
-            }
-            false
+            matches!(
+                item,
+                Item::Region {
+                    newline: Newline::IfTooLongOrMultiLineParent,
+                    ..
+                }
+            )
         });
         if check_multi_line {
             allow_multi_line = false;
@@ -284,11 +292,7 @@ impl<'a> ItemWriter<'a> {
 
         let config = RegionConfig {
             indent,
-            max_columns: if allow_too_long_line {
-                None
-            } else {
-                Some(self.max_columns)
-            },
+            allow_too_long_line,
             allow_multi_line,
         };
         let result = self.with_subregion(config, |this| {
@@ -298,6 +302,10 @@ impl<'a> ItemWriter<'a> {
             this.write_items(items)
         });
         if result.is_err() {
+            if !parent_allow_multi_line {
+                return Err(Error::MultiLine);
+            }
+
             let (retry, needs_newline) = match &result {
                 Err(Error::MultiLine) if check_multi_line => (true, needs_newline),
                 Err(Error::MultiLine) if !allow_multi_line => (true, true),
@@ -307,16 +315,13 @@ impl<'a> ItemWriter<'a> {
             if retry {
                 let config = RegionConfig {
                     indent,
-                    max_columns: None,
+                    allow_too_long_line: true,
                     allow_multi_line: true,
                 };
 
                 return self.with_subregion(config, |this| {
-                    if needs_newline {
-                        let column_before_newline = this.writer.current_column();
-                        if indent < column_before_newline {
-                            this.writer.write_newline()?;
-                        }
+                    if needs_newline && indent < this.writer.current_column() {
+                        this.writer.write_newline()?;
                     }
                     this.write_items(items)
                 });

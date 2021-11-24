@@ -13,13 +13,15 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Writer {
+    max_columns: usize,
     buf: String,
     region: RegionState,
 }
 
 impl Writer {
-    pub fn new() -> Self {
+    pub fn new(max_columns: usize) -> Self {
         Self {
+            max_columns,
             buf: String::new(),
             region: RegionState::new(),
         }
@@ -113,12 +115,10 @@ impl Writer {
                     return Err(Error::MultiLine);
                 }
                 self.region.current_column = 0;
+                self.region.config.allow_too_long_line = true; // Only first line is relevant.
             } else if !skip_column_check
-                && self
-                    .region
-                    .config
-                    .max_columns
-                    .map_or(false, |n| self.region.current_column >= n)
+                && !self.region.config.allow_too_long_line
+                && self.region.current_column >= self.max_columns
             {
                 return Err(Error::LineTooLong);
             }
@@ -135,11 +135,8 @@ impl Writer {
         if !self.region.config.allow_multi_line {
             config.allow_multi_line = false;
         }
-        if self.region.config.max_columns.is_some() {
-            if config.max_columns.is_some() {
-                assert_eq!(config.max_columns, self.region.config.max_columns);
-            }
-            config.max_columns = self.region.config.max_columns;
+        if !self.region.config.allow_too_long_line {
+            config.allow_too_long_line = false;
         }
 
         let new = RegionState {
@@ -191,7 +188,7 @@ impl Writer {
 #[derive(Debug, Clone)]
 pub struct RegionConfig {
     pub indent: usize,
-    pub max_columns: Option<usize>,
+    pub allow_too_long_line: bool,
     pub allow_multi_line: bool,
 }
 
@@ -199,7 +196,7 @@ impl RegionConfig {
     fn new() -> Self {
         Self {
             indent: 0,
-            max_columns: None,
+            allow_too_long_line: true,
             allow_multi_line: true,
         }
     }

@@ -132,6 +132,15 @@ mod tests {
                  baz} =
                     qux() /
                     quux() div 2"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            [a,
+             b ! fooooooooooooooo,
+             c +
+             barrrrrrrrrrrrrr,
+             d = bazzzzzzzzzzzzzz,
+             qux =
+                 quuxxxxxxxxxxx]"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

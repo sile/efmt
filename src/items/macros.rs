@@ -387,6 +387,12 @@ mod tests {
             foo() ->
                 ?FOO.
             "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO(X), X).
+            -define(BAR(),
+                    ?FOO(baz),).
+            "},
         ];
         for text in texts {
             crate::assert_format!(text, Module);
