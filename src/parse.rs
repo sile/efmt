@@ -187,7 +187,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::format::FormatOptions;
     use crate::items::Form;
 
     #[test]
@@ -196,10 +195,7 @@ mod tests {
         foo() ->
             [a, b | #c].
         "};
-        let err = FormatOptions::new()
-            .format_text::<Form>(text)
-            .err()
-            .unwrap();
+        let err = crate::format_text::<Form>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {"
@@ -216,10 +212,7 @@ mod tests {
         foo() ->
             hello
         "};
-        let err = FormatOptions::new()
-            .format_text::<Form>(text)
-            .err()
-            .unwrap();
+        let err = crate::format_text::<Form>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {"
@@ -236,10 +229,7 @@ mod tests {
         foo() ->
             "hello
         "#};
-        let err = FormatOptions::new()
-            .format_text::<Form>(text)
-            .err()
-            .unwrap();
+        let err = crate::format_text::<Form>(text).err().unwrap();
         similar_asserts::assert_str_eq!(
             err.to_string(),
             indoc::indoc! {r#"

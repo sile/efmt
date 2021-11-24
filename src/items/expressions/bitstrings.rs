@@ -92,7 +92,7 @@ struct BitstringSegmentTypeSpecifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::items::expressions::Expr;
+    use crate::items::Expr;
 
     #[test]
     fn bitstring_construct_works() {

@@ -1,3 +1,4 @@
+/// A procedural macro to derive [Span].
 pub use efmt_derive::Span;
 
 pub trait Span {

@@ -1,7 +1,5 @@
 use anyhow::Context;
-use efmt::format::FormatOptions;
 use efmt::items::Module;
-use efmt::parse::TokenStreamOptions;
 use env_logger::Env;
 use std::io::Read as _;
 use std::path::PathBuf;
@@ -42,14 +40,14 @@ fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     let opt = Opt::from_args();
-    let mut ts_options = TokenStreamOptions::new().include_dirs(opt.include_dirs.clone());
     if !opt.disable_include_cache {
-        ts_options = ts_options.include_cache_dir(opt.include_cache_dir.clone());
+        // TODO
     }
 
-    let format_options = FormatOptions::new()
+    let format_options = efmt::Options::new()
         .max_columns(opt.max_columns)
-        .token_stream(ts_options);
+        .include_dirs(opt.include_dirs.clone())
+        .include_cache_dir(opt.include_cache_dir.clone());
 
     #[cfg(feature = "pprof")]
     let guard = if opt.profile {

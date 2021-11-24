@@ -8,7 +8,7 @@ fn format_works() -> anyhow::Result<()> {
         if path.extension().map_or(true, |ext| ext != "erl") {
             continue;
         }
-        let formatted = efmt::format::FormatOptions::new()
+        let formatted = efmt::Options::new()
             .max_columns(50)
             .format_file::<Module, _>(&path)?;
         let expected = std::fs::read_to_string(&path)?;

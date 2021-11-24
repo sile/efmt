@@ -1,4 +1,4 @@
-use crate::format::region::{Error, RegionConfig, RegionWriter, Result};
+use crate::format::writer::{Error, RegionConfig, RegionWriter, Result};
 use crate::format::Format;
 use crate::items::tokens::VisibleToken;
 use crate::parse::TokenStream;

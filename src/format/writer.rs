@@ -121,10 +121,6 @@ impl RegionWriter {
         }
     }
 
-    pub fn next_position(&self) -> Position {
-        self.state.next_position
-    }
-
     pub fn current_column(&self) -> usize {
         self.state.current_column
     }

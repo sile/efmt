@@ -219,7 +219,7 @@ impl<T: Format> Format for Block<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::items::Expr;
 
     #[test]
     fn case_works() {
