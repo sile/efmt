@@ -11,9 +11,8 @@ const CACHE_FORMAT_VERISON: &str = "v0";
 
 #[derive(Debug, Default, Clone)]
 pub struct IncludeOptions {
-    // TODO: priv
-    pub(crate) include_dirs: Vec<PathBuf>,
-    pub(crate) include_cache_dir: Option<PathBuf>, // `None` means the include cache is disabled.
+    include_dirs: Vec<PathBuf>,
+    include_cache_dir: Option<PathBuf>, // `None` means the include cache is disabled.
 }
 
 impl IncludeOptions {

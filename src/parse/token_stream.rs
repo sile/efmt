@@ -347,7 +347,7 @@ impl TokenStream {
             let variables = define.variables.as_ref().map(|x| x.to_owned());
 
             let replacement = r#macro.expand(variables, define.replacement);
-            self.replace_tokens(start_index, replacement);
+            self.replace_tokens(start_index, &key, replacement);
             self.macros.entry(start_position).or_insert(r#macro);
         } else {
             self.expand_unknown_macro(macro_name)?;
@@ -361,13 +361,14 @@ impl TokenStream {
         macro_name: MacroName,
         replacement: Vec<LexicalToken>,
     ) -> Result<()> {
+        let key = MacroDefineKey::new(macro_name.value().to_owned(), None);
         let start_index = self.current_token_index - 2;
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
         let r#macro: Macro = self.resume_parse((question, macro_name, false))?;
 
         let replacement = r#macro.expand(None, replacement);
-        self.replace_tokens(start_index, replacement);
+        self.replace_tokens(start_index, &key, replacement);
         self.macros.entry(start_position).or_insert(r#macro);
 
         Ok(())
@@ -387,7 +388,6 @@ impl TokenStream {
             Ok(())
         } else {
             if !self.missing_macros.contains(macro_name.value()) {
-                // TODO: consider arity
                 log::warn!(
                     "The macro {:?} is not defined. 'EFMT_DUMMY' atom is used instead.",
                     macro_name.value()
@@ -401,17 +401,27 @@ impl TokenStream {
         }
     }
 
-    fn replace_tokens(&mut self, start_index: usize, mut replacement: Vec<LexicalToken>) {
+    fn replace_tokens(
+        &mut self,
+        start_index: usize,
+        key: &MacroDefineKey,
+        mut replacement: Vec<LexicalToken>,
+    ) {
         if !replacement.is_empty()
             && !self
                 .known_replacement
                 .insert((start_index, replacement.clone()))
         {
             log::warn!(
-                "A circular macro was detected. It was replaced with a dummy atom 'EFMT_DUMMY'."
+                "A circular macro {:?} was detected. It was replaced with a dummy atom 'EFMT_DUMMY'.",
+                  key.to_string(),
             );
             let start_position = self.tokens[start_index].start_position();
             replacement = vec![LexicalToken::from(dummy_atom(start_position))];
+            self.macro_defines
+                .get_mut(key)
+                .expect("unreachable")
+                .replacement = replacement.clone();
         }
 
         let unread_tokens = self.tokens.split_off(self.current_token_index);
@@ -495,6 +505,16 @@ impl MacroDefineKey {
 
     pub(crate) fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl std::fmt::Display for MacroDefineKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if let Some(arity) = self.arity {
+            write!(f, "?{}/{}", self.name, arity)
+        } else {
+            write!(f, "?{}", self.name)
+        }
     }
 }
 

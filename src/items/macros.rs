@@ -496,13 +496,23 @@ mod tests {
 
     #[test]
     fn circular_macro_works() {
-        let texts = [indoc::indoc! {"
+        let texts = [
+            indoc::indoc! {"
             %---10---|%---20---|
             -define(a, ?b).
             -define(b, ?a).
             foo() ->
                 ?a == ?b.
-            "}];
+            "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(a, ?a).
+            "},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            -define(a, ?a + ?a).
+            "},
+        ];
         for text in texts {
             crate::assert_format!(text, Module);
         }
