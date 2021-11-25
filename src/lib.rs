@@ -2,6 +2,7 @@ use crate::format::{Format, Formatter};
 use crate::parse::{IncludeOptions, Parse, TokenStream};
 use std::path::Path;
 
+pub mod error;
 pub mod format;
 pub mod items;
 pub mod parse;
