@@ -5,8 +5,8 @@ use crate::items::atoms::{
     TypeAtom,
 };
 use crate::items::components::{
-    Clauses, Either, Element, Maybe, Never, NonEmptyItems, Null, Params, Parenthesized, TupleLike,
-    WithArrow, WithGuard,
+    Clauses, CommaDelimiter, Either, Element, Maybe, Never, NonEmptyItems, Null, Params,
+    Parenthesized, TupleLike, WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::IfKeyword;
@@ -152,7 +152,7 @@ impl Format for FunSpecItem {
 #[derive(Debug, Clone, Span, Parse)]
 struct SpecClause {
     params: WithArrow<Params<Type>>,
-    r#return: WithGuard<Type, Type, CommaSymbol>,
+    r#return: WithGuard<Type, Type, CommaDelimiter>,
 }
 
 impl Format for SpecClause {
@@ -449,6 +449,11 @@ mod tests {
                 bar;
             foo(_, _) ->
                 baz."},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            foo(A)
+              when a, b; c ->
+                d."},
             indoc::indoc! {"
             foo(A)
               when is_atom(A) ->

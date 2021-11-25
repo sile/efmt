@@ -419,7 +419,7 @@ impl<T: Format> Format for WithArrow<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct WithGuard<T, U, D = Either<CommaSymbol, SemicolonSymbol>> {
+pub struct WithGuard<T, U, D = GuardDelimiter> {
     item: T,
     guard: Maybe<Guard<U, D>>,
 }
@@ -438,5 +438,15 @@ impl<T: Format, D: Format> Format for Guard<T, D> {
             fmt.add_space();
             self.conditions.format(fmt);
         });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct GuardDelimiter(Either<CommaSymbol, SemicolonSymbol>);
+
+impl Format for GuardDelimiter {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.format(fmt);
+        fmt.add_space();
     }
 }
