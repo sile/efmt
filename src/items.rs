@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::components::Element;
+use crate::items::components::{Either, Element};
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -10,6 +10,7 @@ pub mod types;
 
 pub(crate) mod atoms;
 pub(crate) mod components;
+pub(crate) mod config;
 pub(crate) mod keywords;
 pub(crate) mod macros;
 pub(crate) mod symbols;
@@ -17,8 +18,12 @@ pub(crate) mod variables;
 
 mod module;
 
+pub use self::config::Config;
 pub use self::macros::Macro;
 pub use self::module::Module;
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ModuleOrConfig(Either<Module, Config>);
 
 /// One of [forms].
 #[derive(Debug, Clone, Span, Parse, Format)]
