@@ -278,8 +278,32 @@ impl IncludeDirective {
         self.file.value()
     }
 
-    pub fn get_include_path(&self, include_dirs: &[PathBuf]) -> Option<PathBuf> {
-        let path = self.get_var_substituted_path();
+    pub fn var_substituted_path(&self) -> PathBuf {
+        let path_str = self.file.value();
+        let path: &Path = path_str.as_ref();
+        if !path_str.starts_with('$') {
+            return path.to_path_buf();
+        }
+
+        let mut expanded_path = PathBuf::new();
+        for (i, c) in path.components().enumerate() {
+            if i == 0 {
+                if let Some(expanded) = c
+                    .as_os_str()
+                    .to_str()
+                    .and_then(|name| std::env::var(name.split_at(1).1).ok())
+                {
+                    expanded_path.push(expanded);
+                    continue;
+                }
+            }
+            expanded_path.push(c);
+        }
+        expanded_path
+    }
+
+    pub fn resolved_path(&self, include_dirs: &[PathBuf]) -> Option<PathBuf> {
+        let path = self.var_substituted_path();
         if matches!(self.include, Either::B(_)) && path.components().count() > 1 {
             let app_name = if let std::path::Component::Normal(name) = path.components().next()? {
                 name.to_str()?
@@ -310,30 +334,6 @@ impl IncludeDirective {
             }
             None
         }
-    }
-
-    fn get_var_substituted_path(&self) -> PathBuf {
-        let path_str = self.file.value();
-        let path: &Path = path_str.as_ref();
-        if !path_str.starts_with('$') {
-            return path.to_path_buf();
-        }
-
-        let mut expanded_path = PathBuf::new();
-        for (i, c) in path.components().enumerate() {
-            if i == 0 {
-                if let Some(expanded) = c
-                    .as_os_str()
-                    .to_str()
-                    .and_then(|name| std::env::var(name.split_at(1).1).ok())
-                {
-                    expanded_path.push(expanded);
-                    continue;
-                }
-            }
-            expanded_path.push(c);
-        }
-        expanded_path
     }
 }
 

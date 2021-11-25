@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::parse::{Parse, TokenStream, TokenStreamOptions};
+use crate::parse::{IncludeOptions, Parse, TokenStream};
 use std::path::Path;
 
 pub mod format;
@@ -23,14 +23,14 @@ pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
 #[derive(Debug, Clone)]
 pub struct Options {
     max_columns: usize,
-    token_stream: TokenStreamOptions,
+    include: IncludeOptions,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Self {
             max_columns: Self::DEFAULT_MAX_COLUMNS,
-            token_stream: Default::default(),
+            include: IncludeOptions::default(),
         }
     }
 }
@@ -50,16 +50,14 @@ impl Options {
     }
 
     pub fn include_dirs<P: AsRef<Path>>(mut self, dirs: Vec<P>) -> Self {
-        self.token_stream = self
-            .token_stream
+        self.include = self
+            .include
             .include_dirs(dirs.into_iter().map(|x| x.as_ref().to_path_buf()).collect());
         self
     }
 
     pub fn include_cache_dir<P: AsRef<Path>>(mut self, dir: P) -> Self {
-        self.token_stream = self
-            .token_stream
-            .include_cache_dir(dir.as_ref().to_path_buf());
+        self.include = self.include.include_cache_dir(dir.as_ref().to_path_buf());
         self
     }
 
@@ -79,7 +77,7 @@ impl Options {
         self,
         tokenizer: erl_tokenize::Tokenizer<String>,
     ) -> anyhow::Result<String> {
-        let mut ts = TokenStream::new(tokenizer, self.token_stream);
+        let mut ts = TokenStream::new(tokenizer, self.include);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(ts);
         item.format(&mut formatter);

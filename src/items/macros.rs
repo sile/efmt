@@ -129,7 +129,7 @@ impl Span for MacroReplacement {
 
 impl Parse for MacroReplacement {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
-        ts.enter_macro_replacement(|ts| {
+        ts.with_macro_expand_disabled(|ts| {
             let start_position = ts.next_token_start_position()?;
             let mut tokens = Vec::new();
             while ts.peek::<(CloseParenSymbol, DotSymbol)>().is_none() {

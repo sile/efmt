@@ -6,37 +6,14 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
     LexicalToken, StringToken, SymbolToken, VariableToken,
 };
-use crate::items::Module;
-use crate::parse::{Error, Parse, Result, ResumeParse};
+use crate::parse::include::IncludeHandler;
+use crate::parse::{Error, IncludeOptions, Parse, Result, ResumeParse};
 use crate::span::{Position, Span as _};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashSet};
-use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::sync::Arc;
-
-#[derive(Debug, Default, Clone)]
-pub struct TokenStreamOptions {
-    include_dirs: Vec<PathBuf>,
-    include_cache_dir: Option<PathBuf>,
-}
-
-impl TokenStreamOptions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
-        self.include_dirs = dirs;
-        self
-    }
-
-    pub fn include_cache_dir(mut self, dir: PathBuf) -> Self {
-        self.include_cache_dir = Some(dir);
-        self
-    }
-}
 
 #[derive(Debug)]
 pub struct TokenStream {
@@ -45,21 +22,20 @@ pub struct TokenStream {
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
     macros: BTreeMap<Position, Macro>,
-    macro_defines: BTreeMap<MacroDefineKey, MacroDefine>,
+    macro_defines: MacroDefines,
+    new_macro_defines: HashSet<MacroDefineKey>,
     missing_macros: HashSet<String>,
     known_replacement: HashSet<(usize, Vec<LexicalToken>)>,
-    included: HashSet<String>,
-    parsing_macro_replacement: bool,
-    parsing_macro_arg: bool,
+    disable_macro_expand: bool,
     parsing_tokens: bool,
-    options: TokenStreamOptions,
     text: Arc<String>,
     path: Option<Arc<PathBuf>>,
     last_parse_error: Option<Error>,
+    include: IncludeHandler,
 }
 
 impl TokenStream {
-    pub fn new(tokenizer: Tokenizer<String>, options: TokenStreamOptions) -> Self {
+    pub fn new(tokenizer: Tokenizer<String>, options: IncludeOptions) -> Self {
         let text = Arc::new(tokenizer.text().to_owned());
         let path = tokenizer
             .next_position()
@@ -72,17 +48,34 @@ impl TokenStream {
             comments: BTreeMap::new(),
             macros: BTreeMap::new(),
             macro_defines: BTreeMap::new(),
+            new_macro_defines: HashSet::new(),
             missing_macros: HashSet::new(),
             known_replacement: HashSet::new(),
-            included: HashSet::new(),
-            parsing_macro_replacement: false,
-            parsing_macro_arg: false,
+            disable_macro_expand: false,
             parsing_tokens: false,
-            options,
             text,
             path,
             last_parse_error: None,
+            include: IncludeHandler::new(options),
         }
+    }
+
+    pub(crate) fn set_known_macro_defines(&mut self, macro_defines: MacroDefines) {
+        assert!(self.macro_defines.is_empty());
+        self.macro_defines = macro_defines;
+    }
+
+    pub(crate) fn new_macro_defines(self) -> MacroDefines {
+        self.macro_defines
+            .iter()
+            .filter_map(|(k, v)| {
+                if self.new_macro_defines.contains(k) {
+                    Some((k.clone(), v.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn parse_tokens<T: Parse>(&mut self, tokens: Vec<LexicalToken>) -> Result<T> {
@@ -173,23 +166,15 @@ impl TokenStream {
         Ok(eof)
     }
 
-    pub fn enter_macro_replacement<F, T>(&mut self, f: F) -> Result<T>
+    pub fn with_macro_expand_disabled<F, T>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
     {
-        self.parsing_macro_replacement = true;
-        let result = f(self);
-        self.parsing_macro_replacement = false;
-        result
-    }
+        assert!(!self.disable_macro_expand);
 
-    fn enter_macro_arg<F, T>(&mut self, f: F) -> Result<T>
-    where
-        F: FnOnce(&mut Self) -> Result<T>,
-    {
-        self.parsing_macro_arg = true;
+        self.disable_macro_expand = true;
         let result = f(self);
-        self.parsing_macro_arg = false;
+        self.disable_macro_expand = false;
         result
     }
 
@@ -214,13 +199,10 @@ impl TokenStream {
         if let Some(token) = self.tokens.get(self.current_token_index).cloned() {
             self.current_token_index += 1;
 
-            if !self.parsing_macro_replacement {
-                // TODO: note comment
+            if !self.disable_macro_expand {
                 match &token {
                     LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
-                        if !self.parsing_macro_arg {
-                            return self.expand_macro_and_read_token();
-                        }
+                        return self.expand_macro_and_read_token();
                     }
                     _ => {}
                 }
@@ -287,7 +269,7 @@ impl TokenStream {
 
             match &token {
                 LexicalToken::Symbol(x) if x.value() == Symbol::Question => {
-                    if !self.parsing_macro_arg {
+                    if !self.disable_macro_expand {
                         return self.expand_macro_and_read_token();
                     }
                 }
@@ -354,8 +336,9 @@ impl TokenStream {
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
 
-        let r#macro: Macro =
-            self.enter_macro_arg(|ts| ts.resume_parse((question, macro_name.clone(), true)))?;
+        let r#macro: Macro = self.with_macro_expand_disabled(|ts| {
+            ts.resume_parse((question, macro_name.clone(), true))
+        })?;
         let arity = r#macro.arity();
         assert!(arity.is_some());
 
@@ -396,9 +379,9 @@ impl TokenStream {
 
         if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
             self.expand_macro_without_args(macro_name, replacement)
-        } else if self.parsing_macro_replacement {
+        } else if self.disable_macro_expand {
             log::debug!(
-                "Found an undefined macro {:?} in a macro replacement.",
+                "Found an undefined macro {:?} in disabling macro expansions.",
                 macro_name.value()
             );
             Ok(())
@@ -446,6 +429,7 @@ impl TokenStream {
                 let name = x.macro_name().to_owned();
                 let define: MacroDefine = x.into();
                 let key = MacroDefineKey::new(name, define.arity());
+                self.new_macro_defines.insert(key.clone());
                 self.macro_defines.insert(key, define);
             }
             Ok(Either::B(x)) => {
@@ -456,158 +440,13 @@ impl TokenStream {
         Ok(())
     }
 
-    fn try_load_macro_defines_from_cache(
-        &self,
-        include_path: &str,
-    ) -> Option<BTreeMap<MacroDefineKey, MacroDefine>> {
-        // TODO: check file mtime
-        if let Some(cache_path) = self
-            .options
-            .include_cache_dir
-            .as_ref()
-            .map(|x| x.join(include_path))
-        {
-            // TODO: improve error handling
-            std::fs::File::open(&cache_path)
-                .map_err(|e| {
-                    log::debug!("cache file open error ({:?}): {}", cache_path, e);
-                    e
-                })
-                .ok()
-                .map(BufReader::new)
-                .and_then(|file| {
-                    serde_json::from_reader(file)
-                        .map(|entries: Vec<(String, MacroDefine)>| {
-                            entries
-                                .into_iter()
-                                .map(|(name, define)| {
-                                    (MacroDefineKey::new(name, define.arity()), define)
-                                })
-                                .collect()
-                        })
-                        .map_err(|e| {
-                            log::warn!("deserialize error ({:?}): {}", cache_path, e);
-                            e
-                        })
-                        .ok()
-                })
-        } else {
-            log::debug!("[TODO] fail1");
-            None
-        }
-    }
-
-    fn try_save_macro_defines_into_cache(
-        &self,
-        include_path: &str,
-        macro_defines: &BTreeMap<MacroDefineKey, MacroDefine>,
-    ) {
-        if let Some(cache_path) = self
-            .options
-            .include_cache_dir
-            .as_ref()
-            .map(|x| x.join(include_path))
-        {
-            // TODO: error handling
-            let _ = tempfile::NamedTempFile::new()
-                .ok()
-                .map(BufWriter::new)
-                .map(|mut file| {
-                    let entries = macro_defines
-                        .iter()
-                        .map(|(k, v)| (&k.name, v))
-                        .collect::<Vec<_>>();
-                    let saved = serde_json::to_writer(&mut file, &entries)
-                        .map_err(|e| {
-                            log::warn!("serialization error: {}", e);
-                            e
-                        })
-                        .ok()
-                        .and_then(|_| {
-                            cache_path.parent().and_then(|p| {
-                                std::fs::create_dir_all(p)
-                                    .map_err(|e| {
-                                        log::warn!("create_dir_all({:?}) error: {}", p, e);
-                                        e
-                                    })
-                                    .ok()
-                            })
-                        })
-                        .is_some();
-                    if saved {
-                        if let Err(e) = file.into_inner().expect("TODO").persist(&cache_path) {
-                            log::warn!("cannot save cache file {:?}: {}", cache_path, e);
-                        }
-                        log::debug!(
-                            "Saved a include cache for {:?} into {:?}",
-                            include_path,
-                            cache_path
-                        );
-                    }
-                });
-        }
-    }
-
     fn handle_include(&mut self, include: IncludeDirective) {
-        if self.included.contains(include.path()) {
-            return;
-        }
-        self.included.insert(include.path().to_owned());
-
-        if let Some(macro_defines) = self.try_load_macro_defines_from_cache(include.path()) {
-            log::debug!(
-                "Found {} macro definitions in {:?} (cached)",
-                macro_defines.len(),
-                include.path()
-            );
-
-            self.macro_defines.extend(macro_defines);
-            return;
-        }
-
-        let path = if let Some(path) = include.get_include_path(&self.options.include_dirs) {
-            path
-        } else {
-            log::warn!("Cannot find include file {:?}", include.path());
-            return;
-        };
-
-        let text = match std::fs::read_to_string(&path) {
-            Ok(text) => text,
-            Err(e) => {
-                log::warn!("Cannot read include file {:?}: {}", include.path(), e);
-                return;
-            }
-        };
-
-        let mut tokenizer = Tokenizer::new(text);
-        tokenizer.set_filepath(&path);
-        let mut ts = TokenStream::new(tokenizer, self.options.clone());
-        ts.macro_defines = self.macro_defines.clone();
-        match ts.parse::<Module>() {
-            Ok(_) => {
-                // TODO: Check replacement before filtering
-                let new_macro_defines = ts
-                    .macro_defines
-                    .iter()
-                    .filter(|(k, _)| !self.macro_defines.contains_key(k))
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect::<BTreeMap<_, _>>();
-
-                log::debug!(
-                    "Found {} macro definitions in {:?}",
-                    new_macro_defines.len(),
-                    path
-                );
-
-                self.try_save_macro_defines_into_cache(include.path(), &new_macro_defines);
-
-                self.macro_defines.extend(ts.macro_defines);
-            }
-            Err(e) => {
-                log::warn!("Cannot parse include file {:?}: {}", include.path(), e);
-            }
-        }
+        let new_macro_defines = self
+            .include
+            .include_macro_defines(&include, &self.macro_defines);
+        self.new_macro_defines
+            .extend(new_macro_defines.keys().cloned());
+        self.macro_defines.extend(new_macro_defines);
     }
 }
 
@@ -641,20 +480,26 @@ fn dummy_string(position: Position) -> StringToken {
     StringToken::new("EFMT_DUMMY", position, position)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
-struct MacroDefineKey {
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+pub(crate) struct MacroDefineKey {
     name: String,
     arity: Option<usize>,
 }
 
 impl MacroDefineKey {
-    fn new(name: String, arity: Option<usize>) -> Self {
+    pub(crate) fn new(name: String, arity: Option<usize>) -> Self {
         Self { name, arity }
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.name
     }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct MacroDefine {
+pub(crate) struct MacroDefine {
     variables: Option<Vec<String>>,
     replacement: Vec<LexicalToken>,
 }
@@ -671,7 +516,9 @@ impl From<DefineDirective> for MacroDefine {
 }
 
 impl MacroDefine {
-    fn arity(&self) -> Option<usize> {
+    pub(crate) fn arity(&self) -> Option<usize> {
         self.variables.as_ref().map(|x| x.len())
     }
 }
+
+pub(crate) type MacroDefines = BTreeMap<MacroDefineKey, MacroDefine>;
