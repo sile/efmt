@@ -2,6 +2,7 @@ use anyhow::Context;
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
 use std::io::Read as _;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
@@ -21,6 +22,10 @@ struct Opt {
     #[structopt(long, short = "c")]
     check: bool,
 
+    /// Overwrites input file with the formatted text.
+    #[structopt(long, short = "w", conflicts_with = "check")]
+    write: bool,
+
     /// Where to search for include files to process Erlang `-include` directives.
     #[structopt(short = "I", long = "include-search-dir")]
     include_dirs: Vec<PathBuf>,
@@ -28,7 +33,7 @@ struct Opt {
     /// Format target files.
     ///
     /// `-` means the standard input.
-    /// If no files are specified and one of `-c`, `-w` or `-o` options is specified,
+    /// If no files are specified and either `-c` or `-w` options is specified,
     /// `{src,include,test}/*.{hrl,erl,app.src}` and `rebar.config` are used as the default.
     files: Vec<PathBuf>,
 
@@ -49,6 +54,10 @@ struct Opt {
 }
 
 impl Opt {
+    // fn collect_default_files(&mut self) -> anyhow::Result<()> {
+    //     todo!()
+    // }
+
     fn to_format_options(&self) -> efmt::Options {
         let mut format_options = efmt::Options::new()
             .max_columns(self.print_width)
@@ -113,11 +122,16 @@ fn format_file_or_stdin<P: AsRef<Path>>(
     format_options: &efmt::Options,
     path: P,
 ) -> anyhow::Result<(String, String)> {
-    if path.as_ref().to_str() == Some("-") {
+    let (original, formatted) = if path.as_ref().to_str() == Some("-") {
         format_stdin(format_options)
     } else {
-        format_file(format_options, path)
-    }
+        format_file(format_options, &path)
+    }?;
+    validate_formatted_text(path, &original, &formatted).context(concat!(
+        "Found a token mismatch between the original text ",
+        "and the formatted one (maybe efmt bug)"
+    ))?;
+    Ok((original, formatted))
 }
 
 fn format_files(opt: &Opt) -> anyhow::Result<()> {
@@ -125,28 +139,25 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 
     let mut error_files = Vec::new();
     for file in &opt.files {
-        let result: anyhow::Result<_> = (|| {
-            let (original, formatted) = format_file_or_stdin(&format_options, file)?;
-            validate_formatted_text(&file, &original, &formatted).context(concat!(
-                "Found a token mismatch between the original text ",
-                "and the formatted one (maybe efmt bug)"
-            ))?;
-            Ok(formatted)
-        })();
+        let result = format_file_or_stdin(&format_options, file);
         match result {
             Err(e) => {
-                log::error!(
-                    "Failed to format {:?}\n{}",
-                    file,
-                    e.chain()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                );
+                log::error!("Failed to format {:?}\n{:?}", file, e);
                 error_files.push(file);
             }
-            Ok(formatted) => {
-                print!("{}", formatted);
+            Ok((original, formatted)) => {
+                if opt.write {
+                    if original != formatted {
+                        if let Err(e) = overwrite(file, &formatted) {
+                            log::error!("Failed to write formatted text to {:?}: {:?}", file, e);
+                            error_files.push(file);
+                        } else {
+                            log::info!("Overwrote {:?}", file);
+                        }
+                    }
+                } else {
+                    print!("{}", formatted);
+                }
             }
         }
     }
@@ -161,6 +172,8 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
                 .collect::<Vec<_>>()
                 .join("\n"),
         );
+    } else if opt.write {
+        log::info!("All files were formatted correctly!");
     }
 
     Ok(())
@@ -170,24 +183,10 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
     let mut unformatted_files = Vec::new();
     for file in &opt.files {
-        let result: anyhow::Result<_> = (|| {
-            let (original, formatted) = format_file_or_stdin(&format_options, file)?;
-            validate_formatted_text(&file, &original, &formatted).context(concat!(
-                "Found a token mismatch between the original text ",
-                "and the formatted one (maybe efmt bug)"
-            ))?;
-            Ok((original, formatted))
-        })();
+        let result = format_file_or_stdin(&format_options, file);
         match result {
             Err(e) => {
-                log::error!(
-                    "Failed to format {:?}\n{}",
-                    file,
-                    e.chain()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                );
+                log::error!("Failed to format {:?}\n{:?}", file, e);
                 unformatted_files.push(file);
             }
             Ok((original, formatted)) => {
@@ -295,4 +294,11 @@ fn validate_formatted_text<P: AsRef<Path>>(
         );
     }
     check_extra_token("<formatted>", formatted, tokens1.next())
+}
+
+fn overwrite<P: AsRef<Path>>(path: P, text: &str) -> anyhow::Result<()> {
+    let mut temp = tempfile::NamedTempFile::new()?;
+    temp.write_all(text.as_bytes())?;
+    temp.persist(path)?;
+    Ok(())
 }
