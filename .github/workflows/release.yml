@@ -10,6 +10,7 @@ jobs:
     name: 'Create GitHub Release Draft'
     runs-on: ubuntu-latest
     outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
       upload-url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Get the version
@@ -31,10 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: github-release-draft
     steps:
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-
       - name: Checkout sources
         uses: actions/checkout@v2
 
@@ -61,5 +58,36 @@ jobs:
         with:
           upload_url: ${{ needs.github-release-draft.outputs.upload-url }}
           asset_path: target/x86_64-unknown-linux-musl/release/efmt
-          asset_name: efmt-${{ steps.get_version.outputs.VERSION }}.x86_64-unknown-linux-musl
+          asset_name: efmt-${{ needs.github-release-draft.outputs.upload-url.version }}.x86_64-unknown-linux-musl
+          asset_content_type: application/octet-stream
+
+  macos-binary:
+    name: 'Uplaod Binary for MacOS'
+    runs-on: macos-latest
+    needs: github-release-draft
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-apple-darwin
+          override: true
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target=x86_64-apple-darwin
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.github-release-draft.outputs.upload-url }}
+          asset_path: target/x86_64-apple-darwin/release/efmt
+          asset_name: efmt-${{ needs.github-release-draft.outputs.upload-url.version }}.x86_64-apple-darwin
           asset_content_type: application/octet-stream
