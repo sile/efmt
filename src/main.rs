@@ -26,6 +26,10 @@ struct Opt {
     #[structopt(long, short = "w", conflicts_with = "check")]
     write: bool,
 
+    /// Outputs debug log messages.
+    #[structopt(long)]
+    verbose: bool,
+
     /// Where to search for include files to process Erlang `-include` directives.
     #[structopt(short = "I", long = "include-search-dir")]
     include_dirs: Vec<PathBuf>,
@@ -37,7 +41,6 @@ struct Opt {
     /// `{src,include,test}/*.{hrl,erl,app.src}` and `rebar.config` are used as the default.
     files: Vec<PathBuf>,
 
-    // --verbose
     // --parallelism
     // `-disable-include`
     // `-disable-include-cache`
@@ -72,9 +75,10 @@ impl Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
-
     let opt = Opt::from_args();
+
+    let loglevel = if opt.verbose { "debug" } else { "info" };
+    env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
 
     #[cfg(feature = "pprof")]
     if opt.profile {
