@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "efmt"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "anyhow",
  "console 0.15.0",
