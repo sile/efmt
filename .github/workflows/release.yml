@@ -63,7 +63,7 @@ jobs:
 
   macos-binary:
     name: 'Uplaod Binary for MacOS'
-    runs-on: macos-latest
+    runs-on: macos-11 # TODO: Use `macos-latest` once it supports `aarch64-apple-darwin`
     needs: github-release-draft
     strategy:
       matrix:
