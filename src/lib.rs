@@ -53,6 +53,11 @@ impl Options {
         self
     }
 
+    pub fn disable_include(mut self) -> Self {
+        self.include = self.include.disable_include();
+        self
+    }
+
     pub fn include_dirs<P: AsRef<Path>>(mut self, dirs: Vec<P>) -> Self {
         self.include = self
             .include

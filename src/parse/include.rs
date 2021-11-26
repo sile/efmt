@@ -11,6 +11,7 @@ const CACHE_FORMAT_VERISON: &str = "v0";
 
 #[derive(Debug, Default, Clone)]
 pub struct IncludeOptions {
+    disable_include: bool,
     include_dirs: Vec<PathBuf>,
     include_cache_dir: Option<PathBuf>, // `None` means the include cache is disabled.
 }
@@ -18,6 +19,11 @@ pub struct IncludeOptions {
 impl IncludeOptions {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn disable_include(mut self) -> Self {
+        self.disable_include = true;
+        self
     }
 
     pub fn include_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
@@ -287,6 +293,12 @@ impl IncludeHandler {
         include: &IncludeDirective,
         known_macro_defines: &MacroDefines,
     ) -> MacroDefines {
+        if self.options.disable_include {
+            log::debug!("Skipped processing an include directive for {:?} as `--directive-include` flag is set.",
+                        include.path());
+            return MacroDefines::new();
+        }
+
         // To eliminate the overhead of running `erl` command to resolve the path (for `-include_lib(...)`),
         // we use the unresolved version of the path here.
         let unresolved_path = include.var_substituted_path();

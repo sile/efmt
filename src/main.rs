@@ -42,11 +42,16 @@ struct Opt {
     files: Vec<PathBuf>,
 
     // --parallelism
-    // `-disable-include`
-    // `-disable-include-cache`
+    /// Disables `-include` and `-include_lib` processing.
+    /// This could improve formatting speed. All unknown macros will be replaced with `EFMT_DUMMY` atom.
+    #[structopt(long)]
+    disable_include: bool,
+
+    /// Where to save the caches for the macro definitions collected during processing `-include` or `-include_lib` directives.
     #[structopt(long, default_value = ".efmt/cache")]
     include_cache_dir: PathBuf,
 
+    /// Disables include cache.
     #[structopt(long)]
     disable_include_cache: bool,
 
@@ -97,6 +102,9 @@ impl Opt {
         if !self.disable_include_cache {
             format_options = format_options.include_cache_dir(self.include_cache_dir.clone());
         }
+        if self.disable_include {
+            format_options = format_options.disable_include();
+        }
 
         format_options
     }
@@ -117,7 +125,6 @@ fn main() -> anyhow::Result<()> {
 
 fn main_with_opt(mut opt: Opt) -> anyhow::Result<()> {
     opt.collect_default_files_if_need()?;
-
     if opt.files.is_empty() {
         Opt::clap().print_help()?;
         println!();
