@@ -54,26 +54,18 @@ fn main() -> anyhow::Result<()> {
     let opt = Opt::from_args();
 
     #[cfg(feature = "pprof")]
-    let guard = if opt.profile {
-        Some(pprof::ProfilerGuard::new(100)?)
-    } else {
-        None
-    };
+    if opt.profile {
+        return efmt::profile::with_profile(|| main_with_opt(opt));
+    }
+    main_with_opt(opt)
+}
 
-    let result = if opt.check {
-        todo!()
+fn main_with_opt(opt: Opt) -> anyhow::Result<()> {
+    if opt.check {
+        check_files(&opt)
     } else {
         format_files(&opt)
-    };
-
-    #[cfg(feature = "pprof")]
-    if let Some(report) = guard.map(|x| x.report().build()).transpose()? {
-        let file = std::fs::File::create("flamegraph.svg")?;
-        report.flamegraph(file)?;
-        log::info!("Generated profile report: flamegraph.svg");
-    };
-
-    result
+    }
 }
 
 fn format_file<P: AsRef<Path>>(
@@ -156,6 +148,10 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn check_files(opt: &Opt) -> anyhow::Result<()> {
+    todo!()
 }
 
 fn validate_formatted_text<P: AsRef<Path>>(
