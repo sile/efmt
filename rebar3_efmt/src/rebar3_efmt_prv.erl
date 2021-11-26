@@ -1,4 +1,4 @@
--module(efmt_prv).
+-module(rebar3_efmt_prv).
 
 -behaviour(provider).
 

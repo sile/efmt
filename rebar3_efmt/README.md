@@ -1,5 +1,5 @@
-efmt
-=====
+rebar3_efmt
+===========
 
 Erlang Code Formatter
 
@@ -14,7 +14,7 @@ Use
 Add the plugin to your rebar config:
 
     {plugins, [
-        {efmt, {git_subdir, "https://host/user/efmt.git", "master", "rebar3_plugin"}}
+        {rebar3_efmt, {git_subdir, "https://host/user/efmt.git", "master", "."}}
     ]}.
 
 Then just call your plugin directly in an existing application:
