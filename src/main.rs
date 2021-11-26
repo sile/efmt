@@ -57,9 +57,37 @@ struct Opt {
 }
 
 impl Opt {
-    // fn collect_default_files(&mut self) -> anyhow::Result<()> {
-    //     todo!()
-    // }
+    fn collect_default_files_if_need(&mut self) -> anyhow::Result<()> {
+        if !self.files.is_empty() || !(self.check || self.write) {
+            return Ok(());
+        }
+
+        let rebar_config_path = PathBuf::from("rebar.config");
+        if rebar_config_path.exists() {
+            self.files.push(rebar_config_path);
+        }
+
+        let dirs = ["src", "include", "test"];
+        let exts = ["hrl", "erl", "app.src"];
+        for dir in dirs {
+            for ext in exts {
+                for entry in glob::glob(&format!("{}/*.{}", dir, ext))? {
+                    let path = entry?;
+                    self.files.push(path);
+                }
+            }
+        }
+
+        log::info!(
+            "The following files were added as the default input files:\n{}",
+            self.files
+                .iter()
+                .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        Ok(())
+    }
 
     fn to_format_options(&self) -> efmt::Options {
         let mut format_options = efmt::Options::new()
@@ -87,9 +115,10 @@ fn main() -> anyhow::Result<()> {
     main_with_opt(opt)
 }
 
-fn main_with_opt(opt: Opt) -> anyhow::Result<()> {
+fn main_with_opt(mut opt: Opt) -> anyhow::Result<()> {
+    opt.collect_default_files_if_need()?;
+
     if opt.files.is_empty() {
-        // TODO: check other options
         Opt::clap().print_help()?;
         println!();
         std::process::exit(1);
