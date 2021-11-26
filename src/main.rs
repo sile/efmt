@@ -1,6 +1,7 @@
 use anyhow::Context;
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
+use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -41,7 +42,10 @@ struct Opt {
     /// `{src,include,test}/*.{hrl,erl,app.src}` and `rebar.config` are used as the default.
     files: Vec<PathBuf>,
 
-    // --parallelism
+    /// Executes formatting in parallel.
+    #[structopt(long)]
+    parallel: bool,
+
     /// Disables `-include` and `-include_lib` processing.
     /// This could improve formatting speed. All unknown macros will be replaced with `EFMT_DUMMY` atom.
     #[structopt(long)]
@@ -177,30 +181,46 @@ fn format_file_or_stdin<P: AsRef<Path>>(
 fn format_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
-    let mut error_files = Vec::new();
-    for file in &opt.files {
-        let result = format_file_or_stdin(&format_options, file);
-        match result {
+    fn do_format(opt: &Opt, format_options: &efmt::Options, file: &Path) -> anyhow::Result<()> {
+        match format_file_or_stdin(format_options, file) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
-                error_files.push(file);
+                Err(e)
             }
             Ok((original, formatted)) => {
                 if opt.write {
                     if original != formatted {
-                        if let Err(e) = overwrite(file, &formatted) {
+                        let result = overwrite(file, &formatted);
+                        if let Err(e) = &result {
                             log::error!("Failed to write formatted text to {:?}: {:?}", file, e);
-                            error_files.push(file);
                         } else {
                             log::info!("Overwrote {:?}", file);
                         }
+                        result
+                    } else {
+                        Ok(())
                     }
                 } else {
                     print!("{}", formatted);
+                    Ok(())
                 }
             }
         }
     }
+
+    let error_files = if opt.parallel {
+        opt.files
+            .clone()
+            .into_par_iter()
+            .filter(|file| do_format(opt, &format_options, file).is_err())
+            .collect::<Vec<_>>()
+    } else {
+        opt.files
+            .iter()
+            .filter(|file| do_format(opt, &format_options, file).is_err())
+            .cloned()
+            .collect::<Vec<_>>()
+    };
 
     if !error_files.is_empty() {
         eprintln!();
@@ -221,25 +241,39 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
-    let mut unformatted_files = Vec::new();
-    for file in &opt.files {
-        let result = format_file_or_stdin(&format_options, file);
-        match result {
+
+    fn do_check(format_options: &efmt::Options, file: &Path) -> bool {
+        match format_file_or_stdin(format_options, file) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
-                unformatted_files.push(file);
+                false
             }
             Ok((original, formatted)) => {
                 if original == formatted {
                     log::info!("{:?} is already formatted correctly.", file);
+                    true
                 } else {
                     let diff = efmt::diff::text_diff(&original, &formatted);
                     log::error!("{:?} is not formatted correctly.\n{}", file, diff);
-                    unformatted_files.push(file);
+                    false
                 }
             }
         }
     }
+
+    let unformatted_files = if opt.parallel {
+        opt.files
+            .clone()
+            .into_par_iter()
+            .filter(|file| !do_check(&format_options, file))
+            .collect::<Vec<_>>()
+    } else {
+        opt.files
+            .iter()
+            .filter(|file| !do_check(&format_options, file))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
 
     if !unformatted_files.is_empty() {
         eprintln!();
