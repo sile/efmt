@@ -12,7 +12,7 @@ pub fn generate_error_message<P: AsRef<Path>>(
     let file = path
         .as_ref()
         .and_then(|x| x.as_ref().to_str())
-        .unwrap_or_else(|| "<unknown>");
+        .unwrap_or("<unknown>");
     let line_string = get_line_string(text, position);
 
     let mut m = String::new();

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
 use std::io::Read as _;
@@ -32,7 +33,7 @@ struct Opt {
     files: Vec<PathBuf>,
 
     // --verbose
-
+    // --parallelism
     // `-disable-include`
     // `-disable-include-cache`
     #[structopt(long, default_value = ".efmt/cache")]
@@ -41,7 +42,7 @@ struct Opt {
     #[structopt(long)]
     disable_include_cache: bool,
 
-    /// Enable profiling by `pprof`. The profile report will be generated in `framegraph.svg`.
+    /// Enable profiling by `pprof`. The profile report will be generated in `flamegraph.svg`.
     #[cfg(feature = "pprof")]
     #[structopt(long)]
     profile: bool,
@@ -59,20 +60,20 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
-    if opt.check {
-        todo!();
+    let result = if opt.check {
+        todo!()
     } else {
-        format_files(&opt)?;
-    }
+        format_files(&opt)
+    };
 
     #[cfg(feature = "pprof")]
     if let Some(report) = guard.map(|x| x.report().build()).transpose()? {
-        let file = std::fs::File::create("framegraph.svg")?;
+        let file = std::fs::File::create("flamegraph.svg")?;
         report.flamegraph(file)?;
-        log::info!("Generated profile report: framegraph.svg");
+        log::info!("Generated profile report: flamegraph.svg");
     };
 
-    Ok(())
+    result
 }
 
 fn format_file<P: AsRef<Path>>(
@@ -112,18 +113,28 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 
     let mut error_files = Vec::new();
     for file in &opt.files {
-        let result = if file.to_str() == Some("-") {
-            format_stdin(&format_options)
-        } else {
-            format_file(&format_options, file)
-        };
-        let result = result.and_then(|(original, formatted)| {
-            validate_formatted_text(&original, &formatted)?;
+        let result: anyhow::Result<_> = (|| {
+            let (original, formatted) = if file.to_str() == Some("-") {
+                format_stdin(&format_options)?
+            } else {
+                format_file(&format_options, file)?
+            };
+            validate_formatted_text(&file, &original, &formatted).context(concat!(
+                "Found a token mismatch between the original text ",
+                "and the formatted one (maybe efmt bug)"
+            ))?;
             Ok(formatted)
-        });
+        })();
         match result {
             Err(e) => {
-                log::error!("Failed to format {:?}\n{}", file, e);
+                log::error!(
+                    "Failed to format {:?}\n{}",
+                    file,
+                    e.chain()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
                 error_files.push(file);
             }
             Ok(formatted) => {
@@ -132,39 +143,96 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
         }
     }
 
-    anyhow::ensure!(
-        error_files.is_empty(),
-        "Failed to format the following files:\n{}",
-        error_files
-            .iter()
-            .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
-            .collect::<Vec<_>>()
-            .join("\n"),
-    );
+    if !error_files.is_empty() {
+        eprintln!();
+        anyhow::bail!(
+            "Failed to format the following files:\n{}",
+            error_files
+                .iter()
+                .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+    }
 
     Ok(())
 }
 
-fn validate_formatted_text(original: &str, formatted: &str) -> anyhow::Result<()> {
-    use erl_tokenize::{PositionRange as _, Result, Token};
+fn validate_formatted_text<P: AsRef<Path>>(
+    path: P,
+    original: &str,
+    formatted: &str,
+) -> anyhow::Result<()> {
+    use erl_tokenize::{PositionRange as _, Result, Token, Tokenizer};
 
     fn is_visible_token(t: &Result<Token>) -> bool {
         !matches!(t, Ok(Token::Whitespace(_)))
     }
 
-    // TODO: improve error message
-    let tokens0 = erl_tokenize::Tokenizer::new(original).filter(is_visible_token);
-    let tokens1 = erl_tokenize::Tokenizer::new(formatted).filter(is_visible_token);
-    for (t0, t1) in tokens0.zip(tokens1) {
-        let t0 = t0.expect("unreachable");
-        let t1 = t1?;
+    fn check_extra_token<P: AsRef<Path>>(
+        path: P,
+        text: &str,
+        next_token: Option<Result<Token>>,
+    ) -> anyhow::Result<()> {
+        let next_position = next_token.map(|r| {
+            r.map(|t| t.start_position())
+                .unwrap_or_else(|e| e.position().clone())
+        });
+        if let Some(p) = next_position {
+            anyhow::bail!(
+                "{}",
+                efmt::error::generate_error_message(text, Some(path), p.into(), "extra token")
+            );
+        }
+        Ok(())
+    }
+
+    fn text(token: &Token) -> &str {
+        if let Token::Comment(token) = token {
+            token.text().trim_end()
+        } else {
+            token.text()
+        }
+    }
+
+    let mut tokens0 = Tokenizer::new(original).filter(is_visible_token);
+    let mut tokens1 = Tokenizer::new(formatted).filter(is_visible_token);
+    while let Some(t0) = tokens0.next().transpose().expect("unreachable") {
+        let t1 = match tokens1.next() {
+            Some(Ok(t1)) => t1,
+            Some(Err(e)) => {
+                let reason = e.to_string();
+                let reason_end = reason.find(" (").unwrap_or_else(|| reason.len());
+                anyhow::bail!(
+                    "{}",
+                    efmt::error::generate_error_message(
+                        formatted,
+                        Some("<formatted>"),
+                        e.position().clone().into(),
+                        &reason[..reason_end]
+                    )
+                );
+            }
+            None => {
+                return check_extra_token(path, original, Some(Ok(t0)));
+            }
+        };
         anyhow::ensure!(
-            t0.text() == t1.text(),
-            "original={:?}, formatted={:?} (position={:?})",
-            t0.text(),
-            t1.text(),
-            t0.start_position()
+            text(&t0) == text(&t1),
+            "{}\n{}",
+            efmt::error::generate_error_message(
+                original,
+                Some(path),
+                t0.start_position().into(),
+                "expected"
+            ),
+            efmt::error::generate_error_message(
+                formatted,
+                Some("<formatted>"),
+                t1.start_position().into(),
+                "actual"
+            ),
         );
     }
-    Ok(())
+    check_extra_token("<formatted>", formatted, tokens1.next())
 }
