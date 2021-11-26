@@ -14,7 +14,7 @@ Use
 Add the plugin to your rebar config:
 
     {plugins, [
-        {efmt, {git, "https://host/user/efmt.git", {tag, "0.1.0"}}}
+        {efmt, {git_subdir, "https://host/user/efmt.git", "master", "rebar3_plugin"}}
     ]}.
 
 Then just call your plugin directly in an existing application:
