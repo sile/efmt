@@ -13,7 +13,7 @@ readme = "README.md"
 anyhow = "1"
 console = "0.15"
 erl_tokenize = "0.4"
-efmt_derive = { path = "efmt_derive", version = "0.0.2" }
+efmt_derive = { path = "efmt_derive", version = "0.0.3" }
 env_logger = "0.9"
 glob = "0.3"
 log = "0.4"
@@ -25,7 +25,7 @@ similar = { version= "2", features = ["inline"] }
 structopt = "0.3"
 tempfile = "3"
 thiserror = "1"
-pprof = {version="0.4", features = ["flamegraph"], optional=true}
+pprof = {version="0.6", features = ["flamegraph"], optional=true}
 
 [dev-dependencies]
 indoc = "1"
