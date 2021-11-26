@@ -65,6 +65,9 @@ jobs:
     name: 'Uplaod Binary for MacOS'
     runs-on: macos-latest
     needs: github-release-draft
+    strategy:
+      matrix:
+        target: ["x86_64-apple-darwin", "aarch64-apple-darwin"]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -74,20 +77,20 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: x86_64-apple-darwin
+          target: ${{ matrix.target }}
           override: true
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target=x86_64-apple-darwin
+          args: --release --target=${{ matrix.target }}
 
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.github-release-draft.outputs.upload-url }}
-          asset_path: target/x86_64-apple-darwin/release/efmt
-          asset_name: efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-apple-darwin
+          asset_path: target/${{ matrix.target }}/release/efmt
+          asset_name: efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
           asset_content_type: application/octet-stream
