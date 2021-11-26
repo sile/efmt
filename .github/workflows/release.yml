@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  github:
+    name: 'GitHub Release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install dependent packages
+        run: sudo apt install -y musl-tools
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-unknown-linux-musl
+          override: true
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target=x86_64-unknown-linux-musl
+
+      - id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: v${{ steps.get_version.outputs.VERSION }}
+          draft: true
+          prerelease: true
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: target/x86_64-unknown-linux-musl/release/efmt
+          asset_name: efmt-${{ steps.get_version.outputs.VERSION }}.x86_64-unknown-linux-musl
+          asset_content_type: application/octet-stream

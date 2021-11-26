@@ -32,4 +32,4 @@ foo(A) ->
 Limitations
 -----------
 
-TODO (e.g., broken forms in an unreachable `-if.` branch, parse-transform)
+TODO (e.g., broken forms in an unreachable `-if.` branch, parse-transform, UTF-8 files only)
