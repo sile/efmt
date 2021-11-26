@@ -48,6 +48,20 @@ struct Opt {
     profile: bool,
 }
 
+impl Opt {
+    fn to_format_options(&self) -> efmt::Options {
+        let mut format_options = efmt::Options::new()
+            .max_columns(self.print_width)
+            .include_dirs(self.include_dirs.clone());
+
+        if !self.disable_include_cache {
+            format_options = format_options.include_cache_dir(self.include_cache_dir.clone());
+        }
+
+        format_options
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
@@ -61,6 +75,13 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn main_with_opt(opt: Opt) -> anyhow::Result<()> {
+    if opt.files.is_empty() {
+        // TODO: check other options
+        Opt::clap().print_help()?;
+        println!();
+        std::process::exit(1);
+    }
+
     if opt.check {
         check_files(&opt)
     } else {
@@ -88,29 +109,24 @@ fn format_stdin(format_options: &efmt::Options) -> anyhow::Result<(String, Strin
     Ok((original, formatted))
 }
 
+fn format_file_or_stdin<P: AsRef<Path>>(
+    format_options: &efmt::Options,
+    path: P,
+) -> anyhow::Result<(String, String)> {
+    if path.as_ref().to_str() == Some("-") {
+        format_stdin(format_options)
+    } else {
+        format_file(format_options, path)
+    }
+}
+
 fn format_files(opt: &Opt) -> anyhow::Result<()> {
-    if opt.files.is_empty() {
-        Opt::clap().print_help()?;
-        println!();
-        std::process::exit(1);
-    }
-
-    let mut format_options = efmt::Options::new()
-        .max_columns(opt.print_width)
-        .include_dirs(opt.include_dirs.clone());
-
-    if !opt.disable_include_cache {
-        format_options = format_options.include_cache_dir(opt.include_cache_dir.clone());
-    }
+    let format_options = opt.to_format_options();
 
     let mut error_files = Vec::new();
     for file in &opt.files {
         let result: anyhow::Result<_> = (|| {
-            let (original, formatted) = if file.to_str() == Some("-") {
-                format_stdin(&format_options)?
-            } else {
-                format_file(&format_options, file)?
-            };
+            let (original, formatted) = format_file_or_stdin(&format_options, file)?;
             validate_formatted_text(&file, &original, &formatted).context(concat!(
                 "Found a token mismatch between the original text ",
                 "and the formatted one (maybe efmt bug)"
@@ -151,7 +167,55 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 }
 
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
-    todo!()
+    let format_options = opt.to_format_options();
+    let mut unformatted_files = Vec::new();
+    for file in &opt.files {
+        let result: anyhow::Result<_> = (|| {
+            let (original, formatted) = format_file_or_stdin(&format_options, file)?;
+            validate_formatted_text(&file, &original, &formatted).context(concat!(
+                "Found a token mismatch between the original text ",
+                "and the formatted one (maybe efmt bug)"
+            ))?;
+            Ok((original, formatted))
+        })();
+        match result {
+            Err(e) => {
+                log::error!(
+                    "Failed to format {:?}\n{}",
+                    file,
+                    e.chain()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
+                unformatted_files.push(file);
+            }
+            Ok((original, formatted)) => {
+                if original == formatted {
+                    log::info!("{:?} is already formatted correctly.", file);
+                } else {
+                    let diff = efmt::diff::text_diff(&original, &formatted);
+                    log::error!("{:?} is not formatted correctly.\n{}", file, diff);
+                    unformatted_files.push(file);
+                }
+            }
+        }
+    }
+
+    if !unformatted_files.is_empty() {
+        eprintln!();
+        anyhow::bail!(
+            "The following files need to be formatted:\n{}",
+            unformatted_files
+                .iter()
+                .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+    } else {
+        eprintln!("All input files are formatted correctly!");
+    }
+    Ok(())
 }
 
 fn validate_formatted_text<P: AsRef<Path>>(
