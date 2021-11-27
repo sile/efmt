@@ -7,7 +7,7 @@ efmt
 [![Actions Status](https://github.com/sile/efmt/workflows/CI/badge.svg)](https://github.com/sile/efmt/actions)
 ![License](https://img.shields.io/crates/l/efmt)
 
-An opinionated Erlang code formatter.
+An Erlang code formatter.
 
 Features
 --------
