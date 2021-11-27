@@ -12,7 +12,8 @@ An opinionated Erlang code formatter.
 Features
 --------
 
-- [The Erlang mode for Emacs](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation
+- Opinionated: only maximum line length is configurable by users
+- [Emacs Erlang Mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
 - Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
