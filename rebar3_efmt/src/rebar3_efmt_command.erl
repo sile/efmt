@@ -8,20 +8,33 @@
          execute/1
         ]).
 
--spec version() -> {ok, string()} | {error, not_found | timeout}.
+-spec version() -> {ok, string()} | {error, term()}.
 version() ->
     case command_path() of
         error ->
             {error, not_found};
         {ok, Path} ->
-            Port = erlang:open_port({spawn_executable, Path}, [{args, ["--version"]}]),
-            receive
-                {Port, {data, "efmt" ++ Version}} ->
+            Port = erlang:open_port({spawn_executable, Path}, [{args, ["--version"]}, exit_status]),
+            case collect_port_output(Port, []) of
+                {error, Reason} ->
+                    {error, Reason};
+                {ok, "efmt" ++ Version} ->
                     {ok, string:trim(Version)}
-            after
-                1000 ->
-                    {error, timeout}
             end
+    end.
+
+-spec collect_port_output(port(), iodata()) -> {ok, string()} | {error, term()}.
+collect_port_output(Port, Acc) ->
+    receive
+        {Port, {data, Data}} ->
+            collect_port_output(Port, [Acc | Data]);
+        {Port, {exit_status, 0}} ->
+            {ok, lists:flatten(Acc)};
+        {Port, {exit_status, Status}} ->
+            {error, {error_exit_status, Status}}
+    after
+        1000 ->
+            {error, timeout}
     end.
 
 -spec execute([string()]) -> ok.
