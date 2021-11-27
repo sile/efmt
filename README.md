@@ -17,7 +17,7 @@ Features
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
 - Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
-- Almost thoroughly macro support
+- Almost thoroughly macro support ([MACRO_AND_PREPROCESS.md](MACRO_AND_PREPROCESS.md))
 
 An Formatting Example
 ---------------------
