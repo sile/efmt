@@ -4,7 +4,7 @@ use crate::parse::token_stream::{MacroDefine, MacroDefineKey, MacroDefines};
 use crate::parse::TokenStream;
 use erl_tokenize::Tokenizer;
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 const CACHE_FORMAT_VERISON: &str = "v0";
@@ -154,20 +154,31 @@ impl IncludeHandler {
         Some(macro_defines)
     }
 
-    fn try_load_macro_defines(
+    fn include_dirs<P: AsRef<Path>>(&self, target_file_path: Option<P>) -> Vec<PathBuf> {
+        let mut dirs = Vec::new();
+        if let Some(d) = target_file_path.as_ref().and_then(|p| p.as_ref().parent()) {
+            dirs.push(d.to_path_buf());
+        }
+        dirs.extend(self.options.include_dirs.clone());
+        dirs
+    }
+
+    fn try_load_macro_defines<P: AsRef<Path>>(
         &mut self,
+        target_file_path: Option<P>,
         include: &IncludeDirective,
         known_macro_defines: &MacroDefines,
     ) -> Option<MacroDefines> {
-        let resolved_path = if let Some(path) = include.resolved_path(&self.options.include_dirs) {
-            path
-        } else {
-            log::warn!(
-                "Failed to resolve the include file path {:?}",
-                include.path()
-            );
-            return None;
-        };
+        let resolved_path =
+            if let Some(path) = include.resolved_path(&self.include_dirs(target_file_path)) {
+                path
+            } else {
+                log::warn!(
+                    "Failed to resolve the include file path {:?}",
+                    include.path()
+                );
+                return None;
+            };
         log::debug!(
             "The include file {:?} was resolved to the path {:?}",
             include.path(),
@@ -199,8 +210,9 @@ impl IncludeHandler {
         }
     }
 
-    fn try_save_macro_defines_into_cache(
+    fn try_save_macro_defines_into_cache<P: AsRef<Path>>(
         &mut self,
+        target_file_path: Option<P>,
         include: &IncludeDirective,
         macro_defines: &MacroDefines,
     ) {
@@ -222,15 +234,16 @@ impl IncludeHandler {
             }
         }
 
-        let resolved_path = if let Some(path) = include.resolved_path(&self.options.include_dirs) {
-            path
-        } else {
-            log::warn!(
-                "Failed to resolve the include file path {:?}",
-                include.path()
-            );
-            return;
-        };
+        let resolved_path =
+            if let Some(path) = include.resolved_path(&self.include_dirs(target_file_path)) {
+                path
+            } else {
+                log::warn!(
+                    "Failed to resolve the include file path {:?}",
+                    include.path()
+                );
+                return;
+            };
 
         let mtime = match std::fs::metadata(&resolved_path).and_then(|m| m.modified()) {
             Err(e) => {
@@ -288,8 +301,9 @@ impl IncludeHandler {
         }
     }
 
-    pub(crate) fn include_macro_defines(
+    pub(crate) fn include_macro_defines<P: AsRef<Path>>(
         &mut self,
+        target_file_path: Option<P>,
         include: &IncludeDirective,
         known_macro_defines: &MacroDefines,
     ) -> MacroDefines {
@@ -321,14 +335,16 @@ impl IncludeHandler {
             return macro_defines;
         }
 
-        if let Some(macro_defines) = self.try_load_macro_defines(include, known_macro_defines) {
+        if let Some(macro_defines) =
+            self.try_load_macro_defines(target_file_path.as_ref(), include, known_macro_defines)
+        {
             log::debug!(
                 "Found {} macro definitions in {:?}.",
                 macro_defines.len(),
                 include.path()
             );
 
-            self.try_save_macro_defines_into_cache(include, &macro_defines);
+            self.try_save_macro_defines_into_cache(target_file_path, include, &macro_defines);
             macro_defines
         } else {
             BTreeMap::new()

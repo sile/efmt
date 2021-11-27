@@ -451,9 +451,11 @@ impl TokenStream {
     }
 
     fn handle_include(&mut self, include: IncludeDirective) {
-        let new_macro_defines = self
-            .include
-            .include_macro_defines(&include, &self.macro_defines);
+        let new_macro_defines = self.include.include_macro_defines(
+            self.filepath().as_ref().map(|x| &**x),
+            &include,
+            &self.macro_defines,
+        );
         self.new_macro_defines
             .extend(new_macro_defines.keys().cloned());
         self.macro_defines.extend(new_macro_defines);
