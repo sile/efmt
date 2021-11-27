@@ -46,6 +46,17 @@ fac(N) ->
 
 Please refer to [FORMAT_RULES.md](FORMAT_RULES.md) about the formatting style.
 
+Installation
+------------
+
+Usage
+-----
+
+Editor Integrations
+-------------------
+
+TODO
+
 Limitations
 -----------
 
