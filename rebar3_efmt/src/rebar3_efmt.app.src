@@ -9,5 +9,6 @@
   {env,[]},
   {modules, []},
   {licenses, ["Apache 2.0"]},
-  {links, [{"GitHub","https://github.com/sile/efmt"}]}
+  {links, [{"GitHub","https://github.com/sile/efmt"}]},
+  {exclude_files, ["priv/efmt"]}
  ]}.
