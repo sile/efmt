@@ -1,15 +1,13 @@
 {application, rebar3_efmt,
  [{description, "Erlang Code Formatter"},
-  {vsn, "0.0.8"},
+  {vsn, "0.0.9"},
   {registered, []},
   {applications,
    [kernel,
     stdlib,
-    inets
-   ]},
+    inets]},
   {env,[]},
   {modules, []},
-
   {licenses, ["Apache 2.0"]},
-  {links, []}
+  {links, [{"GitHub","https://github.com/sile/efmt"}]}
  ]}.
