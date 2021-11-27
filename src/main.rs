@@ -27,6 +27,12 @@ struct Opt {
     #[structopt(long, short = "w", conflicts_with = "check")]
     write: bool,
 
+    /// Shows the target input files.
+    ///
+    /// You can use this flag to exclude some files from the default target, e.g., `$ efmt $(efmt --show-files | grep -v rebar.config)`.
+    #[structopt(long, conflicts_with = "check", conflicts_with = "write")]
+    show_files: bool,
+
     /// Outputs debug log messages.
     #[structopt(long)]
     verbose: bool,
@@ -38,7 +44,7 @@ struct Opt {
     /// Format target files.
     ///
     /// `-` means the standard input.
-    /// If no files are specified and either `-c` or `-w` options is specified,
+    /// If no files are specified and any of `-c`, `-w` or `--show-files` options is specified,
     /// All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default
     /// (note that files spcified by `.gitignore` will be ignored).
     files: Vec<PathBuf>,
@@ -68,12 +74,12 @@ struct Opt {
 
 impl Opt {
     fn collect_default_files_if_need(&mut self) -> anyhow::Result<()> {
-        if !self.files.is_empty() || !(self.check || self.write) {
+        if !self.files.is_empty() || !(self.check || self.write || self.show_files) {
             return Ok(());
         }
 
         self.files = efmt::files::collect_default_target_files()?;
-        if !self.files.is_empty() {
+        if !self.files.is_empty() && !self.show_files {
             log::info!(
                 "The following files were added as the default input files:\n{}",
                 self.files
@@ -123,7 +129,14 @@ fn main_with_opt(mut opt: Opt) -> anyhow::Result<()> {
         std::process::exit(1);
     }
 
-    if opt.check {
+    if opt.show_files {
+        for file in opt.files {
+            if let Some(file) = file.to_str() {
+                println!("{}", file);
+            }
+        }
+        Ok(())
+    } else if opt.check {
         check_files(&opt)
     } else {
         format_files(&opt)
