@@ -38,6 +38,8 @@ struct Opt {
     verbose: bool,
 
     /// Where to search for include files to process Erlang `-include` directives.
+    ///
+    /// If omitted, "../", "../include/", "../src/" and "../test/" of the target file will be added as the include directories.
     #[structopt(short = "I", long = "include-search-dir")]
     include_dirs: Vec<PathBuf>,
 

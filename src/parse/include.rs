@@ -159,7 +159,18 @@ impl IncludeHandler {
         if let Some(d) = target_file_path.as_ref().and_then(|p| p.as_ref().parent()) {
             dirs.push(d.to_path_buf());
         }
-        dirs.extend(self.options.include_dirs.clone());
+        if !self.options.include_dirs.is_empty() {
+            dirs.extend(self.options.include_dirs.clone());
+        } else if let Some(d) = target_file_path
+            .as_ref()
+            .and_then(|p| p.as_ref().parent())
+            .and_then(|p| p.parent())
+        {
+            dirs.push(d.to_path_buf());
+            dirs.push(d.join("include/"));
+            dirs.push(d.join("src/"));
+            dirs.push(d.join("test/"));
+        }
         dirs
     }
 
