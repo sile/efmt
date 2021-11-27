@@ -28,8 +28,14 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     ok = ensure_efmt_installed(),
-    Args = rebar_state:command_args(State),
-    ok = rebar3_efmt_command:execute(Args),
+    Args0 = rebar_state:command_args(State),
+    Args1 = [case Entry of
+                 {K, V} ->
+                     atom_to_arg_key(K) ++ "=" ++ term_to_arg_value(V);
+                 Flag ->
+                     atom_to_arg_key(Flag)
+             end || Entry <- rebar_state:get(State, efmt, [])] ++ Args0,
+    ok = rebar3_efmt_command:execute(Args1),
     {ok, State}.
 
 -spec format_error(any()) ->  iolist().
@@ -103,4 +109,17 @@ ensure_efmt_installed() ->
                                    "and install it manually.", [Reason]),
                     ok
             end
+    end.
+
+-spec term_to_arg_value(term()) -> string().
+term_to_arg_value(X) ->
+    lists:flatten(io_lib:format("~p", [X])).
+
+-spec atom_to_arg_key(atom()) -> string().
+atom_to_arg_key(X) ->
+    case atom_to_list(X) of
+        [C] ->
+            [$-, C];
+        S ->
+            "--" ++ string:replace(S, "_", "-")
     end.
