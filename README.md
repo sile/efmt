@@ -58,6 +58,16 @@ Editor Integrations
 
 TODO
 
+Comparison with other formatters
+---------------------------------
+
+### erlfmt
+
+- formatting style
+- error handling
+- macro handling
+- formatting speed
+
 Limitations
 -----------
 
