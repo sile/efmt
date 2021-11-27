@@ -4,7 +4,8 @@
 
 -export([
          version/0,
-         install_prebuilt_binary/1
+         install_prebuilt_binary/1,
+         execute/1
         ]).
 
 -spec version() -> {ok, string()} | {error, not_found | timeout}.
@@ -23,13 +24,35 @@ version() ->
             end
     end.
 
+-spec execute([string()]) -> ok.
+execute(Args) ->
+    {ok, Path} = command_path(),
+    Port = erlang:open_port({spawn_executable, Path}, [{args, Args}, exit_status]),
+    execute_output(Port).
+
+-spec execute_output(port()) -> ok.
+execute_output(Port) ->
+    receive
+        {Port, {data, Data}} ->
+            io:format("~s", [Data]),
+            execute_output(Port);
+        {Port, {exit_status, 0}} ->
+            ok;
+        {Port, {exit_status, Status}} ->
+            erlang:halt(Status);
+        Other ->
+            rebar_api:abort("Received an unexpected message: ~p", [Other])
+    after
+        60_000 ->
+            rebar_api:abort("Timeout", [])
+    end.
+
 -spec install_prebuilt_binary(string()) -> ok | {error, term()}.
-install_prebuilt_binary(_Version) ->
+install_prebuilt_binary(Version) ->
     case get_prebuilt_binary_arch() of
         error ->
             {error, {no_prebuilt_binary, rebar_api:get_arch()}};
         {ok, Arch} ->
-            Version = "0.0.8",
             rebar_api:debug("Arch: ~p", [Arch]),
             Url = "https://github.com/sile/efmt/releases/download/" ++ Version ++
                 "/efmt-" ++ Version ++ "." ++ Arch,
