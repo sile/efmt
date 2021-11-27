@@ -39,7 +39,8 @@ struct Opt {
     ///
     /// `-` means the standard input.
     /// If no files are specified and either `-c` or `-w` options is specified,
-    /// `{src,include,test}/*.{hrl,erl,app.src}` and `rebar.config` are used as the default.
+    /// All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default
+    /// (note that files spcified by `.gitignore` will be ignored).
     files: Vec<PathBuf>,
 
     /// Executes formatting in parallel.
@@ -71,30 +72,17 @@ impl Opt {
             return Ok(());
         }
 
-        let rebar_config_path = PathBuf::from("rebar.config");
-        if rebar_config_path.exists() {
-            self.files.push(rebar_config_path);
+        self.files = efmt::files::collect_default_target_files()?;
+        if !self.files.is_empty() {
+            log::info!(
+                "The following files were added as the default input files:\n{}",
+                self.files
+                    .iter()
+                    .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
         }
-
-        let dirs = ["src", "include", "test"];
-        let exts = ["hrl", "erl", "app.src"];
-        for dir in dirs {
-            for ext in exts {
-                for entry in glob::glob(&format!("{}/*.{}", dir, ext))? {
-                    let path = entry?;
-                    self.files.push(path);
-                }
-            }
-        }
-
-        log::info!(
-            "The following files were added as the default input files:\n{}",
-            self.files
-                .iter()
-                .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
         Ok(())
     }
 
@@ -254,7 +242,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     true
                 } else {
                     let diff = efmt::diff::text_diff(&original, &formatted);
-                    log::error!("{:?} is not formatted correctly.\n{}", file, diff);
+                    log::info!("{:?} is not formatted correctly.\n{}", file, diff);
                     false
                 }
             }

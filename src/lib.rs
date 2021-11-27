@@ -4,6 +4,7 @@ use std::path::Path;
 
 pub mod diff;
 pub mod error;
+pub mod files;
 pub mod format;
 pub mod items;
 pub mod parse;
