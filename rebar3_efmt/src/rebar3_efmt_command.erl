@@ -1,0 +1,85 @@
+-module(rebar3_efmt_command).
+
+-include_lib("kernel/include/file.hrl").
+
+-export([
+         version/0,
+         install_prebuilt_binary/1
+        ]).
+
+-spec version() -> {ok, string()} | {error, not_found | timeout}.
+version() ->
+    case command_path() of
+        error ->
+            {error, not_found};
+        {ok, Path} ->
+            Port = erlang:open_port({spawn_executable, Path}, [{args, ["--version"]}]),
+            receive
+                {Port, {data, "efmt" ++ Version}} ->
+                    {ok, string:trim(Version)}
+            after
+                1000 ->
+                    {error, timeout}
+            end
+    end.
+
+-spec install_prebuilt_binary(string()) -> ok | {error, term()}.
+install_prebuilt_binary(_Version) ->
+    case get_prebuilt_binary_arch() of
+        error ->
+            {error, {no_prebuilt_binary, rebar_api:get_arch()}};
+        {ok, Arch} ->
+            Version = "0.0.8",
+            rebar_api:debug("Arch: ~p", [Arch]),
+            Url = "https://github.com/sile/efmt/releases/download/" ++ Version ++
+                "/efmt-" ++ Version ++ "." ++ Arch,
+            rebar_api:info("Pre-built binary URL: ~p", [Url]),
+            case httpc:request(Url) of
+                {error, Reason} ->
+                    {error, {http_get_failed, Reason}};
+                {ok, {{_, 200, _}, _Header, Body}} ->
+                    Path = code:priv_dir(rebar3_efmt) ++ "/efmt",
+                    case file:write_file(Path, Body, [binary]) of
+                        {error, Reason} ->
+                            {error, {write_file_failed, Reason}};
+                        ok ->
+                            case file:write_file_info(Path, #file_info{mode = 8#00774}) of
+                                {error, Reason} ->
+                                    {error, {write_file_info_failed, Reason}};
+                                ok ->
+                                    ok
+                            end
+                    end;
+                {ok, {Status, _Header, Body}} ->
+                    {error, {Status, Body}}
+            end
+    end.
+
+-spec command_path() -> {ok, string()} | error.
+command_path() ->
+    case os:find_executable("efmt", code:priv_dir(rebar3_efmt)) of
+        false ->
+            case os:find_executable("efmt") of
+                false ->
+                    error;
+                Path ->
+                    rebar_api:debug("Found `efmt`: ~p", [Path]),
+                    {ok, Path}
+            end;
+        Path ->
+            rebar_api:debug("Found `efmt`: ~p", [Path]),
+            {ok, Path}
+    end.
+
+-spec get_prebuilt_binary_arch() -> {ok, string()} | error.
+get_prebuilt_binary_arch() ->
+    Arch = rebar_api:get_arch(),
+    Candidates = [{"x86_64-unknown-linux-musl", ".*x86_64.*linux.*"},
+                  {"x86_64-apple-darwin", ".*x86_64.*apple-darwin.*"},
+                  {"aarch64-apple-darwin", ".*aarch64.*apple-darwin.*"}],
+    case [K || {K, V} <- Candidates, re:run(Arch, V) =/= nomatch] of
+        [] ->
+            error;
+        [K] ->
+            {ok, K}
+    end.

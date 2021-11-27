@@ -27,8 +27,12 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
+    ok = check_efmt_version(),
     Args = rebar_state:command_parsed_args(State),
     Arch = rebar_api:get_arch(),
+    io:format("~p\n", [Arch]),
+    io:format("~p\n", [Args]),
+    io:format("~p\n", [rebar3_efmt_command:version()]),
     {ok, State}.
 
 -spec format_error(any()) ->  iolist().
@@ -71,3 +75,38 @@ opts() ->
       "`{src,include,test}/*.{hrl,erl,app.src}` and `rebar.config` are used as the default."
      }
     ].
+
+-spec check_efmt_version() -> ok.
+check_efmt_version() ->
+    {ok, AppVersion} = application:get_key(rebar3_efmt, vsn),
+    case rebar3_efmt_command:version() of
+        {error, not_found} ->
+            rebar_api:info("No `efmt` binary found. Trying installing a pre-built binary.", []),
+            case rebar3_efmt_command:install_prebuilt_binary(AppVersion) of
+                ok ->
+                    check_efmt_version();
+                {error, Reason} ->
+                    rebar_api:abort("Failed to install a pre-built binary (~p). "
+                                    "Please visit https://github.com/sile/efmt, "
+                                    "and install it manually.", [Reason])
+            end;
+        {error, timeout} ->
+            rebar_api:abort("Failed to execute `efmt` command due to timeout.", []);
+        {ok, AppVersion} ->
+            ok;
+        {ok, Version} ->
+            rebar_api:warn("Version mismatch between rebar3_efmt (~p) and emft (~p). "
+                           "Trying installing a correct pre-built binary.",
+                           [AppVersion, Version]),
+            case rebar3_efmt_command:install_prebuilt_binary(AppVersion) of
+                ok ->
+                    check_efmt_version();
+                {error, Reason} ->
+                    rebar_api:warn("Failed to install a pre-built binary (~p). "
+                                   "Keeps using the current binary. "
+                                   "If you'd like to update it, "
+                                   "please visit https://github.com/sile/efmt, "
+                                   "and install it manually.", [Reason]),
+                    ok
+            end
+    end.
