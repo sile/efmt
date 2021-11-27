@@ -67,6 +67,7 @@ Comparison with other formatters
 - error handling
 - macro handling
 - formatting speed
+- development phase
 
 Limitations
 -----------
