@@ -6,30 +6,48 @@ efmt
 [![Actions Status](https://github.com/sile/efmt/workflows/CI/badge.svg)](https://github.com/sile/efmt/actions)
 ![License](https://img.shields.io/crates/l/efmt)
 
-Erlang code formatter.
+An opinionated Erlang code formatter.
 
-**NOTICE** This crate is still in the development phase. So the formatting style can be radically changed in the future.
-
-Examples
+Features
 --------
 
-```console
-$ echo 'foo() -> bar.' | efmt
-foo() ->
-    bar.
+- [The Erlang mode for Emacs](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation
+- Preserves non-whitespace tokens of the original text as-is
+  - Ensures the code after formatting keeps the same semantic meaning
+- Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
+- Almost thoroughly macro support
+
+An Formatting Example
+---------------------
+
+### Before
+
+```erlang
+-module(example).
+-export(
+  [fac/1]
+).
+
+fac(1) -> 1; fac(N) -> N*fac(N-1).
 ```
 
-```console
-$ echo 'foo(x) -> y; foo(A) -> [{A, A}, A].' | efmt --max-columns 10
-foo(x) ->
-    y;
-foo(A) ->
-    [{A,
-      A},
-     A].
+### After
+
+```erlang
+-module(example).
+-export([fac/1]).
+
+fac(1) ->
+    1;
+fac(N) ->
+    N * fac(N - 1).
 ```
+
+Please refer to [FORMAT_RULES.md](FORMAT_RULES.md) about the formatting style.
 
 Limitations
 -----------
 
-TODO (e.g., broken forms in an unreachable `-if.` branch, parse-transform, UTF-8 files only)
+- UTF-8 files only
+- 
+TODO (e.g., broken forms in an unreachable `-if.` branch, parse-transform)
