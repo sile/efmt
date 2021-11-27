@@ -12,7 +12,7 @@ pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
 
 fn collect_files_with_git<F>(is_target: F) -> anyhow::Result<Vec<PathBuf>>
 where
-    F: Fn(&PathBuf) -> bool,
+    F: Fn(&Path) -> bool,
 {
     let mut files = Vec::new();
     let args_list = [
@@ -27,7 +27,7 @@ where
             Vec::from(args).join(" "),
             String::from_utf8_lossy(&output.stderr)
         );
-        for file in String::from_utf8(output.stdout)?.split("\n") {
+        for file in String::from_utf8(output.stdout)?.split('\n') {
             if file.is_empty() {
                 continue;
             }
@@ -47,7 +47,7 @@ fn collect_files_without_git<P: AsRef<Path>, F>(
     is_target: F,
 ) -> anyhow::Result<Vec<PathBuf>>
 where
-    F: Fn(&PathBuf) -> bool,
+    F: Fn(&Path) -> bool,
 {
     let mut files = Vec::new();
     let mut stack = vec![root_dir.as_ref().to_path_buf()];
@@ -67,7 +67,7 @@ where
     Ok(files)
 }
 
-fn is_format_target(path: &PathBuf) -> bool {
+fn is_format_target(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
         .map_or(false, |n| {
