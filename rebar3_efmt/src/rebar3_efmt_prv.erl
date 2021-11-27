@@ -54,6 +54,7 @@ opts() ->
       "Checks if input is formatted correctly. "
       "If so, exits with 0. Otherwise, exits with 1 and shows a diff."},
      {write, $w, "write", undefined, "Overwrites input file with the formatted text"},
+     {show_files, undefined, "show-files", undefined, "Shows the target input files"},
      {print_width, undefined, "print-width", integer,
       "Maximum line length. "
       "Note that this is a soft limit. "
@@ -61,19 +62,22 @@ opts() ->
       "Besides, this limit doesn't apply to comments. [default: 120]"},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},
      {parallel, undefined, "parallel", undefined, "Executes formatting in parallel"},
+     {include_dirs, $I, "include-search-dir", string,
+      "Where to search for include files to process Erlang `-include` directives. "
+      "If omitted, '../', '../include/', '../src/' and '../test/' of the target file will be added as the include directories"},
      {disable_include, undefined, "disable-include", undefined,
       "Disables `-include` and `-include_lib` processing. This could improve formatting speed. "
       "All unknown macros will be replaced with `EFMT_DUMMY` atom"},
      {disable_include_cache, undefined, "disable-include-cache", undefined,
       "Disables include cache"},
-     {include_cache_dirs, undefined, "include-cache-dirs", string,
+     {include_cache_dirs, undefined, "include-cache-dir", string,
       "Where to save the caches for the macro definitions collected during processing "
       "`-include` or `-include_lib` directives [default: .efmt/cache]"},
      {files, undefined, undefined, string,
       "Format target files. "
-      "If no files are specified and either `-c` or `-w` options is specified, "
-      "`*.{hrl,erl,app.src}` and `rebar.config` files in your application are used as the default."
-     }
+      "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
+      "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
+      "(note that files spcified by `.gitignore` will be ignored)"}
     ].
 
 -spec ensure_efmt_installed() -> ok.
