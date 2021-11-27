@@ -2,6 +2,7 @@ efmt
 ====
 
 [![efmt](https://img.shields.io/crates/v/efmt.svg)](https://crates.io/crates/efmt)
+[![hex.pm version](https://img.shields.io/hexpm/v/rebar3_efmt.svg)](https://hex.pm/packages/rebar3_efmt)
 [![Documentation](https://docs.rs/efmt/badge.svg)](https://docs.rs/efmt)
 [![Actions Status](https://github.com/sile/efmt/workflows/CI/badge.svg)](https://github.com/sile/efmt/actions)
 ![License](https://img.shields.io/crates/l/efmt)
@@ -49,5 +50,5 @@ Limitations
 -----------
 
 - UTF-8 files only
-- 
+-
 TODO (e.g., broken forms in an unreachable `-if.` branch, parse-transform)
