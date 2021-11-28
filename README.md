@@ -150,6 +150,67 @@ Since I'm not familiar with other Erlang formatters, and [the README.md of `erlf
 
 ### Formatting style
 
+I think the formatting style of `efmt` is much different from `erlfmt`.
+IMO, this is a major point to decide which one should you choose.
+If you like the `erlfmt` style. It's okay. I recommend using `erlfmt`.
+But, if you like the `efmt` style. It's welcomed. Please use `efmt`.
+
+It's hard work to pick up every difference points here.
+So I just give you some formatted code examples and hope they give you a sense.
+
+#### Original code
+
+```erlang
+-module(foo).
+
+-spec hello(term(), integer()) -> {ok, integer()} | {error, Reason :: term()}.
+hello({_, _, A, _, [B, _, C]}, D) ->
+    {ok, A + B + C + D};
+hello(Error, X) when not is_integer(X) ->
+    {error, Error}.
+```
+
+#### `erlfmt` formatted code
+
+`$ erlfmt foo.erl --print-width 30`
+```erlang
+-module(foo).
+
+-spec hello(
+    term(), integer()
+) ->
+    {ok, integer()}
+    | {error,
+        Reason :: term()}.
+hello(
+    {_, _, A, _, [B, _, C]}, D
+) ->
+    {ok, A + B + C + D};
+hello(Error, X) when
+    not is_integer(X)
+->
+    {error, Error}.
+```
+
+### `efmt` formatted code
+
+`$ efmt foo.erl --print-width 30`
+```erlang
+-module(foo).
+
+-spec hello(term(),
+            integer()) ->
+          {ok, integer()} |
+          {error,
+           Reason :: term()}.
+hello({_, _, A, _, [B, _, C]},
+      D) ->
+    {ok, A + B + C + D};
+hello(Error, X)
+  when not is_integer(X) ->
+    {error, Error}.
+```
+
 ### Error handling
 
 ### Macro handling
@@ -203,7 +264,7 @@ So the execution time was much faster than the first execution.
 ### Development phase
 
 `erlfmt` has released the stable version (v1), but `efmt` hasn't.
-Perhaps some parts of the format style of `efmt` will change in future releases until it releases v1.
+Perhaps some parts of the `efmt` style will change in future releases until it releases v1.
 
 Limitations
 -----------
