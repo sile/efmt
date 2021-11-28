@@ -63,7 +63,7 @@ Then, you can run the `$ rebar3 efmt` command.
 If you want to provide the default options via `rebar.config`,
 please specify an entry that has `efmt` as the key and `efmt`'s options as the value.
 ```erlang
-{efmt, [{print_width, 100}]}.  % Sets the maximum line length to 100.
+{efmt, [{print_width, 100}]}.  % Sets the maximum line length hint to 100.
 ```
 
 Note that `rebar3_efmt` tries to automatically download a pre-built binary (see the next section) for your environment.
