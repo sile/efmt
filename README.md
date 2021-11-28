@@ -143,16 +143,67 @@ Editor Integrations
 
 TODO (contribution welcome)
 
-Comparison with other formatters
----------------------------------
+Differences with other Erlang formatters
+-----------------------------------------
 
-### erlfmt
+Since I'm not familiar with other Erlang formatters, and [the README.md of `erlfmt`](https://github.com/WhatsApp/erlfmt/blob/main/README.md) already provides a good comparison table among various formatters, I only describe the differences between `efmt` and `erlfmt` here.
 
-- formatting style
-- error handling
-- macro handling
-- formatting speed
-- development phase
+### Formatting style
+
+### Error handling
+
+### Macro handling
+
+### Formatting speed
+
+The following benchmark compares the time to format all "*.erl" files contained in the OTP-24 source distribution.
+```console
+// OS and CPU spec.
+$ uname -a
+Linux TABLET-GC0A6KVD 5.10.16.3-microsoft-standard-WSL2 #1 SMP Fri Apr 2 22:23:49 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+$ cat /proc/cpuinfo | grep 'model name' | head -1
+model name      : 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz
+
+// Downloads OTP source code. There are 3,737 "*.erl" files.
+$ wget https://erlang.org/download/otp_src_24.1.tar.gz
+$ tar zxvf otp_src_24.1.tar.gz
+$ cd otp_src_24.1/
+$ find . -name '*.erl' | wc -l
+3737
+
+// Erlang version: Erlang/OTP 24 [erts-12.1] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
+
+// erlfmt-v1.0.0: 17.30s
+$ time erlfmt (find . -name '*.erl') > /dev/null 2> /dev/null
+________________________________________________________
+Executed in   17.30 secs
+   usr time   97.73 secs
+   sys time   10.20 secs
+
+// efmt-v0.1.0 (w/o include cache): 15.10s
+$ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
+________________________________________________________
+Executed in   15.10 secs
+   usr time   98.83 secs
+   sys time    9.67 secs
+
+// efmt-v0.1.0 (w/ include cache): 5.84s
+$ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
+________________________________________________________
+Executed in    5.84 secs
+   usr time   43.88 secs
+   sys time    1.28 secs
+```
+
+Note that `efmt` needs to process `--include` and `--include_lib` to collect macro definitions in the included files.
+Once an include file is processed, `efmt` stores the result into a cache file under `.efmt/cache/` dir. 
+The `efmt` second execution in the above benchmark just reused the cached results instead of processing hole include files.
+So the execution time was much faster than the first execution.
+
+### Development phase
+
+`erlfmt` has released the stable version (v1), but `efmt` hasn't.
+Perhaps some parts of the format style of `efmt` will change in future releases until it releases v1.
 
 Limitations
 -----------
