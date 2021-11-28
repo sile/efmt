@@ -91,7 +91,7 @@ $ efmt
 Usage
 -----
 
-Format an Erlang file (assuming `example.erl` in the above example is located in the current directory):
+Formats an Erlang file (assuming `example.erl` in the above example is located in the current directory):
 ```console
 $ efmt example.erl  # or `rebar3 efmt example.erl`
 
@@ -99,7 +99,7 @@ $ efmt example.erl  # or `rebar3 efmt example.erl`
 $ efmt example.erl rebar.config ...
 ```
 
-Check diff between the original text and the formatted one:
+Checks diff between the original text and the formatted one:
 ```console
 $ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
 ...
@@ -121,7 +121,7 @@ $ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
 $ efmt -c
 ```
 
-Overwrite the original file with the formatted one:
+Overwrites the original file with the formatted one:
 ```console
 $ efmt -w example.erl  # or `rebar3 efmt -w example.erl`
 
