@@ -148,6 +148,8 @@ Differences with other Erlang formatters
 
 Since I'm not familiar with other Erlang formatters, and [the README.md of `erlfmt`](https://github.com/WhatsApp/erlfmt/blob/main/README.md) already provides a good comparison table among various formatters, I only describe the differences between `efmt` and `erlfmt` here.
 
+Note that in the following examples, I used `efmt-v0.1.0` and `erlfmt-v1.0.0`.
+
 ### Formatting style
 
 I think the formatting style of `efmt` is much different from `erlfmt`.
@@ -192,7 +194,7 @@ hello(Error, X) when
     {error, Error}.
 ```
 
-### `efmt` formatted code
+#### `efmt` formatted code
 
 `$ efmt foo.erl --print-width 30`
 ```erlang
@@ -212,6 +214,51 @@ hello(Error, X)
 ```
 
 ### Error handling
+
+`erlfmt` seems to try formatting the remaining part of code even if it detected a syntax error. 
+In contrast, `efmt` aborts once it detects an error.
+
+For instance, let's format the following code.
+```erlang
+-module(bar).
+
+invalid_fun() ->
+    : foo,
+ok.
+
+valid_fun
+()->
+ok.
+```
+
+Using `erlfmt`:
+```console
+$ erlfmt bar.erl
+-module(bar).
+
+invalid_fun() ->
+    : foo,
+ok.
+
+valid_fun() ->
+    ok.
+bar.erl:4:5: syntax error before: ':'
+// `valid_fun/0` was formatted and the program exited with 0 (success)
+```
+
+Using `efmt`:
+```console
+$ efmt bar.erl
+[2021-11-28T11:30:06Z ERROR efmt] Failed to format "bar.erl"
+    Parse failed:
+    --> bar.erl:4:5
+    4 |     : foo,
+      |     ^ unexpected token
+
+Error: Failed to format the following files:
+- bar.erl
+// The program exited with 1 (error)
+```
 
 ### Macro handling
 
@@ -234,21 +281,21 @@ $ find . -name '*.erl' | wc -l
 
 // Erlang version: Erlang/OTP 24 [erts-12.1] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-// erlfmt-v1.0.0: 17.30s
+// erlfmt: 17.30s
 $ time erlfmt (find . -name '*.erl') > /dev/null 2> /dev/null
 ________________________________________________________
 Executed in   17.30 secs
    usr time   97.73 secs
    sys time   10.20 secs
 
-// efmt-v0.1.0 (w/o include cache): 15.10s
+// efmt (w/o include cache): 15.10s
 $ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
 ________________________________________________________
 Executed in   15.10 secs
    usr time   98.83 secs
    sys time    9.67 secs
 
-// efmt-v0.1.0 (w/ include cache): 5.84s
+// efmt (w/ include cache): 5.84s
 $ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
 ________________________________________________________
 Executed in    5.84 secs
