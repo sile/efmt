@@ -67,7 +67,7 @@ please specify an entry that has `efmt` as the key and `efmt`'s options as the v
 ```
 
 Note that `rebar3_efmt` tries to automatically download a pre-built binary (see the next section) for your environment.
-However, if there is not a suitable one, you need to build the binary on your own.
+However, if there is not a suitable one, you need to build the `efmt` binary on your own.
 
 ### Pre-built binaries
 
@@ -91,10 +91,54 @@ $ efmt
 Usage
 -----
 
+Format an Erlang file (assuming `example.erl` in the above example is located in the current directory):
+```console
+$ efmt example.erl  # or `rebar3 efmt example.erl`
+```
+
+Check diff between the original text and the formatted one:
+```console
+$ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
+...
+    1   1    | -module(example).
+    2        |--export(
+    3        |-  [fac/1]
+    4        |-).
+        2    |+-export([fac/1]).
+    5   3    |
+    6        |-fac(1) -> 1; fac(N) -> N*fac(N-1).
+        4    |+fac(1) ->
+        5    |+    1;
+        6    |+fac(N) ->
+        7    |+    N * fac(N - 1).
+...
+
+// If you omit the filename, all the Erlang-like files (i.e., `*.{erl, hrl, app.src}` and `rebar.config`)
+// are included in the target (if you're in a git repository the files specified by `.gitignore` are excluded).
+$ efmt -c
+```
+
+Overwrites the original file with the formatted one:
+```console
+$ efmt -w example.erl  # or `rebar3 efmt -w example.erl`
+
+// As with `-c` option, you can omit the filename arg.
+$ emf -w
+```
+
+For the other command-line options, please see the help document:
+```console
+// Short doc.
+$ efmt -h  # or `rebar3 efmt -h`
+
+// Long doc.
+$ efmt --help  # or `rebar3 efmt --help`
+```
+
 Editor Integrations
 -------------------
 
-TODO
+TODO (contribution welcome)
 
 Comparison with other formatters
 ---------------------------------
