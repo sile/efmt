@@ -50,6 +50,44 @@ Please refer to [FORMAT_RULES.md](FORMAT_RULES.md) about the formatting style.
 Installation
 ------------
 
+### With [Rebar3](https://github.com/erlang/rebar3)
+
+Just add the following line to your `rebar.config`.
+
+```erlang
+{plugins, [rebar3_efmt]}.
+```
+
+Then, you can run the `$ rebar3 efmt` command.
+
+If you want to provide the default options via `rebar.config`,
+please specify an entry that has `efmt` as the key and `efmt`'s options as the value.
+```erlang
+{efmt, [{print_width, 100}]}.  % Sets the maximum line length to 100.
+```
+
+Note that `rebar3_efmt` tries to automatically download a pre-built binary (see the next section) for your environment.
+However, if there is not a suitable one, you need to build the binary on your own.
+
+### Pre-built binaries
+
+Pre-built binaries for Linux and MacOS are available in [the releases page](https://github.com/sile/efmt/releases).
+
+```console
+// An example to download the binary for Linux.
+$ curl -L https://github.com/sile/efmt/releases/download/${VERSION}/efmt-${VERSION}.x86_64-unknown-linux-musl -o efmt
+$ chmod +x efmt
+$ ./efmt
+```
+
+### With [Cargo](https://doc.rust-lang.org/cargo/)
+
+If you have installed `cargo` (the package manager for Rust), you can install `efmt` with the following command:
+```console
+$ cargo install efmt
+$ efmt
+```
+
 Usage
 -----
 
