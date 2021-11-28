@@ -262,6 +262,88 @@ Error: Failed to format the following files:
 
 ### Macro handling
 
+`efmt`, as much as possible, processes macros as the Erlang preprocessor does.
+
+Thus, it can cover a wide range of tricky cases.
+Let's format the following code which is based on a macro usage in [sile/jsone/src/jsone.erl](https://github.com/sile/jsone/blob/master/src/jsone.erl):
+```erlang
+-module(baz).
+
+-ifdef('OTP_RELEASE').
+%% The 'OTP_RELEASE' macro introduced at OTP-21,
+%% so we can use it for detecting whether the Erlang compiler supports new try/catch syntax or not.
+-define(CAPTURE_STACKTRACE, :__StackTrace).
+-define(GET_STACKTRACE, __StackTrace).
+-else.
+-define(CAPTURE_STACKTRACE,).
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-endif.
+
+decode(Json, Options) ->
+try
+{ok, Value, Remainings} = try_decode(Json, Options),
+check_decode_remainings(Remainings),
+Value
+catch
+error:{badmatch, {error, {Reason, [StackItem]}}} ?CAPTURE_STACKTRACE ->
+erlang:raise(error, Reason, [StackItem])
+end.
+```
+
+Using `efmt`:
+```console
+$ efmt baz.erl
+-module(baz).
+
+-ifdef('OTP_RELEASE').
+%% The 'OTP_RELEASE' macro introduced at OTP-21,
+%% so we can use it for detecting whether the Erlang compiler supports new try/catch syntax or not.
+-define(CAPTURE_STACKTRACE, :__StackTrace).
+-define(GET_STACKTRACE, __StackTrace).
+-else.
+-define(CAPTURE_STACKTRACE, ).
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-endif.
+
+decode(Json, Options) ->
+    try
+        {ok, Value, Remainings} = try_decode(Json, Options),
+        check_decode_remainings(Remainings),
+        Value
+    catch
+        error:{badmatch, {error, {Reason, [StackItem]}}} ?CAPTURE_STACKTRACE->
+            erlang:raise(error, Reason, [StackItem])
+    end.
+```
+
+Using `erlfmt`:
+```console
+$ erlfmt baz.erl
+baz.erl:6:29: syntax error before: ':'
+-module(baz).
+
+-ifdef('OTP_RELEASE').
+%% The 'OTP_RELEASE' macro introduced at OTP-21,
+%% so we can use it for detecting whether the Erlang compiler supports new try/catch syntax or not.
+-define(CAPTURE_STACKTRACE, :__StackTrace).
+-define(GET_STACKTRACE, __StackTrace).
+-else.
+-define(CAPTURE_STACKTRACE,).
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-endif.
+
+decode(Json, Options) ->
+try
+{ok, Value, Remainings} = try_decode(Json, Options),
+check_decode_remainings(Remainings),
+Value
+catch
+error:{badmatch, {error, {Reason, [StackItem]}}} ?CAPTURE_STACKTRACE ->
+erlang:raise(error, Reason, [StackItem])
+end.
+baz.erl:19:50: syntax error before: '?'
+```
+
 ### Formatting speed
 
 The following benchmark compares the time to format all "*.erl" files contained in the OTP-24 source distribution.
