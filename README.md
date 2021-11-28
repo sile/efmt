@@ -118,7 +118,7 @@ $ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
 $ efmt -c
 ```
 
-Overwrites the original file with the formatted one:
+Overwrite the original file with the formatted one:
 ```console
 $ efmt -w example.erl  # or `rebar3 efmt -w example.erl`
 
