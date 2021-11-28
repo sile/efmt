@@ -94,6 +94,9 @@ Usage
 Format an Erlang file (assuming `example.erl` in the above example is located in the current directory):
 ```console
 $ efmt example.erl  # or `rebar3 efmt example.erl`
+
+// You can specify multiple files.
+$ efmt example.erl rebar.config ...
 ```
 
 Check diff between the original text and the formatted one:
