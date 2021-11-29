@@ -56,7 +56,7 @@ execute_output(Port) ->
         Other ->
             rebar_api:abort("Received an unexpected message: ~p", [Other])
     after
-        60_000 ->
+        60000 ->
             rebar_api:abort("Timeout", [])
     end.
 
