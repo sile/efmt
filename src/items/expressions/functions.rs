@@ -75,6 +75,7 @@ impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
             let clause = &self.clauses.items()[0];
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 clause.format_maybe_one_line_body(fmt);
+                fmt.add_space();
                 fmt.subregion(
                     Indent::ParentOffset(0),
                     Newline::IfTooLongOrMultiLineParent,
@@ -137,6 +138,9 @@ mod tests {
                 (A) ->
                     A
             end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            fun () -> foo() end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
