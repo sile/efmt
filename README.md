@@ -172,6 +172,9 @@ hello(Error, X) when not is_integer(X) ->
     {error, Error}.
 ```
 
+Let's set `--print-width` (the maximum line length) to `30`,
+and see how `erlfmt` and `efmt` format the above code if line-wrapping is inevitable.
+
 #### `erlfmt` formatted code
 
 `$ erlfmt foo.erl --print-width 30`
