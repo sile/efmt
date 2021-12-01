@@ -153,11 +153,11 @@ Note that in the following examples, I used `efmt-v0.1.0` and `erlfmt-v1.0.0`.
 ### Formatting style
 
 I think the formatting style of `efmt` is much different from `erlfmt`.
-IMO, this is a major point to decide which one should you choose.
+IMO, this is a major point when you decide which one you should choose.
 If you like the `erlfmt` style. It's okay. I recommend using `erlfmt`.
 But, if you like the `efmt` style. It's welcomed. Please use `efmt`.
 
-It's hard work to pick up every difference points here.
+It's hard work to pick up all difference points here.
 So I just give you some formatted code examples and hope they give you a sense.
 
 #### Original code
