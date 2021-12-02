@@ -17,7 +17,7 @@ Features
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
 - Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
-- Thorough macro support ([MACRO_AND_PREPROCESS.md](MACRO_AND_PREPROCESS.md))
+- Thorough macro support ([MACRO_AND_DIRECTIVE.md](MACRO_AND_DIRECTIVE.md))
 
 An Formatting Example
 ---------------------
@@ -218,7 +218,7 @@ hello(Error, X)
 
 ### Error handling
 
-`erlfmt` seems to try formatting the remaining part of code even if it detected a syntax error. 
+`erlfmt` seems to try formatting the remaining part of code even if it detected a syntax error.
 In contrast, `efmt` aborts once it detects an error.
 
 For instance, let's format the following code.
@@ -389,7 +389,7 @@ Executed in    5.84 secs
 ```
 
 Note that `efmt` needs to process `--include` and `--include_lib` to collect macro definitions in the included files.
-Once an include file is processed, `efmt` stores the result into a cache file under `.efmt/cache/` dir. 
+Once an include file is processed, `efmt` stores the result into a cache file under `.efmt/cache/` dir.
 The `efmt` second execution in the above benchmark just reused the cached results instead of processing hole include files.
 So the execution time was much faster than the first execution.
 
