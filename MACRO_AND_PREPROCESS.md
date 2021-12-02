@@ -1,10 +1,63 @@
 How Macros and Directives are Handled
 =====================================
 
-TODO: https://github.com/sile/efmt/issues/4
-
-If you want to know the detail of Erlang macros and directives, please refer to
+Note that this document doesn't explain Erlang macros and directives themselves.
+So if you want to know the detail of them, please refer to
 [Erlang Reference Manual - 9. Preprocessor](https://www.erlang.org/doc/reference_manual/macros.html).
+
+
+Macros
+------
+
+A unique point of `efmt` among various Erlang formatters is that it can handle macros correctly.
+
+For example, `efmt` can format the following code containing unusual macros without errors.
+
+### Original code
+
+```erlang
+-module(weird_macro).
+
+-define(FOO, /).
+-define(BAR, :format().
+-define(baz(A), A).
+-define(qux, -> [1, 2, 3], [).
+-define(quux, )], [2,).
+-define(a(A, B), A).
+
+-export([?baz(?baz(main))?FOO 0]).
+
+hello(A)->io?BAR "hello ~p\n",[A]).
+main()?a(?qux a, b), c],[1, hello(world?quux 3].
+```
+
+### Formatted code
+
+`$ efmt weird_macro.erl`
+
+```erlang
+-module(weird_macro).
+
+-define(FOO, /).
+-define(BAR, :format().
+-define(baz(A), A).
+-define(qux, -> [1, 2, 3], [).
+-define(quux, )], [2,).
+-define(a(A, B), A).
+
+-export([?baz(?baz(main))?FOO 0]).
+
+hello(A) ->
+    io?BAR "hello ~p\n", [A]).
+main() ?a(?qux a, b)
+    , c],
+    [1, hello(world?quux
+    3].
+```
+
+To make it possible, during the parse phase, `efmt` collects macro definitions (i.e., `-define` directives) and expands macro calls (i.e., `?MACRO_NAME`) to build an abstract syntax tree-like structure from the input text.
+Then, during the format phase, `efmt` traverses the tree and emits the formatted text representing each tree node.
+When it visits tree nodes expanded from a macro, the formatted text of the original macro call is emitted instead.
 
 
 `-include` and `-include_lib` Directives
