@@ -6,8 +6,22 @@ TODO: https://github.com/sile/efmt/issues/4
 References:
 - [Erlang Reference Manual - 9. Preprocessor](https://www.erlang.org/doc/reference_manual/macros.html)
 
-`-include` and `-include_lib` directives
------------------------------------------
+`-include` and `-include_lib` Directives
+----------------------------------------
+
+TODO: About `--include-search-dir` (`-I`) option
+
+TODO: To handle `-include_lib`, `efmt` invokes `erl` command
+
+The macro definitions collected during processing a `-include` or `-include_lib` directive is cached as a JSON file under `$PWD/.efmt/cache/v0/` directory (`v0` is the current cache format version).
+The cache file is used when processing the same include target file next time to reduce the overhead of parsing the whole file from scratch.
+
+Note that `efmt` provides some options to control how to handle those directives as follows:
+- `--disable-include`
+- `--disable-include-cache`
+- `--include-cache-dir`
+
+Please run `$ efmt --help` to see the descriptions of those options.
 
 
 Flow Control Directives
