@@ -138,6 +138,22 @@ $ efmt -h  # or `rebar3 efmt -h`
 $ efmt --help  # or `rebar3 efmt --help`
 ```
 
+### How to keep some areas from being formatted
+
+If you want to keep the style of some areas in your input text,
+please use `@efmt:off` and `@efmt:on` comments as follows:
+
+```erlang
+foo() ->
+    %% @efmt:off
+    LargeList =
+      [1,2,3,...,
+       998,999,1000],
+    %% @efmt:on
+
+    bar(LargeList).
+```
+
 Editor Integrations
 -------------------
 

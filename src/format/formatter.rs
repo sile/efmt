@@ -143,8 +143,31 @@ impl Formatter {
         // Note that two spaces before trailing comments will be added just before writing them
         // in `Writer::write_trailing_comment()`.
 
+        match comment.text(&self.ts.text()).parse() {
+            Err(()) => {}
+            Ok(Directive::FormatOn) => {
+                log::warn!("Found a `@efmt:on` comment at line {} without a preceeding `@efmt:off` (just ignored).",
+                           comment.start_position().line());
+            }
+            Ok(Directive::FormatOff) => {
+                let position = self.find_format_on_position(comment.end_position());
+                self.add_span(&(comment.start_position(), position));
+                self.add_newline();
+                return;
+            }
+        }
+
         self.add_token(VisibleToken::Comment(comment));
         self.add_newline();
+    }
+
+    fn find_format_on_position(&self, current: Position) -> Position {
+        self.ts
+            .comments()
+            .range(current..)
+            .find(|c| matches!(c.text(&self.ts.text()).parse(), Ok(Directive::FormatOn)))
+            .map(|c| c.end_position())
+            .unwrap_or_else(|| Position::new(self.ts.text().len(), usize::MAX, usize::MAX))
     }
 
     pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
@@ -452,4 +475,63 @@ pub enum Newline {
     IfTooLong,
     IfTooLongOrMultiLine,
     IfTooLongOrMultiLineParent,
+}
+
+#[derive(Debug)]
+enum Directive {
+    FormatOn,
+    FormatOff,
+}
+
+impl std::str::FromStr for Directive {
+    type Err = ();
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.trim().trim_start_matches(&[' ', '%'][..]) {
+            "@efmt:on" => Ok(Self::FormatOn),
+            "@efmt:off" => Ok(Self::FormatOff),
+            _ => Err(()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::items::Module;
+
+    #[test]
+    fn directives_works() {
+        let texts = [(
+            indoc::indoc! {"
+            foo()->foo.
+
+            %% @efmt:off
+            bar()->bar.
+            %% @efmt:on
+
+            baz()->
+                [1,
+                 %% @efmt:off
+                 2,3,4,
+                 %% @efmt:on
+                 5,6]."},
+            indoc::indoc! {"
+            foo() ->
+                foo.
+
+            %% @efmt:off
+            bar()->bar.
+            %% @efmt:on
+
+            baz() ->
+                [1,
+                 %% @efmt:off
+                 2,3,4,
+                 %% @efmt:on
+                 5, 6].
+            "},
+        )];
+        for (text, expected) in texts {
+            crate::assert_format!(text, expected, Module);
+        }
+    }
 }

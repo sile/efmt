@@ -4,6 +4,10 @@ pub use efmt_derive::Span;
 pub trait Span {
     fn start_position(&self) -> Position;
     fn end_position(&self) -> Position;
+
+    fn text<'a>(&self, s: &'a str) -> &'a str {
+        &s[self.start_position().offset()..self.end_position().offset()]
+    }
 }
 
 impl<T: Span + ?Sized> Span for &T {
