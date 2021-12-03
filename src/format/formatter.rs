@@ -499,3 +499,45 @@ impl std::str::FromStr for Directive {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::items::Module;
+
+    #[test]
+    fn directives_works() {
+        let texts = [(
+            indoc::indoc! {"
+            foo()->foo.
+
+            %% @efmt:off
+            bar()->bar.
+            %% @efmt:on
+
+            baz()->
+                [1,
+                 %% @efmt:off
+                 2,3,4,
+                 %% @efmt:on
+                 5,6]."},
+            indoc::indoc! {"
+            foo() ->
+                foo.
+
+            %% @efmt:off
+            bar()->bar.
+            %% @efmt:on
+
+            baz() ->
+                [1,
+                 %% @efmt:off
+                 2,3,4,
+                 %% @efmt:on
+                 5, 6].
+            "},
+        )];
+        for (text, expected) in texts {
+            crate::assert_format!(text, expected, Module);
+        }
+    }
+}

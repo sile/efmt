@@ -107,4 +107,12 @@ macro_rules! assert_format {
         let expected = $text;
         similar_asserts::assert_str_eq!(formatted, expected);
     }};
+
+    ($text:expr, $expected:expr, $item_type:ident) => {{
+        let formatted = crate::Options::new()
+            .max_columns(20)
+            .format_text::<$item_type>(&$text)
+            .unwrap();
+        similar_asserts::assert_str_eq!(formatted, $expected);
+    }};
 }
