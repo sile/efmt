@@ -165,13 +165,7 @@ impl Formatter {
         self.ts
             .comments()
             .range(current..)
-            .find(|c| {
-                if let Ok(Directive::FormatOn) = c.text(&self.ts.text()).parse() {
-                    true
-                } else {
-                    false
-                }
-            })
+            .find(|c| matches!(c.text(&self.ts.text()).parse(), Ok(Directive::FormatOn)))
             .map(|c| c.end_position())
             .unwrap_or_else(|| Position::new(self.ts.text().len(), usize::MAX, usize::MAX))
     }
