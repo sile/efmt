@@ -71,6 +71,7 @@ TODO
 TODO
 
 - Comments are exception
+- Doesn't insert a newline if it's meaningless
 
 ### <a id="R004">[R004] Emacs Erlang mode friendly indentation</a>
 [R004]: #R004
