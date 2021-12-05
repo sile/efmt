@@ -6,7 +6,9 @@ TODO: https://github.com/sile/efmt/issues/3
 
 This document describes the rules for how `efmt` formats Erlang texts.
 
-Table of contents:
+Table of Contents
+-----------------
+
 - General Rules
   - [R001] Removes or inserts only whitespace tokens
   - [R002] Removes redundant whitespace tokens
@@ -19,9 +21,10 @@ General Rules
 ### <a id="R001">[R001] Removes or inserts only whitespace tokens</a>
 [R001]: #R001
 
-`efmt` doesn't modify the text or order of visible tokens to not change the semantic meaning of the input file.
+`efmt` doesn't modify the text or order of visible tokens.
+So it's guaranteed that the semantic meaning of the input file is preserved after formatting.
 
-That is, if you call the following `check/2` function for the before/after files, the result should always be `true`.
+If you call the following `check/2` function for the before/after files, the result should always be `true`.
 ```erlang
 -module(check).
 
