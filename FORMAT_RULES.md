@@ -11,8 +11,7 @@ This document describes the rules for how `efmt` formats Erlang texts.
 General Rules
 -------------
 
-### <a id="R001" href="#R001">R001</a> Removes or inserts only whitespace tokens
-
+### <a id="R001">[R001] Removes or inserts only whitespace tokens</a>
 [R001]: #R001
 
 `efmt` doesn't modify the text or order of visible tokens to not change the semantic meaning of the input file.
