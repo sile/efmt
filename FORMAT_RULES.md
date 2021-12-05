@@ -51,3 +51,9 @@ tokenize_file(File) ->
 [R002]: #R002
 
 TODO
+
+### <a id="R003">[R003] Emacs Erlang mode friendly indentation</a>
+[R003]: #R003
+
+TODO
+
