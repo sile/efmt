@@ -14,6 +14,7 @@ Table of Contents
   - [R002] Removes redundant whitespace tokens
   - [R003] Inserts a newline at an insertable point if the maximum line length is exceeded
   - [R004] Emacs Erlang mode friendly indentation
+  - [R005] Directive comments to enable or disable formatting
 
 General Rules
 -------------
@@ -73,5 +74,10 @@ TODO
 
 ### <a id="R004">[R004] Emacs Erlang mode friendly indentation</a>
 [R004]: #R004
+
+TODO
+
+### <a id="R005">[R005] Directive comments to enable or disable formatting</a>
+[R005]: #R005
 
 TODO
