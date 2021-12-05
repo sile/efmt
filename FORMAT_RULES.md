@@ -6,7 +6,12 @@ TODO: https://github.com/sile/efmt/issues/3
 
 This document describes the rules for how `efmt` formats Erlang texts.
 
-
+Table of contents:
+- General Rules
+  - [R001] Removes or inserts only whitespace tokens
+  - [R002] Removes redundant whitespace tokens
+  - [R003] Inserts a newline at an insertable point if the maximum line length is exceeded
+  - [R004] Emacs Erlang mode friendly indentation
 
 General Rules
 -------------
@@ -52,8 +57,18 @@ tokenize_file(File) ->
 
 TODO
 
-### <a id="R003">[R003] Emacs Erlang mode friendly indentation</a>
+- Trailing spaces
+- Two or more consecutive spaces
+- Three or more consecutive newlines
+
+### <a id="R003">[R003] Inserts a newline at an insertable point if the maximum line length is exceeded</a>
 [R003]: #R003
 
 TODO
 
+- Comments are exception
+
+### <a id="R004">[R004] Emacs Erlang mode friendly indentation</a>
+[R004]: #R004
+
+TODO
