@@ -17,7 +17,7 @@ Table of Contents
 - Comments
   - [R005] Directive comments to enable or disable formatting
   - [R006] Inserts two spaces before a trailing comment
-- Attributes and Directives
+- Attributes, Declarations and Directives
 - Expressions
 - Types
 - Macros
@@ -153,8 +153,15 @@ foo.  % bar
 baz.  % qux
 ```
 
-Attributes and Directives
---------------------------
+Attributes, Declarations and Directives
+---------------------------------------
+
+- `-define`
+- `-record`
+- `-type` or `-opaque`
+- `-spec` or `-callback`
+- Function declaration
+- Other attributes
 
 Expressions
 -----------
