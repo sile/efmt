@@ -17,6 +17,10 @@ Table of Contents
 - Comments
   - [R005] Directive comments to enable or disable formatting
   - [R006] Inserts two spaces before a trailing comment
+- Attributes and Directives
+- Expressions
+- Types
+- Macros
 
 General Rules
 -------------
@@ -119,10 +123,47 @@ Comments
 ### <a id="R005">[R005] Directive comments to enable or disable formatting</a>
 [R005]: #R005
 
-TODO
+`efmt` skips formatting a region that starts with a `@efmt:off` comment and ends with a `@efmt:on` comment.
+
+#### Examples
+
+```erlang
+foo() ->
+    %% @efmt:off
+    LargeList =
+      [1,2,3,...,
+       998,999,1000],
+    %% @efmt:on
+
+    bar(LargeList).
+```
 
 ### <a id="R006">[R006] Inserts two spaces before a trailing comment</a>
 [R006]: #R006
 
-TODO
+#### Examples
+
+```erlang
+%% Before
+foo.% bar
+baz.    % qux
+
+%% After
+foo.  % bar
+baz.  % qux
+```
+
+Attributes and Directives
+--------------------------
+
+Expressions
+-----------
+
+- string concatenation
+
+Types
+-----
+
+Macros
+------
 
