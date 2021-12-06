@@ -84,20 +84,34 @@ bbb.
 ```
 
 Note that this rule only affects whitespace tokens.
-That is, if redundant space or newline characters are a part of a string or character token, those are never modified (see also [001]).
+That is, if redundant space or newline characters are a part of a string or character token, those are never modified (see also [R001]).
 
 ### <a id="R003">[R003] Inserts a newline at an insertable point if the maximum line length is exceeded</a>
 [R003]: #R003
 
-TODO
+This rule exists not to exceed the maximum line length specified by `--print-width` option (defaults to `120`) as much as possible.
 
-- Comments are exception
-- Doesn't insert a newline if it's meaningless
+Where is "insertable point" depends on the item (e.g., list, function, ...) being formatted and will be described in the separate rules for each item.
+
+Note that there are some exceptions to this rule:
+- Comments are ignored when counting line length
+- Doesn't insert a newline if it's meaningless in terms of line length
+
+Please also see the following example (`--print-width 20` is assumed):
+```erlang
+%%---10---%%---20---
+[1, 2, 3, 4, 5, 6, 7, 8].  % NG: Should insert a newline.
+[1, 2, 3, 4, 5, 6].  % This is OK.
+
+%% Even if a newline is inserted after `=` with 4 spaces indentation,
+%% the line length isn't shortened (i.e., it's meaningless).
+A = "a too long string".
+```
 
 ### <a id="R004">[R004] Emacs Erlang mode friendly indentation</a>
 [R004]: #R004
 
-TODO
+`efmt` follows the indentation style of [the Official Emacs Erlang mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html).
 
 Comments
 --------
@@ -111,3 +125,4 @@ TODO
 [R006]: #R006
 
 TODO
+
