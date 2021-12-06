@@ -94,7 +94,7 @@ impl VisibleToken {
 
     pub fn is_trailing_comment(&self) -> bool {
         if let Self::Comment(x) = self {
-            x.kind() == CommentKind::Trailing
+            x.is_trailing()
         } else {
             false
         }
@@ -327,26 +327,24 @@ impl Element for VariableToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, serde::Serialize, serde::Deserialize)]
-pub enum CommentKind {
-    Post,
-    Trailing,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CommentToken {
+    is_trailing: bool,
     start: Position,
     end: Position,
-    kind: CommentKind,
 }
 
 impl CommentToken {
-    pub fn new(kind: CommentKind, start: Position, end: Position) -> Self {
-        Self { start, end, kind }
+    pub fn new(is_trailing: bool, start: Position, end: Position) -> Self {
+        Self {
+            is_trailing,
+            start,
+            end,
+        }
     }
 
-    pub fn kind(&self) -> CommentKind {
-        self.kind
+    pub fn is_trailing(&self) -> bool {
+        self.is_trailing
     }
 }
 

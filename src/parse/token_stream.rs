@@ -3,8 +3,8 @@ use crate::items::forms::{DefineDirective, IncludeDirective};
 use crate::items::macros::{Macro, MacroName};
 use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{
-    AtomToken, CharToken, CommentKind, CommentToken, FloatToken, IntegerToken, KeywordToken,
-    LexicalToken, StringToken, SymbolToken, VariableToken,
+    AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, LexicalToken,
+    StringToken, SymbolToken, VariableToken,
 };
 use crate::parse::include::IncludeHandler;
 use crate::parse::{Error, IncludeOptions, Parse, Result, ResumeParse};
@@ -230,14 +230,9 @@ impl TokenStream {
                     let is_trailing = self.tokens.last().map_or(false, |y| {
                         y.start_position().line() == x.start_position().line()
                     });
-                    let kind = if is_trailing {
-                        CommentKind::Trailing
-                    } else {
-                        CommentKind::Post
-                    };
                     self.comments.insert(
                         start_position,
-                        CommentToken::new(kind, start_position, end_position),
+                        CommentToken::new(is_trailing, start_position, end_position),
                     );
                     continue;
                 }

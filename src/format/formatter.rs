@@ -1,6 +1,6 @@
 use crate::format::writer::{Error, RegionConfig, Result, Writer};
 use crate::format::Format;
-use crate::items::tokens::{CommentKind, CommentToken, VisibleToken};
+use crate::items::tokens::{CommentToken, VisibleToken};
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
 
@@ -137,7 +137,7 @@ impl Formatter {
     }
 
     pub fn add_comment(&mut self, comment: CommentToken) {
-        if comment.kind() == CommentKind::Post {
+        if !comment.is_trailing() {
             self.add_newline();
         }
         // Note that two spaces before trailing comments will be added just before writing them
