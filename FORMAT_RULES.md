@@ -14,7 +14,9 @@ Table of Contents
   - [R002] Removes redundant whitespace tokens
   - [R003] Inserts a newline at an insertable point if the maximum line length is exceeded
   - [R004] Emacs Erlang mode friendly indentation
+- Comments
   - [R005] Directive comments to enable or disable formatting
+  - [R006] Inserts two spaces before a trailing comment
 
 General Rules
 -------------
@@ -59,11 +61,30 @@ tokenize_file(File) ->
 ### <a id="R002">[R002] Removes redundant whitespace tokens</a>
 [R002]: #R002
 
-TODO
+- Trailing spaces are removed
+- Two or more consecutive spaces are replaced with one space
+- Three or more consecutive newlines are replaced with two newlines
 
-- Trailing spaces
-- Two or more consecutive spaces
-- Three or more consecutive newlines
+#### Examples
+
+```erlang
+[aaa,   bbb].  % before
+[aaa, bbb].  % after
+
+%% before
+aaa.
+
+
+bbb.
+
+%% after
+aaa.
+
+bbb.
+```
+
+Note that this rule only affects whitespace tokens.
+That is, if redundant space or newline characters are a part of a string or character token, those are never modified (see also [001]).
 
 ### <a id="R003">[R003] Inserts a newline at an insertable point if the maximum line length is exceeded</a>
 [R003]: #R003
@@ -78,7 +99,15 @@ TODO
 
 TODO
 
+Comments
+--------
+
 ### <a id="R005">[R005] Directive comments to enable or disable formatting</a>
 [R005]: #R005
+
+TODO
+
+### <a id="R006">[R006] Inserts two spaces before a trailing comment</a>
+[R006]: #R006
 
 TODO
