@@ -1,9 +1,6 @@
 Formatting Rules
 ================
 
-
-TODO: https://github.com/sile/efmt/issues/3
-
 This document describes the rules for how `efmt` formats Erlang texts.
 
 Table of Contents
@@ -17,7 +14,13 @@ Table of Contents
 - Comments
   - [R005] Directive comments to enable or disable formatting
   - [R006] Inserts two spaces before a trailing comment
-- Attributes, Declarations and Directives
+- Attributes, Directives and Declarations
+  - [R007] Attributes and directives are formatted like function calls (exceptions: [R008], [R009], [R010], [R011])
+  - [R008] `-record`
+  - [R009] `-type` and `-opaque`
+  - [R010] `-spec` and `-callback`
+  - [R011] `-define`
+  - [R012] Function declarations
 - Expressions
 - Types
 - Macros
@@ -153,15 +156,120 @@ foo.  % bar
 baz.  % qux
 ```
 
-Attributes, Declarations and Directives
+Attributes, Directives and Declarations
 ---------------------------------------
 
-- `-define`
-- `-record`
-- `-type` or `-opaque`
-- `-spec` or `-callback`
-- Function declaration
-- Other attributes
+### <a id="R007">[R007] Attributes and directives are formatted like function calls (exceptions: [R008], [R009], [R010], [R011])</a>
+[R007]: #R007
+
+Basically, `efmt` formats attributes and directives like function calls (with the "-" prefix).
+
+Please refer to the [Expressions](#expressions) section for the formatting rules of function calls.
+
+### <a id="R008">[R008] `-record`</a>
+[R008]: #R008
+
+The fields part of a record is formatted like a tuple (TODO: link).
+
+#### Examples
+
+```erlang
+%% --print-width=20
+%%--10---|----20---|
+
+-record(foo, {}).
+
+-record(foo, {foo}).
+
+-record(foo,  % A newline is inserted if the fields part would exceed the limit.
+        {foo, bar}).
+```
+
+If a field has the default value and/or the type,
+the formatting rules for [expressions](#expressions) and [types](#types) are applied respectively.
+
+Note that newlines are never inserted just after `=` and `::` (see below).
+
+```erlang
+%% --print-width=20
+%%--10---|----20---|
+-record(foo,
+        {field1 = [] :: Type1,
+         field2,
+         field3 = 421}).
+```
+
+### <a id="R009">[R009] `-type` and `-opaque`</a>
+[R009]: #R009
+
+Types appear in type declarations (`-type` or `-opaque`) follow [the formatting rules for types](#types).
+
+Other than that, please refer to the following examples.
+
+#### Examples
+
+```erlang
+%% --print-width=20
+%%--10---|----20---|
+-type foo() :: a.
+
+%% The type part is wrapped.
+-type foo() :: bar |
+               baz.
+
+%% A newline is inserted after `::` as wrapping in the type part would not help.
+-type foo() ::
+        barr | bazz.
+
+%% The parameters part is wrapped.
+-opaque foo_bar(Foo,
+                Bar) ::
+          Key | Bar.
+```
+
+### <a id="R010">[R010] `-spec` and `-callback`</a>
+[R010]: #R010
+
+Types appear in `-spec` or `-callback` follow [the formatting rules for types](#types).
+
+Other than that, please refer to the following examples.
+
+#### Examples
+
+```erlang
+%% --print-width=20
+%%--10---|----20---|
+-spec foo() -> ok.
+
+%% A newline is always inserted after a clause.
+-spec foo(X) -> X;
+         (Y) -> Y.
+
+%% The parameters part is wrapped.
+-spec foo(XXX,
+          YYY) -> Z.
+
+%% A newline is inserted after `->` if the return part would exceed the limit.
+-spec foo() ->
+          {bar,
+           baz(),
+           qux}.
+
+%% A newline is inserted before `when` if the part would exceed the limit.
+-spec foo(X) ->
+          {ok, X}
+            when X :: tuple().
+```
+
+### <a id="R011">[R011] `-define`</a>
+[R011]: #R011
+
+TODO
+
+### <a id="R012">[R012] Function declarations</a>
+[R012]: #R012
+
+TODO
 
 Expressions
 -----------
@@ -173,4 +281,3 @@ Types
 
 Macros
 ------
-
