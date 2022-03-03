@@ -73,9 +73,7 @@ impl Error {
 
     fn tokenize_error_message(source: &erl_tokenize::Error, text: &Arc<String>) -> String {
         let source_message = source.to_string();
-        let source_message_end = source_message
-            .find(" (")
-            .unwrap_or_else(|| source_message.len());
+        let source_message_end = source_message.find(" (").unwrap_or(source_message.len());
         crate::error::generate_error_message(
             text,
             source.position().filepath(),

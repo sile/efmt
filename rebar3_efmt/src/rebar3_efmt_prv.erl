@@ -73,6 +73,9 @@ opts() ->
      {include_cache_dirs, undefined, "include-cache-dir", string,
       "Where to save the caches for the macro definitions collected during processing "
       "`-include` or `-include_lib` directives [default: .efmt/cache]"},
+     {default_off, undefined, "default-off", string,
+      "Disables formatting by default. "
+      "efmt behaves as if there is a \"% @efmt:off\" comment at the head of the each target file."},
      {files, undefined, undefined, string,
       "Format target files. "
       "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
