@@ -346,7 +346,7 @@ fn validate_formatted_text<P: AsRef<Path>>(
             Some(Ok(t1)) => t1,
             Some(Err(e)) => {
                 let reason = e.to_string();
-                let reason_end = reason.find(" (").unwrap_or_else(|| reason.len());
+                let reason_end = reason.find(" (").unwrap_or(reason.len());
                 anyhow::bail!(
                     "{}",
                     efmt::error::generate_error_message(
