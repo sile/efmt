@@ -68,6 +68,11 @@ struct Opt {
     #[structopt(long)]
     disable_include_cache: bool,
 
+    /// Disables formatting by default.
+    /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
+    #[structopt(long)]
+    default_off: bool,
+
     /// Enable profiling by `pprof`. The profile report will be generated in `flamegraph.svg`.
     #[cfg(feature = "pprof")]
     #[structopt(long)]
@@ -104,6 +109,9 @@ impl Opt {
         }
         if self.disable_include {
             format_options = format_options.disable_include();
+        }
+        if self.default_off {
+            format_options = format_options.default_off();
         }
 
         format_options

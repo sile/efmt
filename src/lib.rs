@@ -29,6 +29,7 @@ pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
 pub struct Options {
     max_columns: usize,
     include: IncludeOptions,
+    default_off: bool,
 }
 
 impl Default for Options {
@@ -36,6 +37,7 @@ impl Default for Options {
         Self {
             max_columns: Self::DEFAULT_MAX_COLUMNS,
             include: IncludeOptions::default(),
+            default_off: false,
         }
     }
 }
@@ -71,6 +73,11 @@ impl Options {
         self
     }
 
+    pub fn default_off(mut self) -> Self {
+        self.default_off = true;
+        self
+    }
+
     pub fn format_file<T: Parse + Format, P: AsRef<Path>>(self, path: P) -> anyhow::Result<String> {
         let text = std::fs::read_to_string(&path)?;
         let mut tokenizer = erl_tokenize::Tokenizer::new(text);
@@ -90,6 +97,9 @@ impl Options {
         let mut ts = TokenStream::new(tokenizer, self.include);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(ts);
+        if self.default_off {
+            formatter.skip_formatting();
+        }
         item.format(&mut formatter);
         let formatted_text = formatter.format(self.max_columns);
         Ok(formatted_text)

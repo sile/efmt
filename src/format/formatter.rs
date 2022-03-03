@@ -28,6 +28,12 @@ impl Formatter {
         }
     }
 
+    pub fn skip_formatting(&mut self) {
+        let position = self.find_format_on_position(self.next_position);
+        self.add_span(&(self.next_position, position));
+        self.add_newline();
+    }
+
     pub fn add_token(&mut self, token: VisibleToken) {
         let start_position = token.start_position();
         let end_position = token.end_position();
@@ -150,9 +156,8 @@ impl Formatter {
                            comment.start_position().line());
             }
             Ok(Directive::FormatOff) => {
-                let position = self.find_format_on_position(comment.end_position());
-                self.add_span(&(comment.start_position(), position));
-                self.add_newline();
+                self.next_position = comment.start_position();
+                self.skip_formatting();
                 return;
             }
         }
