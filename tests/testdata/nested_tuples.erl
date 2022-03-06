@@ -2,6 +2,7 @@
 
 -export([foo/1]).
 
+
 foo(A) ->  % comment
     {A,
      {A,

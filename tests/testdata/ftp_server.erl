@@ -11,6 +11,7 @@ start() ->
             ok
     end.
 
+
 internal() ->
     case file:consult("users") of
         {ok, Users} ->
@@ -19,6 +20,7 @@ internal() ->
         _ ->
             exit(no_users_allowed)
     end.
+
 
 loop(Users, N) ->
     receive
@@ -57,6 +59,7 @@ loop(Users, N) ->
             loop(Users, N)
     end.
 
+
 handler(Pid) ->
     receive
         {Pid, quit} ->
@@ -66,6 +69,7 @@ handler(Pid) ->
             Pid ! {ftp_server, do_op(Op)},
             handler(Pid)
     end.
+
 
 do_op({cd, Dir}) ->
     file:set_cwd(Dir),

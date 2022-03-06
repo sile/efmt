@@ -520,6 +520,7 @@ mod tests {
             bar()->bar.
             %% @efmt:on
 
+            -spec baz() -> list().
             baz()->
                 [1,
                  %% @efmt:off
@@ -530,10 +531,14 @@ mod tests {
             foo() ->
                 foo.
 
+
             %% @efmt:off
             bar()->bar.
             %% @efmt:on
 
+
+            -spec baz() ->
+                      list().
             baz() ->
                 [1,
                  %% @efmt:off
