@@ -62,16 +62,31 @@ impl Writer {
     }
 
     pub fn write_newlines(&mut self, count: NonZeroUsize) -> Result<()> {
-        let mut n = count.get();
         if self.buf.is_empty() {
-            n -= 1;
+            return Ok(());
         }
 
-        while !self.buf.is_empty() && matches!(self.last_whitespace_char(), Some('\n' | ' ')) {
-            self.pop_last_char();
+        let mut n = count.get();
+        loop {
+            match self.last_whitespace_char() {
+                Some('\n') => {
+                    self.pop_last_char();
+                    n -= 1;
+                    if n == 0 {
+                        break;
+                    }
+                }
+                Some(' ') => {
+                    self.pop_last_char();
+                    break;
+                }
+                _ => {
+                    break;
+                }
+            }
         }
 
-        for _ in 0..n {
+        for _ in 0..count.get() {
             self.write("\n", false)?;
         }
         Ok(())
