@@ -3,6 +3,7 @@ use crate::format::Format;
 use crate::items::tokens::{CommentToken, VisibleToken};
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
+use std::num::NonZeroUsize;
 
 #[derive(Debug)]
 pub struct Formatter {
@@ -48,7 +49,7 @@ impl Formatter {
         self.skip_whitespaces = false;
         match self.last_skipped_whitespace.take() {
             Some(Item::Space) => self.item.add_space(),
-            Some(Item::Newline) => self.item.add_newline(),
+            Some(Item::Newline { count }) => self.item.add_newlines(count),
             None => {}
             _ => unreachable!(),
         }
@@ -135,11 +136,15 @@ impl Formatter {
     }
 
     pub fn add_newline(&mut self) {
+        self.add_newlines(NonZeroUsize::new(1).expect("unreachable"));
+    }
+
+    pub fn add_newlines(&mut self, count: NonZeroUsize) {
         if self.skip_whitespaces {
-            self.last_skipped_whitespace = Some(Item::Newline);
+            self.last_skipped_whitespace = Some(Item::Newline { count });
             return;
         }
-        self.item.add_newline();
+        self.item.add_newlines(count);
     }
 
     pub fn add_comment(&mut self, comment: CommentToken) {
@@ -240,7 +245,7 @@ impl<'a> ItemWriter<'a> {
             } => self.write_span(*start_position, *end_position)?,
             Item::Token(x) => self.write_token(x)?,
             Item::Space => self.writer.write_space()?,
-            Item::Newline => self.writer.write_newline()?,
+            Item::Newline { count } => self.writer.write_newlines(*count)?,
         }
         Ok(())
     }
@@ -379,7 +384,9 @@ enum Item {
         end_position: Position,
     },
     Space,
-    Newline,
+    Newline {
+        count: NonZeroUsize,
+    },
     Region {
         indent: Indent,
         newline: Newline,
@@ -439,9 +446,9 @@ impl Item {
         }
     }
 
-    fn add_newline(&mut self) {
+    fn add_newlines(&mut self, count: NonZeroUsize) {
         if let Self::Region { items, .. } = self {
-            items.push(Self::Newline);
+            items.push(Self::Newline { count });
         } else {
             unreachable!();
         }
@@ -451,7 +458,7 @@ impl Item {
         if let Self::Region { items, .. } = self {
             items.iter().all(|item| match item {
                 Self::Region { items, .. } => items.is_empty(),
-                Self::Space | Self::Newline => true,
+                Self::Space | Self::Newline { .. } => true,
                 _ => false,
             })
         } else {

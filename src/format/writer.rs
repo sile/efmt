@@ -1,4 +1,5 @@
 use crate::span::{Position, Span};
+use std::num::NonZeroUsize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,6 +42,14 @@ impl Writer {
         }
     }
 
+    fn is_last_triple_newlines(&self) -> bool {
+        let mut chars = self.buf.chars().rev();
+        matches!(
+            (chars.next(), chars.next(), chars.next()),
+            (Some('\n'), Some('\n'), Some('\n'))
+        )
+    }
+
     pub fn write_space(&mut self) -> Result<()> {
         if self.last_whitespace_char().is_none() {
             self.write(" ", true)?;
@@ -49,14 +58,23 @@ impl Writer {
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        match self.last_whitespace_char() {
-            Some('\n') => Ok(()),
-            Some(' ') => {
-                self.pop_last_char();
-                self.write("\n", false)
-            }
-            _ => self.write("\n", false),
+        self.write_newlines(NonZeroUsize::new(1).expect("unreachable"))
+    }
+
+    pub fn write_newlines(&mut self, count: NonZeroUsize) -> Result<()> {
+        let mut n = count.get();
+        if self.buf.is_empty() {
+            n -= 1;
         }
+
+        while !self.buf.is_empty() && matches!(self.last_whitespace_char(), Some('\n' | ' ')) {
+            self.pop_last_char();
+        }
+
+        for _ in 0..n {
+            self.write("\n", false)?;
+        }
+        Ok(())
     }
 
     fn pop_last_char(&mut self) {
@@ -77,7 +95,9 @@ impl Writer {
             return Ok(());
         }
 
-        if self.region.next_position.line() + 1 < span.start_position().line() {
+        if self.region.next_position.line() + 1 < span.start_position().line()
+            && !self.is_last_triple_newlines()
+        {
             self.write("\n", false)?;
         }
 
