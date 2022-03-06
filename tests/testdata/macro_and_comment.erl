@@ -3,5 +3,6 @@
 
 -define(FOO, <<"hello world">>).
 
+
 hello() ->
     ?FOO.  % bar

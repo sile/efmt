@@ -270,11 +270,15 @@ mod tests {
         let texts = [
             indoc::indoc! {"
             -define(FOO, bar).
+
+
             baz() ->
                 ?FOO.
             "},
             indoc::indoc! {"
             -define(FOO, bar).
+
+
             baz() ->
                 ?FOO().
             "},
@@ -282,6 +286,8 @@ mod tests {
             -define(FOO, bar).
             -define(FOO(),
                     bar bar).
+
+
             baz() ->
                 ?FOO.
             "},
@@ -291,6 +297,8 @@ mod tests {
             "},
             indoc::indoc! {"
             -define(INC, 1 +).
+
+
             inc(A) ->
                 ?INC A.
             "},
@@ -299,11 +307,14 @@ mod tests {
                     foo().
             -define(FOO_CLOSE,
                     )).
+
+
             foo(A) ->
                 ?FOO_OPEN A?FOO_CLOSE.
             "},
             indoc::indoc! {"
             -define(EMPTY, ).
+
 
             ?EMPTY hello?EMPTY() ->
                 ?EMPTY?EMPTY world.
@@ -320,6 +331,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -define(FOO(), foo).
+
+
             foo() ->
                 ?FOO().
             "},
@@ -327,6 +340,8 @@ mod tests {
             %---10---|%---20---|
             -define(FOO(Bar),
                     {Bar, Baz}).
+
+
             qux() ->
                 ?FOO(quux).
             "},
@@ -335,6 +350,8 @@ mod tests {
             -define(FOO(Bar,
                         Baz),
                     {Bar, Baz}).
+
+
             qux() ->
                 ?FOO(begin
                          foo,
@@ -345,6 +362,7 @@ mod tests {
             "},
             indoc::indoc! {"
             -define(FOO(A), A).
+
 
             qux() ->
                 [?FOO(begin
@@ -360,12 +378,15 @@ mod tests {
             -define(bar(A), A).
             -define(baz(A), A).
 
+
             main() ->
                 ?baz(?bar(?foo)).
             "},
             indoc::indoc! {"
             -define(Foo(A),
                     ??A).
+
+
             bar() ->
                 ?Foo(10).
             "},
@@ -374,6 +395,8 @@ mod tests {
             -define(FOO(), foo).
             -define(FOO,
                     foo foo).
+
+
             foo() ->
                 ?FOO() + 10.
             "},
@@ -384,6 +407,8 @@ mod tests {
                         1,
                         2
                     end).
+
+
             foo() ->
                 ?FOO.
             "},
@@ -406,6 +431,7 @@ mod tests {
             -define(foo, [],[).
             -define(bar(A), A).
 
+
             main() ->
                 ?bar(?foo)
                 c].
@@ -413,6 +439,7 @@ mod tests {
             indoc::indoc! {"
             -define(foo, [],).
             -define(bar(A), A).
+
 
             main() ->
                 ?bar(?foo)
@@ -422,6 +449,7 @@ mod tests {
             -define(a,
                     [1, 2, 3], [).
             -define(b(A), A).
+
 
             main() ->
                 ?b(?a a)
@@ -439,6 +467,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -define(FOO(A), A).
+
+
             qux() ->
                 ?FOO(\"aaa\"
                      \"bbb\"  % comment
@@ -447,6 +477,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -define(FOO, foo).
+
+
             qux(A) ->
                 case A of
                     a ->
@@ -457,6 +489,8 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             -define(a(X), X X).
+
+
             foo() ->
                 1 ?a(?a(+1)).
             "},
@@ -476,6 +510,8 @@ mod tests {
                         1
                     end).
             -define(FOO, begin).
+
+
             baz() ->
                 ?BAR.
             "},
@@ -484,6 +520,7 @@ mod tests {
             -define(FOO,
                     ?BAR(1)).
             -define(BAR(X), X).
+
 
             foo() ->
                 [?FOO].
@@ -501,6 +538,8 @@ mod tests {
             %---10---|%---20---|
             -define(a, ?b).
             -define(b, ?a).
+
+
             foo() ->
                 ?a == ?b.
             "},

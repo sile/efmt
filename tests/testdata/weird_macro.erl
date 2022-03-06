@@ -9,8 +9,11 @@
 
 -export([?baz(?baz(main))?FOO 0]).
 
+
 hello(A) ->
     io?BAR "hello ~p\n", [A]).
+
+
 main() ?a(?qux a, b)
     , c],
     [1, hello(world?quux

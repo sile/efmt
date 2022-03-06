@@ -29,6 +29,16 @@ pub struct ModuleOrConfig(Either<Module, Config>);
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Form(self::forms::Form);
 
+impl Form {
+    pub(crate) fn is_func_spec(&self) -> bool {
+        matches!(self.0, self::forms::Form::FunSpec(_))
+    }
+
+    pub(crate) fn is_func_decl(&self) -> bool {
+        matches!(self.0, self::forms::Form::FunDecl(_))
+    }
+}
+
 /// One of [types].
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Type(self::types::UnionType);
