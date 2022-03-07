@@ -123,6 +123,14 @@ impl Writer {
             self.region.current_column = self.current_indent();
         }
 
+        let is_first_span = self.region.buf_start == self.buf.len();
+        if is_first_span {
+            for _ in self.region.current_column..self.current_indent() {
+                self.buf.push(' ');
+                self.region.current_column = self.current_indent();
+            }
+        }
+
         self.write(text, false)?;
         self.region.next_position = end;
         Ok(())
