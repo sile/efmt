@@ -305,6 +305,7 @@ mod tests {
             indoc::indoc! {"
             -define(FOO_OPEN,
                     foo().
+
             -define(FOO_CLOSE,
                     )).
 
@@ -509,6 +510,7 @@ mod tests {
                     ?FOO
                         1
                     end).
+
             -define(FOO, begin).
 
 
@@ -519,6 +521,7 @@ mod tests {
             %---10---|%---20---|
             -define(FOO,
                     ?BAR(1)).
+
             -define(BAR(X), X).
 
 

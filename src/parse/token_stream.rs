@@ -8,7 +8,7 @@ use crate::items::tokens::{
 };
 use crate::parse::include::IncludeHandler;
 use crate::parse::{Error, IncludeOptions, Parse, Result, ResumeParse};
-use crate::span::{Position, Span as _};
+use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashSet};
@@ -149,6 +149,13 @@ impl TokenStream {
 
     pub fn filepath(&self) -> Option<Arc<PathBuf>> {
         self.path.clone()
+    }
+
+    pub fn contains_comment(&self, span: &impl Span) -> bool {
+        self.comments
+            .range(span.start_position()..span.end_position())
+            .count()
+            > 0
     }
 
     pub fn comments(&self) -> &BTreeMap<Position, CommentToken> {

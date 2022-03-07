@@ -1,5 +1,6 @@
 use crate::format::{Format, Formatter};
-use crate::items::Form;
+use crate::items::forms::DefineDirective;
+use crate::items::{forms, Form};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use std::num::NonZeroUsize;
@@ -26,21 +27,96 @@ impl Parse for Module {
 
 impl Format for Module {
     fn format(&self, fmt: &mut Formatter) {
-        let three = NonZeroUsize::new(3).expect("unreachable");
-        let mut is_last_spec = false;
+        let mut state = FormatState {
+            is_last_spec: false,
+            pending_constants: Vec::new(),
+        };
 
         for form in &self.forms {
-            if form.is_func_decl() && !is_last_spec {
-                fmt.add_newlines(three);
+            if state.pend_if_need(fmt, form) {
+                continue;
+            }
+            state.flush_pendings(fmt);
+            if state.pend_if_need(fmt, form) {
+                continue;
             }
 
-            is_last_spec = form.is_func_spec();
-            if form.is_func_spec() {
-                fmt.add_newlines(three);
-            }
+            state.insert_two_empty_newlines_if_need(fmt, form);
 
             form.format(fmt);
             fmt.add_newline();
+        }
+
+        state.flush_pendings(fmt);
+    }
+}
+
+struct FormatState<'a> {
+    is_last_spec: bool,
+    pending_constants: Vec<&'a DefineDirective>,
+}
+
+impl<'a> FormatState<'a> {
+    fn format_aligned_constants(&mut self, fmt: &mut Formatter) {
+        if self.pending_constants.len() < 2 {
+            return;
+        }
+
+        let indent = self
+            .pending_constants
+            .iter()
+            .map(|define| "-define(".len() + define.macro_name().len() + ", ".len())
+            .max()
+            .expect("unreachable");
+
+        for constant in self.pending_constants.drain(..) {
+            constant.format_with_indent(fmt, Some(indent));
+            fmt.add_newline();
+        }
+    }
+
+    fn flush_pendings(&mut self, fmt: &mut Formatter) {
+        self.format_aligned_constants(fmt);
+
+        for constant in self.pending_constants.drain(..) {
+            constant.format(fmt);
+            fmt.add_newline();
+        }
+    }
+
+    fn pend_if_need(&mut self, fmt: &Formatter, form: &'a Form) -> bool {
+        if let forms::Form::Define(define) = form.get() {
+            if define.variables().is_some() {
+                return false;
+            }
+
+            if let Some(last) = self.pending_constants.last() {
+                if last.end_position().line() + 1 < define.start_position().line() {
+                    return false;
+                }
+            }
+
+            if fmt.token_stream().contains_comment(define) {
+                return false;
+            }
+
+            self.pending_constants.push(define);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn insert_two_empty_newlines_if_need(&mut self, fmt: &mut Formatter, form: &'a Form) {
+        const THREE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(3) };
+
+        if form.is_func_decl() && !self.is_last_spec {
+            fmt.add_newlines(THREE);
+        }
+
+        self.is_last_spec = form.is_func_spec();
+        if form.is_func_spec() {
+            fmt.add_newlines(THREE);
         }
     }
 }

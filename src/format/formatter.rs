@@ -29,6 +29,10 @@ impl Formatter {
         }
     }
 
+    pub fn token_stream(&self) -> &TokenStream {
+        &self.ts
+    }
+
     pub fn skip_formatting(&mut self) {
         let position = self.find_format_on_position(self.next_position);
         self.add_span(&(self.next_position, position));
@@ -281,6 +285,7 @@ impl<'a> ItemWriter<'a> {
                     self.writer.current_column()
                 }
             }
+            Indent::Absolute(n) => *n,
         };
         let mut needs_newline = false;
         let mut allow_multi_line = true;
@@ -472,10 +477,11 @@ pub enum Indent {
     CurrentColumn,
     Offset(usize),
     ParentOffset(usize),
+    Absolute(usize),
 }
 
 impl Indent {
-    pub fn inherit() -> Self {
+    pub const fn inherit() -> Self {
         Self::Offset(0)
     }
 }

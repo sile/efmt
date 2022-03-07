@@ -3,7 +3,7 @@
 -define(FOO, /).
 -define(BAR, :format().
 -define(baz(A), A).
--define(qux, -> [1, 2, 3], [).
+-define(qux,  -> [1, 2, 3], [).
 -define(quux, )], [2,).
 -define(a(A, B), A).
 

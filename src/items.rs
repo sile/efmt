@@ -30,6 +30,10 @@ pub struct ModuleOrConfig(Either<Module, Config>);
 pub struct Form(self::forms::Form);
 
 impl Form {
+    fn get(&self) -> &self::forms::Form {
+        &self.0
+    }
+
     pub(crate) fn is_func_spec(&self) -> bool {
         matches!(self.0, self::forms::Form::FunSpec(_))
     }

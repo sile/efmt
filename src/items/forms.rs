@@ -239,10 +239,8 @@ impl DefineDirective {
     pub fn replacement(&self) -> &[LexicalToken] {
         self.replacement.tokens()
     }
-}
 
-impl Format for DefineDirective {
-    fn format(&self, fmt: &mut Formatter) {
+    pub fn format_with_indent(&self, fmt: &mut Formatter, replacement_indent: Option<usize>) {
         self.hyphen.format(fmt);
         self.define.format(fmt);
         self.open.format(fmt);
@@ -251,12 +249,22 @@ impl Format for DefineDirective {
             self.variables.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
+
+            let indent = replacement_indent
+                .map(Indent::Absolute)
+                .unwrap_or(Indent::inherit());
+            fmt.subregion(indent, Newline::IfTooLongOrMultiLine, |fmt| {
                 self.replacement.format(fmt)
             });
         });
         self.close.format(fmt);
         self.dot.format(fmt);
+    }
+}
+
+impl Format for DefineDirective {
+    fn format(&self, fmt: &mut Formatter) {
+        self.format_with_indent(fmt, None);
     }
 }
 
