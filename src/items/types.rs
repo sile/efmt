@@ -112,7 +112,6 @@ pub struct FunctionType {
 impl Format for FunctionType {
     fn format(&self, fmt: &mut Formatter) {
         self.fun.format(fmt);
-        fmt.add_space();
         self.params_and_return.format(fmt);
     }
 }
@@ -330,23 +329,22 @@ mod tests {
     #[test]
     fn function_works() {
         let texts = [
-            "fun ()",
-            "fun (() -> integer())",
+            "fun()",
+            "fun(() -> integer())",
             indoc::indoc! {"
             %---10---|%---20---|
-            fun ((...) ->
-                         atom())"},
+            fun((...) -> atom())"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun ((A, b, $c) ->
-                         tuple())"},
+            fun((A, b, $c) ->
+                        tuple())"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun ((A,
-                  b,
-                  $c,
-                  {foo()}) ->
-                         tuple())"},
+            fun((A,
+                 b,
+                 $c,
+                 {foo()}) ->
+                        tuple())"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
