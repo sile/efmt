@@ -47,10 +47,18 @@ pub struct AnonymousFunctionExpr {
 /// - $CLAUSE: [VariableToken] `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct NamedFunctionExpr {
     fun: Fun,
     clauses_and_end: FunctionClausesAndEnd<VariableToken>,
+}
+
+impl Format for NamedFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.fun.format(fmt);
+        fmt.add_space();
+        self.clauses_and_end.format(fmt);
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -59,7 +67,6 @@ struct Fun(FunKeyword);
 impl Format for Fun {
     fn format(&self, fmt: &mut Formatter) {
         self.0.format(fmt);
-        fmt.add_space();
     }
 }
 
@@ -96,7 +103,7 @@ mod tests {
 
     #[test]
     fn defined_function_works() {
-        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
+        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun(foo()):Bar/(baz())"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
@@ -105,42 +112,42 @@ mod tests {
     #[test]
     fn anonymous_function_works() {
         let texts = [
-            "fun () -> hi end",
+            "fun() -> hi end",
             indoc::indoc! {"
             %---10---|%---20---|
-            fun (a) ->
-                    a;
-                (A) ->
-                    A
+            fun(a) ->
+                   a;
+               (A) ->
+                   A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun ({a, b}, C) ->
-                    C;
-                (A, B)
-                  when is_integer(A);
-                       is_atom(B) ->
-                    A
+            fun({a, b}, C) ->
+                   C;
+               (A, B)
+                 when is_integer(A);
+                      is_atom(B) ->
+                   A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun (A) ->
-                    foo(),
-                    bar,
-                    baz(A)
+            fun(A) ->
+                   foo(),
+                   bar,
+                   baz(A)
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun (a) ->
-                    foo(),
-                    bar,
-                    baz();
-                (A) ->
-                    A
+            fun(a) ->
+                   foo(),
+                   bar,
+                   baz();
+               (A) ->
+                   A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
-            fun () -> foo() end"},
+            fun() -> foo() end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
