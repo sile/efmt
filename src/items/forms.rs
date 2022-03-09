@@ -1,21 +1,21 @@
 //! Erlang top-level components such as attributes, directives or declarations.
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::atoms::{
-    CallbackAtom, DefineAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom, RecordAtom, SpecAtom,
-    TypeAtom,
+    CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
+    RecordAtom, SpecAtom, TypeAtom,
 };
 use crate::items::components::{
-    Clauses, CommaDelimiter, Either, Element, Maybe, Never, NonEmptyItems, Null, Params,
+    Clauses, CommaDelimiter, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params,
     Parenthesized, TupleLike, WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
-    CloseParenSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol, HyphenSymbol,
-    MatchSymbol, OpenParenSymbol,
+    CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol,
+    HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
 };
-use crate::items::tokens::{AtomToken, LexicalToken, StringToken, VariableToken};
+use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
 use crate::items::Type;
 use crate::parse::Parse;
@@ -30,6 +30,7 @@ pub(super) enum Form {
     FunDecl(FunDecl),
     TypeDecl(TypeDecl),
     RecordDecl(RecordDecl),
+    Export(ExportAttr),
     Attr(Attr),
 }
 
@@ -176,6 +177,61 @@ impl Format for SpecClause {
 pub struct FunDecl {
     clauses: Clauses<FunctionClause<AtomToken>>,
     dot: DotSymbol,
+}
+
+/// `-` `export|export_type` `$EXPORTS`
+///
+/// - $EXPORTS: `(` (`$EXPORT`,`?)* `)`
+/// - $EXPORT: [AtomToken] `/` [IntegerToken]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct ExportAttr(AttrLike<Either<ExportAtom, ExportTypeAtom>, ExportItems>);
+
+#[derive(Debug, Clone, Span, Parse)]
+struct ExportItems {
+    open: OpenSquareSymbol,
+    items: Items<ExportItem, CommaDelimiter>,
+    close: CloseSquareSymbol,
+}
+
+impl Format for ExportItems {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
+
+        let items = self.items.items();
+        let delimiters = self.items.delimiters();
+        if !items.is_empty() {
+            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                items.first().expect("unreachable").format(fmt);
+
+                for (prev_item, (item, delimiter)) in items
+                    .iter()
+                    .zip(items.iter().skip(1).zip(delimiters.iter()))
+                {
+                    delimiter.format(fmt);
+
+                    let is_same_group = prev_item.name.value() == item.name.value()
+                        && prev_item.start_position().line() + 1 >= item.end_position().line();
+                    if is_same_group {
+                        fmt.subregion(Indent::inherit(), Newline::IfTooLong, |fmt| {
+                            item.format(fmt)
+                        });
+                    } else {
+                        fmt.add_newline();
+                        item.format(fmt);
+                    }
+                }
+            });
+        }
+
+        self.close.format(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+struct ExportItem {
+    name: AtomToken,
+    slash: SlashSymbol,
+    arity: IntegerToken,
 }
 
 /// `-` `$NAME` `$ARGS`? `.`

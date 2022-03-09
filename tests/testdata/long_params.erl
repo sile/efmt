@@ -1,7 +1,9 @@
 %%---10--|----20---|----30---|----40---|----50---|
 -module(long_params).
 
--export([foo/7, bar/6, baz/5]).
+-export([foo/7,
+         bar/6,
+         baz/5]).
 
 
 foo(AAAAA,
