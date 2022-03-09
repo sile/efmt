@@ -7,7 +7,8 @@
          ddd/0,
          eee/0,
          fff/0]).
--export([ggg/0, hhh/0]).
+-export([ggg/0,
+         hhh/0]).
 
 
 aaa() ->

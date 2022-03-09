@@ -50,3 +50,11 @@ impl_parse!(CallbackAtom, "callback");
 #[derive(Debug, Clone, Span, Format, Element)]
 pub struct RecordAtom(AtomToken);
 impl_parse!(RecordAtom, "record");
+
+#[derive(Debug, Clone, Span, Format, Element)]
+pub struct ExportAtom(AtomToken);
+impl_parse!(ExportAtom, "export");
+
+#[derive(Debug, Clone, Span, Format, Element)]
+pub struct ExportTypeAtom(AtomToken);
+impl_parse!(ExportTypeAtom, "export_type");
