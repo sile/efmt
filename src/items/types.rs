@@ -276,6 +276,10 @@ mod tests {
             {foo(),
              bar(),
              [baz(A, B)]}"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            {foo, bar,
+                  [baz(A, B)]}"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
@@ -294,7 +298,7 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             #{atom() :=
-                  {aaa,
+                  {Aaa,
                    bbb,
                    ccc}}"},
             indoc::indoc! {"

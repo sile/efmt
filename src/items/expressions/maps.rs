@@ -58,7 +58,7 @@ mod tests {
             %---10---|%---20---|
             (foo())#{1 => 2,
                      foo :=
-                         {bar,
+                         {Bar,
                           baz}}"},
         ];
         for text in texts {

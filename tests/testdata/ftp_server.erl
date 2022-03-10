@@ -33,22 +33,18 @@ loop(Users, N) ->
                     Max = max_connections(),
                     if
                         N > Max ->
-                            Pid ! {ftp_server,
-                                   {error,
-                                    too_many_connections}},
+                            Pid ! {ftp_server, {error, too_many_connections}},
                             loop(Users, N);
                         true ->
                             New =
                                 spawn_link(?MODULE,
                                            handler,
                                            [Pid]),
-                            Pid ! {ftp_server,
-                                   {ok, New}},
+                            Pid ! {ftp_server, {ok, New}},
                             loop(Users, N + 1)
                     end;
                 false ->
-                    Pid ! {ftp_server,
-                           {error, rejected}},
+                    Pid ! {ftp_server, {error, rejected}},
                     loop(Users, N)
             end;
         {'EXIT', Pid} ->

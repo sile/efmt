@@ -128,7 +128,7 @@ mod tests {
             %---10---|%---20---|
             #foo{bar = 2,
                  baz =
-                     {bar, baz}}"},
+                     {Bar, baz}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -173,7 +173,7 @@ mod tests {
             %---10---|%---20---|
             (foo())#foo{bar = 2,
                         baz =
-                            {bar,
+                            {Bar,
                              baz}}"},
         ];
         for text in texts {
