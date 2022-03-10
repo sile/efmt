@@ -5,6 +5,7 @@ use crate::items::symbols::{
     DoubleRightAngleSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
     OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol, SharpSymbol,
 };
+use crate::items::tokens::AtomToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 
@@ -290,6 +291,7 @@ pub struct ListLike<T: Element, D = CommaDelimiter> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
+    tag: Maybe<(AtomToken, CommaDelimiter)>,
     items: MaybePackedItems<T>,
     close: CloseBraceSymbol,
 }
