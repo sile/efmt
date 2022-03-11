@@ -58,7 +58,7 @@ impl Format for RecordDeclValue {
             self.comma.format(fmt);
             fmt.add_space();
             self.open.format(fmt);
-            fmt.subregion(Indent::Absolute(10), Newline::Always, |fmt| {
+            fmt.subregion(Indent::Offset(2), Newline::Always, |fmt| {
                 self.fields.format(fmt);
             });
             if !self.fields.items().is_empty() {
