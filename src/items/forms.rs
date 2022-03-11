@@ -61,10 +61,15 @@ impl Format for RecordDeclValue {
             fmt.subregion(Indent::Offset(2), Newline::Always, |fmt| {
                 self.fields.format(fmt);
             });
-            if !self.fields.items().is_empty() {
-                fmt.add_newline();
-            }
-            self.close.format(fmt);
+
+            let newline = if self.fields.items().is_empty() {
+                Newline::Never
+            } else {
+                Newline::Always
+            };
+            fmt.subregion(Indent::Offset(1), newline, |fmt| {
+                self.close.format(fmt);
+            });
         });
     }
 }
@@ -499,18 +504,18 @@ mod tests {
             indoc::indoc! {"
             -record(foo, {
                       foo
-                    })."},
+                     })."},
             indoc::indoc! {"
             -record(foo, {
                       foo,
                       bar
-                    })."},
+                     })."},
             indoc::indoc! {"
             -record(rec, {
                       field1 = [] :: Type1,
                       field2,
                       field3 = 421
-                    })."},
+                     })."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
