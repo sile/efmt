@@ -6,14 +6,15 @@ use crate::items::atoms::{
 };
 use crate::items::components::{
     Clauses, CommaDelimiter, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params,
-    Parenthesized, TupleLike, WithArrow, WithGuard,
+    Parenthesized, WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::IfKeyword;
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
-    CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol,
-    HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
+    CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol,
+    DoubleColonSymbol, HyphenSymbol, MatchSymbol, OpenBraceSymbol, OpenParenSymbol,
+    OpenSquareSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
@@ -45,7 +46,9 @@ pub struct RecordDecl(AttrLike<RecordAtom, RecordDeclValue>);
 struct RecordDeclValue {
     name: AtomToken,
     comma: CommaSymbol,
-    fields: TupleLike<RecordField>,
+    open: OpenBraceSymbol,
+    fields: Items<RecordField>,
+    close: CloseBraceSymbol,
 }
 
 impl Format for RecordDeclValue {
@@ -54,9 +57,14 @@ impl Format for RecordDeclValue {
             self.name.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
-                self.fields.format(fmt)
+            self.open.format(fmt);
+            fmt.subregion(Indent::Absolute(10), Newline::Always, |fmt| {
+                self.fields.format(fmt);
             });
+            if !self.fields.items().is_empty() {
+                fmt.add_newline();
+            }
+            self.close.format(fmt);
         });
     }
 }
@@ -70,6 +78,7 @@ struct RecordField {
 
 impl Format for RecordField {
     fn format(&self, fmt: &mut Formatter) {
+        fmt.add_newline();
         self.name.format(fmt);
         if let Some((x, y)) = self.default.get() {
             fmt.add_space();
@@ -487,15 +496,21 @@ mod tests {
     fn record_decl_works() {
         let texts = [
             "-record(foo, {}).",
-            "-record(foo, {foo}).",
             indoc::indoc! {"
-            -record(foo,
-                    {foo, bar})."},
+            -record(foo, {
+                      foo
+                    })."},
             indoc::indoc! {"
-            -record(rec,
-                    {field1 = [] :: Type1,
-                     field2,
-                     field3 = 421})."},
+            -record(foo, {
+                      foo,
+                      bar
+                    })."},
+            indoc::indoc! {"
+            -record(rec, {
+                      field1 = [] :: Type1,
+                      field2,
+                      field3 = 421
+                    })."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
