@@ -127,9 +127,9 @@ mod tests {
             6"},
             indoc::indoc! {"
             %---10---|%---20---|
-            {A, B, C} =
-                {Foo, bar,
-                 baz} =
+            {A, B, C} = {Foo,
+                         bar,
+                         baz} =
                     qux() /
                     quux() div 2"},
             indoc::indoc! {"

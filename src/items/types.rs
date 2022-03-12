@@ -121,12 +121,12 @@ type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter,
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct RightArrowDelimiter(RightArrowSymbol);
 
-impl BinaryOpStyle for RightArrowDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for RightArrowDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(8)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -201,12 +201,12 @@ struct RecordItem(BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>);
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct DoubleColonDelimiter(DoubleColonSymbol);
 
-impl BinaryOpStyle for DoubleColonDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }

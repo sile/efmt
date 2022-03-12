@@ -321,12 +321,12 @@ impl<T> Element for MapItem<T> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
 
-impl BinaryOpStyle for MapDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -362,10 +362,10 @@ impl<O, T> UnaryOpLike<O, T> {
     }
 }
 
-pub trait BinaryOpStyle {
+pub trait BinaryOpStyle<RHS> {
     fn indent(&self) -> Indent;
 
-    fn newline(&self) -> Newline;
+    fn newline(&self, rhs: &RHS) -> Newline;
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -391,7 +391,7 @@ impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
     }
 }
 
-impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L, O, R> {
+impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike<L, O, R> {
     fn format(&self, fmt: &mut Formatter) {
         self.left.format(fmt);
 
@@ -400,7 +400,7 @@ impl<L: Format, O: Format + BinaryOpStyle, R: Format> Format for BinaryOpLike<L,
         fmt.add_space();
 
         let indent = self.op.indent();
-        let newline = self.op.newline();
+        let newline = self.op.newline(&self.right);
         fmt.subregion(indent, newline, |fmt| self.right.format(fmt));
     }
 }

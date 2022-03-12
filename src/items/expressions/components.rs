@@ -67,12 +67,12 @@ struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
 
-impl BinaryOpStyle for GeneratorDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for GeneratorDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::Never
     }
 }
@@ -99,12 +99,12 @@ impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
 
-impl BinaryOpStyle for ComprehensionDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for ComprehensionDelimiter {
     fn indent(&self) -> Indent {
         Indent::ParentOffset(4)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -193,7 +193,7 @@ impl Parse for BinaryOp {
     }
 }
 
-impl BinaryOpStyle for BinaryOp {
+impl BinaryOpStyle<Expr> for BinaryOp {
     fn indent(&self) -> Indent {
         if matches!(self, Self::Match(_)) {
             Indent::Offset(4)
@@ -202,13 +202,13 @@ impl BinaryOpStyle for BinaryOp {
         }
     }
 
-    fn newline(&self) -> Newline {
-        if matches!(self, Self::Send(_)) {
+    fn newline(&self, rhs: &Expr) -> Newline {
+        if rhs.is_block() {
+            Newline::Always
+        } else if matches!(self, Self::Send(_)) {
             Newline::Never
-        } else if matches!(self.indent(), Indent::Offset(0)) {
-            Newline::IfTooLong
         } else {
-            Newline::IfTooLongOrMultiLine
+            Newline::IfTooLong
         }
     }
 }

@@ -103,12 +103,12 @@ struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFie
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct RecordFieldDelimiter(MatchSymbol);
 
-impl BinaryOpStyle for RecordFieldDelimiter {
+impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
