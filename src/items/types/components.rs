@@ -28,12 +28,12 @@ pub enum BinaryOp {
     Range(DoubleDotSymbol),
 }
 
-impl BinaryOpStyle for BinaryOp {
+impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
     fn indent(&self) -> Indent {
         Indent::inherit()
     }
 
-    fn newline(&self) -> Newline {
+    fn newline(&self, _rhs: &RHS) -> Newline {
         Newline::IfTooLong
     }
 }

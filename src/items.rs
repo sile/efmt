@@ -61,4 +61,8 @@ impl Expr {
     pub(crate) fn get(&self) -> &self::expressions::FullExpr {
         &self.0
     }
+
+    pub(crate) fn is_block(&self) -> bool {
+        self.0.is_block()
+    }
 }

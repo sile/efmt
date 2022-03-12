@@ -154,6 +154,10 @@ impl FullExpr {
     pub fn is_integer_token(&self) -> bool {
         matches!(self, Self::Base(BaseExpr::Literal(LiteralExpr::Integer(_))))
     }
+
+    pub fn is_block(&self) -> bool {
+        matches!(self, Self::Base(BaseExpr::Block(_)))
+    }
 }
 
 impl Element for FullExpr {
