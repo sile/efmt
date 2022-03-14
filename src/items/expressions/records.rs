@@ -38,7 +38,7 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: TupleLike<RecordField>,
+    fields: TupleLike<RecordField, 2>,
 }
 
 /// `$VALUE` `#` `$NAME` `.` `$FIELD`
@@ -83,7 +83,7 @@ pub struct RecordUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: TupleLike<RecordField>,
+    fields: TupleLike<RecordField, 2>,
 }
 
 impl ResumeParse<Expr> for RecordUpdateExpr {
