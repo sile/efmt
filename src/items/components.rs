@@ -241,9 +241,9 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
+struct MaybePackedItems<T, D = CommaDelimiter, const MAX_ONELINE_N: usize = 100>(Items<T, D>);
 
-impl<T: Format, D: Format> MaybePackedItems<T, D> {
+impl<T: Format, D: Format, const MAX_ONELINE_N: usize> MaybePackedItems<T, D, MAX_ONELINE_N> {
     fn packed_format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.0.items().first().expect("unreachable");
@@ -262,11 +262,33 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
             }
         });
     }
+
+    fn multiline_format(&self, fmt: &mut Formatter) {
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            let item = self.0.items().first().expect("unreachable");
+            item.format(fmt);
+            for (item, delimiter) in self
+                .0
+                .items()
+                .iter()
+                .skip(1)
+                .zip(self.0.delimiters().iter())
+            {
+                delimiter.format(fmt);
+                fmt.add_newline();
+                item.format(fmt);
+            }
+        });
+    }
 }
 
-impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
+impl<T: Format + Element, D: Format, const MAX_ONELINE_N: usize> Format
+    for MaybePackedItems<T, D, MAX_ONELINE_N>
+{
     fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
+        } else if self.0.items().len() > MAX_ONELINE_N {
+            self.multiline_format(fmt);
         } else if self.0.items().iter().all(Element::is_packable) {
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 self.packed_format(fmt)
@@ -289,10 +311,10 @@ pub struct ListLike<T: Element, D = CommaDelimiter> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleLike<T: Element> {
+pub struct TupleLike<T: Element, const MAX_ONELINE_N: usize = 100> {
     open: OpenBraceSymbol,
     tag: Maybe<(AtomToken, CommaDelimiter)>,
-    items: MaybePackedItems<T>,
+    items: MaybePackedItems<T, CommaDelimiter, MAX_ONELINE_N>,
     close: CloseBraceSymbol,
 }
 
