@@ -72,7 +72,7 @@ impl<RHS> BinaryOpStyle<RHS> for GeneratorDelimiter {
         Indent::Offset(4)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::Never
     }
 }
@@ -104,7 +104,7 @@ impl<RHS> BinaryOpStyle<RHS> for ComprehensionDelimiter {
         Indent::ParentOffset(4)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -202,8 +202,14 @@ impl BinaryOpStyle<Expr> for BinaryOp {
         }
     }
 
-    fn newline(&self, rhs: &Expr) -> Newline {
-        if rhs.is_block() {
+    fn newline(&self, rhs: &Expr, fmt: &Formatter) -> Newline {
+        let is_macro_expanded = || {
+            fmt.token_stream()
+                .macros()
+                .contains_key(&rhs.start_position())
+        };
+
+        if rhs.is_block() && !is_macro_expanded() {
             Newline::Always
         } else if matches!(self, Self::Send(_)) {
             Newline::Never

@@ -1,4 +1,4 @@
-use crate::format::{Format, Indent, Newline};
+use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
@@ -108,7 +108,7 @@ impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
         Indent::Offset(4)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }

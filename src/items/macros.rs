@@ -572,7 +572,8 @@ mod tests {
 
 
             foo() ->
-                ok = ?FOO."}];
+                ok = ?FOO.
+            "}];
         for text in texts {
             crate::assert_format!(text, Module);
         }
