@@ -559,4 +559,23 @@ mod tests {
             crate::assert_format!(text, Module);
         }
     }
+
+    #[test]
+    fn macro_and_binary_op() {
+        let texts = [indoc::indoc! {"
+            %---10---|%---20---|
+            -define(FOO,
+                    case bar of
+                        baz ->
+                            ok
+                    end).
+
+
+            foo() ->
+                ok = ?FOO.
+            "}];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
 }

@@ -326,7 +326,7 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
         Indent::Offset(4)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -365,7 +365,7 @@ impl<O, T> UnaryOpLike<O, T> {
 pub trait BinaryOpStyle<RHS> {
     fn indent(&self) -> Indent;
 
-    fn newline(&self, rhs: &RHS) -> Newline;
+    fn newline(&self, rhs: &RHS, fmt: &Formatter) -> Newline;
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -400,7 +400,7 @@ impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike
         fmt.add_space();
 
         let indent = self.op.indent();
-        let newline = self.op.newline(&self.right);
+        let newline = self.op.newline(&self.right, fmt);
         fmt.subregion(indent, newline, |fmt| self.right.format(fmt));
     }
 }

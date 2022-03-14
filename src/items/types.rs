@@ -126,7 +126,7 @@ impl<RHS> BinaryOpStyle<RHS> for RightArrowDelimiter {
         Indent::Offset(8)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
@@ -206,7 +206,7 @@ impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {
         Indent::Offset(4)
     }
 
-    fn newline(&self, _rhs: &RHS) -> Newline {
+    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLongOrMultiLine
     }
 }
