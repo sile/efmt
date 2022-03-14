@@ -141,6 +141,13 @@ mod tests {
              d = bazzzzzzzzzzzzzz,
              qux =
                  quuxxxxxxxxxxx]"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            foo =
+                case bar of
+                    baz ->
+                        ok
+                end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
