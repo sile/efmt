@@ -297,10 +297,9 @@ mod tests {
                   integer()}"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #{atom() :=
-                  {Aaa,
-                   bbb,
-                   ccc}}"},
+            #{atom() := {Aaa,
+                         bbb,
+                         ccc}}"},
             indoc::indoc! {"
             %---10---|%---20---|
             #{a => b,

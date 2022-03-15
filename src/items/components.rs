@@ -349,7 +349,7 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
     }
 
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLongOrMultiLine
+        Newline::IfTooLong
     }
 }
 
