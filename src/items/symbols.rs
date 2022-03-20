@@ -189,3 +189,7 @@ impl_traits!(LessSymbol, Less);
 #[derive(Debug, Clone, Span, Format)]
 pub struct LessEqSymbol(SymbolToken);
 impl_traits!(LessEqSymbol, LessEq);
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct MaybeMatchSymbol(SymbolToken);
+impl_traits!(MaybeMatchSymbol, MaybeMatch);
