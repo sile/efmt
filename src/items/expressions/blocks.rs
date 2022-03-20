@@ -2,8 +2,8 @@ use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
-    AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, EndKeyword, IfKeyword, OfKeyword,
-    ReceiveKeyword, TryKeyword,
+    AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
+    MaybeKeyword, OfKeyword, ReceiveKeyword, TryKeyword,
 };
 use crate::items::symbols::{ColonSymbol, CommaSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
@@ -19,6 +19,7 @@ pub enum BlockExpr {
     Begin(Box<BeginExpr>),
     Try(Box<TryExpr>),
     Catch(Box<CatchExpr>),
+    Maybe(Box<MaybeExpr>),
 }
 
 /// `case` [Expr] `of` (`$CLAUSE` `;`?)+ `end`
@@ -217,6 +218,34 @@ impl<T: Format> Format for Block<T> {
     }
 }
 
+/// `maybe` [Body] `$ELSE`? `end`
+///
+/// - $ELSE: `else` (`$CLAUSE` `;`?)+
+/// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
+/// - $PATTERN: [Expr]
+/// - $GUARD: ([Expr] (`,` | `;`)?)+
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct MaybeExpr {
+    maybe: MaybeKeyword,
+    body: Body,
+    else_block: Maybe<ElseBlock>,
+    end: End,
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+struct ElseBlock {
+    else_keyword: ElseKeyword,
+    clauses: Block<Clauses<CaseClause>>,
+}
+
+impl Format for ElseBlock {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.add_newline();
+        self.else_keyword.format(fmt);
+        self.clauses.format(fmt);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::items::Expr;
@@ -397,6 +426,32 @@ mod tests {
                       Baz,
                       qux) + 3 +
                   4"},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Expr);
+        }
+    }
+
+    #[test]
+    fn maybe_works() {
+        let texts = [
+            indoc::indoc! {"
+            maybe
+                1
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            maybe
+                ok ?= foo(bar,
+                          Baz),
+                {[#{}]}
+            else
+                foo ->
+                    bar;
+                {error, R}
+                  when is_atom(R) ->
+                    error
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

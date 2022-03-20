@@ -9,7 +9,7 @@ use crate::items::components::{
     Parenthesized, WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
-use crate::items::keywords::IfKeyword;
+use crate::items::keywords::{ElseKeyword, IfKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol,
@@ -256,7 +256,7 @@ struct ExportItem {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Attr(AttrLike<AttrName, AttrValue, Null>);
 
-type AttrName = Either<AtomToken, IfKeyword>;
+type AttrName = Either<AtomToken, Either<IfKeyword, ElseKeyword>>;
 type AttrValue = NonEmptyItems<Expr>;
 
 #[derive(Debug, Clone, Span, Parse)]

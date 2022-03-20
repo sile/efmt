@@ -126,3 +126,11 @@ impl_traits!(WhenKeyword, When);
 #[derive(Debug, Clone, Span, Format)]
 pub struct XorKeyword(KeywordToken);
 impl_traits!(XorKeyword, Xor);
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct MaybeKeyword(KeywordToken);
+impl_traits!(MaybeKeyword, Maybe);
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct ElseKeyword(KeywordToken);
+impl_traits!(ElseKeyword, Else);

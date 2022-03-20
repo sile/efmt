@@ -127,6 +127,7 @@ pub enum BinaryOp {
     PlusPlus(symbols::PlusPlusSymbol),
     MinusMinus(symbols::MinusMinusSymbol),
     Match(symbols::MatchSymbol),
+    MaybeMatch(symbols::MaybeMatchSymbol),
     Eq(symbols::EqSymbol),
     ExactEq(symbols::ExactEqSymbol),
     NotEq(symbols::NotEqSymbol),
@@ -161,6 +162,7 @@ impl Parse for BinaryOp {
                 Symbol::PlusPlus => ts.parse().map(Self::PlusPlus),
                 Symbol::MinusMinus => ts.parse().map(Self::MinusMinus),
                 Symbol::Match => ts.parse().map(Self::Match),
+                Symbol::MaybeMatch => ts.parse().map(Self::MaybeMatch),
                 Symbol::Eq => ts.parse().map(Self::Eq),
                 Symbol::ExactEq => ts.parse().map(Self::ExactEq),
                 Symbol::NotEq => ts.parse().map(Self::NotEq),
@@ -195,7 +197,7 @@ impl Parse for BinaryOp {
 
 impl BinaryOpStyle<Expr> for BinaryOp {
     fn indent(&self) -> Indent {
-        if matches!(self, Self::Match(_)) {
+        if matches!(self, Self::Match(_) | Self::MaybeMatch(_)) {
             Indent::Offset(4)
         } else {
             Indent::inherit()
