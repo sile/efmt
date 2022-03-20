@@ -307,9 +307,9 @@ dependencies = [
 
 [[package]]
 name = "erl_tokenize"
-version = "0.4.7"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "687cfd7c827592c206846ad8c1fa4e48cee3278daaaea97c4ac81006a6e95fec"
+checksum = "4ac5dced32fb9c866a9a62e9c0c621f9536024fd42d0575468838b069aabb6f2"
 dependencies = [
  "num",
  "serde",
