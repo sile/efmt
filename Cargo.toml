@@ -24,7 +24,7 @@ similar = { version= "2", features = ["inline"] }
 structopt = "0.3"
 tempfile = "3"
 thiserror = "1"
-pprof = {version="0.6", features = ["flamegraph"], optional=true}
+pprof = { version="0.7", features = ["flamegraph"], optional=true }
 
 [dev-dependencies]
 indoc = "1"
