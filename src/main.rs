@@ -1,46 +1,46 @@
 use anyhow::Context;
+use clap::{CommandFactory as _, Parser};
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 
 /// Erlang Code Formatter.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Opt {
     /// Maximum line length.
     ///
     /// Note that this is a soft limit. That is, some lines could exceed the limit after formatting.
     /// Besides, this limit doesn't apply to comments.
-    #[structopt(long, default_value = "120")]
+    #[clap(long, default_value_t = 120)]
     print_width: usize,
 
     /// Checks if input is formatted correctly.
     ///
     /// If so, exits with 0. Otherwise, exits with 1 and shows a diff.
-    #[structopt(long, short = "c")]
+    #[clap(long, short)]
     check: bool,
 
     /// Overwrites input file with the formatted text.
-    #[structopt(long, short = "w", conflicts_with = "check")]
+    #[clap(long, short, conflicts_with = "check")]
     write: bool,
 
     /// Shows the target input files.
     ///
     /// You can use this flag to exclude some files from the default target, e.g., `$ efmt $(efmt --show-files | grep -v rebar.config)`.
-    #[structopt(long, conflicts_with = "check", conflicts_with = "write")]
+    #[clap(long, conflicts_with = "check", conflicts_with = "write")]
     show_files: bool,
 
     /// Outputs debug log messages.
-    #[structopt(long)]
+    #[clap(long)]
     verbose: bool,
 
     /// Where to search for include files to process Erlang `-include` directives.
     ///
     /// If omitted, "../", "../include/", "../src/" and "../test/" of the target file will be added as the include directories.
-    #[structopt(short = "I", long = "include-search-dir")]
+    #[clap(short = 'I', long = "include-search-dir")]
     include_dirs: Vec<PathBuf>,
 
     /// Format target files.
@@ -52,30 +52,30 @@ struct Opt {
     files: Vec<PathBuf>,
 
     /// Executes formatting in parallel.
-    #[structopt(long)]
+    #[clap(long)]
     parallel: bool,
 
     /// Disables `-include` and `-include_lib` processing.
     /// This could improve formatting speed. All unknown macros will be replaced with `EFMT_DUMMY` atom.
-    #[structopt(long)]
+    #[clap(long)]
     disable_include: bool,
 
     /// Where to save the caches for the macro definitions collected during processing `-include` or `-include_lib` directives.
-    #[structopt(long, default_value = ".efmt/cache")]
+    #[clap(long, default_value = ".efmt/cache")]
     include_cache_dir: PathBuf,
 
     /// Disables include cache.
-    #[structopt(long)]
+    #[clap(long)]
     disable_include_cache: bool,
 
     /// Disables formatting by default.
     /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
-    #[structopt(long)]
+    #[clap(long)]
     default_off: bool,
 
     /// Enable profiling by `pprof`. The profile report will be generated in `flamegraph.svg`.
     #[cfg(feature = "pprof")]
-    #[structopt(long)]
+    #[clap(long)]
     profile: bool,
 }
 
@@ -119,7 +119,7 @@ impl Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     let loglevel = if opt.verbose { "debug" } else { "info" };
     env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
@@ -134,7 +134,7 @@ fn main() -> anyhow::Result<()> {
 fn main_with_opt(mut opt: Opt) -> anyhow::Result<()> {
     opt.collect_default_files_if_need()?;
     if opt.files.is_empty() {
-        Opt::clap().print_help()?;
+        Opt::command().print_help()?;
         println!();
         std::process::exit(1);
     }
