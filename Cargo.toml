@@ -11,6 +11,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1"
+clap = { version = "3", features = ["derive"] }
 console = "0.15"
 erl_tokenize = "0.5"
 efmt_derive = { path = "efmt_derive", version = "0.1.0" }
@@ -21,7 +22,6 @@ sha256 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 similar = { version= "2", features = ["inline"] }
-structopt = "0.3"
 tempfile = "3"
 thiserror = "1"
 pprof = { version="0.7", features = ["flamegraph"], optional=true }
