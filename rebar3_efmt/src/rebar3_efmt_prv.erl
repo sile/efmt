@@ -35,7 +35,8 @@ do(State) ->
                  Flag ->
                      atom_to_arg_key(Flag)
              end || Entry <- rebar_state:get(State, efmt, [])] ++ Args0,
-    ok = rebar3_efmt_command:execute(Args1),
+    Args2 = ["-I=" ++ Dir || {i, Dir} <- rebar_state:get(State, erl_opts, [])] ++ Args1,
+    ok = rebar3_efmt_command:execute(Args2),
     {ok, State}.
 
 -spec format_error(any()) ->  iolist().
