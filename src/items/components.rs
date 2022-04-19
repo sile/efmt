@@ -241,7 +241,9 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T, D = CommaDelimiter, const MAX_ONELINE_N: usize = 100>(Items<T, D>);
+struct MaybePackedItems<T, D = CommaDelimiter, const MAX_ONELINE_N: usize = { std::usize::MAX }>(
+    Items<T, D>,
+);
 
 impl<T: Format, D: Format, const MAX_ONELINE_N: usize> MaybePackedItems<T, D, MAX_ONELINE_N> {
     fn packed_format(&self, fmt: &mut Formatter) {
@@ -311,7 +313,7 @@ pub struct ListLike<T: Element, D = CommaDelimiter> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleLike<T: Element, const MAX_ONELINE_N: usize = 100> {
+pub struct TupleLike<T: Element, const MAX_ONELINE_N: usize = { std::usize::MAX }> {
     open: OpenBraceSymbol,
     tag: Maybe<(AtomToken, CommaDelimiter)>,
     items: MaybePackedItems<T, CommaDelimiter, MAX_ONELINE_N>,
