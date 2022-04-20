@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 /// Erlang Code Formatter.
 #[derive(Debug, Parser)]
+#[clap(about, version)]
 struct Opt {
     /// Maximum line length.
     ///
