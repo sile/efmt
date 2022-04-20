@@ -157,7 +157,8 @@ foo() ->
 Editor Integrations
 -------------------
 
-TODO (contribution welcome)
+- Emacs: [emacs-format-all-the-code](https://github.com/lassik/emacs-format-all-the-code)
+- Erlang Language Server (forked version): [shiguredo/erlang_ls](https://github.com/shiguredo/erlang_ls)
 
 Differences with other Erlang formatters
 -----------------------------------------
