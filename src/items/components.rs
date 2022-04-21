@@ -355,6 +355,33 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
     }
 }
 
+#[derive(Debug, Clone, Span, Parse)]
+pub struct RecordFieldsLike<T> {
+    open: OpenBraceSymbol,
+    fields: MaybePackedItems<T, CommaDelimiter, 2>,
+    close: CloseBraceSymbol,
+}
+
+impl<T: Format + Element> Format for RecordFieldsLike<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
+        fmt.subregion(Indent::Offset(1), Newline::Never, |fmt| {
+            fmt.subregion(
+                Indent::Offset(1),
+                Newline::IfTooLongOrMultiLineParent,
+                |fmt| {
+                    self.fields.format(fmt);
+                },
+            );
+
+            let newline = Newline::IfTooLongOrMultiLineParent;
+            fmt.subregion(Indent::Offset(0), newline, |fmt| {
+                self.close.format(fmt);
+            });
+        });
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
 

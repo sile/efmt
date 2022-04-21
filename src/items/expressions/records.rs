@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, TupleLike};
+use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, RecordFieldsLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
@@ -34,11 +34,21 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct RecordConstructExpr {
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: TupleLike<RecordField, 2>,
+    fields: RecordFieldsLike<RecordField>,
+}
+
+impl Format for RecordConstructExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.sharp.format(fmt);
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.name.format(fmt);
+            self.fields.format(fmt);
+        });
+    }
 }
 
 /// `$VALUE` `#` `$NAME` `.` `$FIELD`
@@ -83,7 +93,7 @@ pub struct RecordUpdateExpr {
     value: Expr,
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: TupleLike<RecordField, 2>,
+    fields: RecordFieldsLike<RecordField>,
 }
 
 impl ResumeParse<Expr> for RecordUpdateExpr {
@@ -122,13 +132,21 @@ mod tests {
         let texts = [
             "#foo{}",
             indoc::indoc! {"
-            #foo{module = Mod,
-                 _ = '_'}"},
+            #foo{
+               module = Mod,
+               _ = '_'
+              }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #foo{bar = 2,
-                 baz =
-                     {Bar, baz}}"},
+            #a{b = 1, c = 2}"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            #foo{
+               bar = 2,
+               baz =
+                   {Bar, baz,
+                    qux}
+              }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -163,18 +181,20 @@ mod tests {
             "88 #foo{}",
             indoc::indoc! {"
             %---10---|%---20---|
-            M#baz{qux =
-                      1}#foo.bar"},
+            M#baz{
+              qux = 1
+             }#foo.bar"},
             indoc::indoc! {"
             %---10---|%---20---|
-            M#foo.bar#baz{qux =
-                              1}"},
+            M#foo.bar#baz{
+              qux = 1
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            (foo())#foo{bar = 2,
-                        baz =
-                            {Bar,
-                             baz}}"},
+            (foo())#foo{
+              bar = 2,
+              baz = {Bar, baz}
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

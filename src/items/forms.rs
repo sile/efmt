@@ -6,15 +6,14 @@ use crate::items::atoms::{
 };
 use crate::items::components::{
     Clauses, CommaDelimiter, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params,
-    Parenthesized, WithArrow, WithGuard,
+    Parenthesized, RecordFieldsLike, WithArrow, WithGuard,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::{ElseKeyword, IfKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
-    CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol,
-    DoubleColonSymbol, HyphenSymbol, MatchSymbol, OpenBraceSymbol, OpenParenSymbol,
-    OpenSquareSymbol, SlashSymbol,
+    CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol,
+    HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
@@ -46,9 +45,7 @@ pub struct RecordDecl(AttrLike<RecordAtom, RecordDeclValue>);
 struct RecordDeclValue {
     name: AtomToken,
     comma: CommaSymbol,
-    open: OpenBraceSymbol,
-    fields: Items<RecordField>,
-    close: CloseBraceSymbol,
+    fields: RecordFieldsLike<RecordField>,
 }
 
 impl Format for RecordDeclValue {
@@ -57,19 +54,7 @@ impl Format for RecordDeclValue {
             self.name.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
-            self.open.format(fmt);
-            fmt.subregion(Indent::Offset(2), Newline::Always, |fmt| {
-                self.fields.format(fmt);
-            });
-
-            let newline = if self.fields.items().is_empty() {
-                Newline::Never
-            } else {
-                Newline::Always
-            };
-            fmt.subregion(Indent::Offset(1), newline, |fmt| {
-                self.close.format(fmt);
-            });
+            self.fields.format(fmt);
         });
     }
 }

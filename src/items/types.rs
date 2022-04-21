@@ -5,7 +5,7 @@ use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
-    NonEmptyItems, Params, Parenthesized, TupleLike, UnaryOpLike,
+    NonEmptyItems, Params, Parenthesized, RecordFieldsLike, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
@@ -188,11 +188,21 @@ pub struct MapType(MapLike<Type>);
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken] `::` [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct RecordType {
     sharp: SharpSymbol,
     name: AtomToken,
-    fields: TupleLike<RecordItem>,
+    fields: RecordFieldsLike<RecordItem>,
+}
+
+impl Format for RecordType {
+    fn format(&self, fmt: &mut Formatter) {
+        self.sharp.format(fmt);
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.name.format(fmt);
+            self.fields.format(fmt);
+        });
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
@@ -315,14 +325,17 @@ mod tests {
     fn record_works() {
         let texts = [
             "#foo{}",
-            "#foo{bar :: atom()}",
             indoc::indoc! {"
             %---10---|%---20---|
-            #foo{bar ::
-                     integer()}"},
+            #foo{
+               bar :: integer()
+              }"},
             indoc::indoc! {"
-            #foo{bar :: b,
-                 baz :: 2}"},
+            %---10---|%---20---|
+            #foo{
+               bar :: b,
+               baz :: 2
+              }"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
