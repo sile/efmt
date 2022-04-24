@@ -356,6 +356,33 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
+pub struct RecordLike<Prefix, Field, const FIELDS_OFFSET: usize = 0> {
+    prefix: Prefix,
+    fields: RecordFieldsLike<Field>,
+}
+
+impl<Prefix, Field, const FIELDS_OFFSET: usize> RecordLike<Prefix, Field, FIELDS_OFFSET> {
+    pub(crate) fn new(prefix: Prefix, fields: RecordFieldsLike<Field>) -> Self {
+        Self { prefix, fields }
+    }
+}
+
+impl<Prefix, Field, const FIELDS_OFFSET: usize> Format for RecordLike<Prefix, Field, FIELDS_OFFSET>
+where
+    Prefix: Format,
+    Field: Format + Element,
+{
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.prefix.format(fmt);
+            fmt.subregion(Indent::Offset(FIELDS_OFFSET), Newline::Never, |fmt| {
+                self.fields.format(fmt);
+            });
+        })
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 pub struct RecordFieldsLike<T> {
     open: OpenBraceSymbol,
     fields: MaybePackedItems<T, CommaDelimiter, 2>,

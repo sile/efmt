@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, RecordFieldsLike};
+use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, RecordLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
@@ -34,21 +34,9 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordConstructExpr {
-    sharp: SharpSymbol,
-    name: AtomToken,
-    fields: RecordFieldsLike<RecordField>,
-}
-
-impl Format for RecordConstructExpr {
-    fn format(&self, fmt: &mut Formatter) {
-        self.sharp.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.name.format(fmt);
-            self.fields.format(fmt);
-        });
-    }
+    record: RecordLike<(SharpSymbol, AtomToken), RecordField, 1>,
 }
 
 /// `$VALUE` `#` `$NAME` `.` `$FIELD`
@@ -90,19 +78,16 @@ pub struct RecordIndexExpr {
 /// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordUpdateExpr {
-    value: Expr,
-    sharp: SharpSymbol,
-    name: AtomToken,
-    fields: RecordFieldsLike<RecordField>,
+    record: RecordLike<(Expr, (SharpSymbol, AtomToken)), RecordField>,
 }
 
 impl ResumeParse<Expr> for RecordUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
+        let sharp = ts.parse()?;
+        let name = ts.parse()?;
+        let fields = ts.parse()?;
         Ok(Self {
-            value,
-            sharp: ts.parse()?,
-            name: ts.parse()?,
-            fields: ts.parse()?,
+            record: RecordLike::new((value, (sharp, name)), fields),
         })
     }
 }

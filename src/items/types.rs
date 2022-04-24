@@ -5,7 +5,7 @@ use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
-    NonEmptyItems, Params, Parenthesized, RecordFieldsLike, TupleLike, UnaryOpLike,
+    NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike, UnaryOpLike,
 };
 use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
@@ -188,21 +188,9 @@ pub struct MapType(MapLike<Type>);
 ///
 /// - $NAME: [AtomToken]
 /// - $FIELD: [AtomToken] `::` [Type]
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
-    sharp: SharpSymbol,
-    name: AtomToken,
-    fields: RecordFieldsLike<RecordItem>,
-}
-
-impl Format for RecordType {
-    fn format(&self, fmt: &mut Formatter) {
-        self.sharp.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.name.format(fmt);
-            self.fields.format(fmt);
-        });
-    }
+    record: RecordLike<(SharpSymbol, AtomToken), RecordItem, 1>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
