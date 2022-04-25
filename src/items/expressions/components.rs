@@ -13,13 +13,13 @@ use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name> {
+pub(crate) struct FunctionClause<Name, const OFFSET: usize = 4> {
     name: Name,
     params: WithArrow<WithGuard<Params<Expr>, Expr>>,
-    body: Body,
+    body: Body<OFFSET>,
 }
 
-impl<Name: Format> FunctionClause<Name> {
+impl<Name: Format, const OFFSET: usize> FunctionClause<Name, OFFSET> {
     pub fn format_maybe_one_line_body(&self, fmt: &mut Formatter) {
         self.name.format(fmt);
         self.params.format(fmt);
@@ -30,26 +30,26 @@ impl<Name: Format> FunctionClause<Name> {
         );
     }
 
-    pub fn body(&self) -> &Body {
+    pub fn body(&self) -> &Body<OFFSET> {
         &self.body
     }
 }
 
 /// ([Expr], `,`?)+
 #[derive(Debug, Clone, Span, Parse)]
-pub struct Body {
+pub struct Body<const OFFSET: usize = 4> {
     exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
 
-impl Body {
+impl<const OFFSET: usize> Body<OFFSET> {
     pub(crate) fn exprs(&self) -> &[Expr] {
         self.exprs.items()
     }
 }
 
-impl Format for Body {
+impl<const OFFSET: usize> Format for Body<OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
+        fmt.subregion(Indent::Offset(OFFSET), Newline::Always, |fmt| {
             self.exprs.format_multi_line(fmt)
         });
     }
