@@ -36,10 +36,19 @@ pub struct DefinedFunctionExpr {
 /// - $CLAUSE: `(` ([Expr] `,`?)* `)` (when `$GUARD`)? `->` `$BODY`
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $BODY: ([Expr] `,`)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<Null>,
+    clauses_and_end: FunctionClausesAndEnd<Null, 5>,
+}
+
+impl Format for AnonymousFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.fun.format(fmt);
+            self.clauses_and_end.format(fmt);
+        });
+    }
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -55,9 +64,11 @@ pub struct NamedFunctionExpr {
 
 impl Format for NamedFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        self.fun.format(fmt);
-        fmt.add_space();
-        self.clauses_and_end.format(fmt);
+        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            self.fun.format(fmt);
+            fmt.add_space();
+            self.clauses_and_end.format(fmt);
+        });
     }
 }
 
@@ -71,12 +82,12 @@ impl Format for Fun {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunctionClausesAndEnd<Name> {
-    clauses: Clauses<FunctionClause<Name>>,
+struct FunctionClausesAndEnd<Name, const OFFSET: usize = 4> {
+    clauses: Clauses<FunctionClause<Name, OFFSET>>,
     end: EndKeyword,
 }
 
-impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
+impl<Name: Format, const OFFSET: usize> Format for FunctionClausesAndEnd<Name, OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
         if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
             let clause = &self.clauses.items()[0];
@@ -116,34 +127,34 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             fun(a) ->
-                   a;
+                    a;
                (A) ->
-                   A
+                    A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
             fun({a, b}, C) ->
-                   C;
+                    C;
                (A, B)
                  when is_integer(A);
                       is_atom(B) ->
-                   A
+                    A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
             fun(A) ->
-                   foo(),
-                   bar,
-                   baz(A)
+                    foo(),
+                    bar,
+                    baz(A)
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
             fun(a) ->
-                   foo(),
-                   bar,
-                   baz();
+                    foo(),
+                    bar,
+                    baz();
                (A) ->
-                   A
+                    A
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
