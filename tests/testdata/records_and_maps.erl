@@ -10,7 +10,7 @@
                  a :: integer(),
                  b :: integer(),
                  c :: integer()
-               }.
+                }.
 
 -type bar() :: #{
                  a => integer(),

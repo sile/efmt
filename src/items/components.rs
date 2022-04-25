@@ -192,16 +192,7 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
-            for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-                delimiter.format(fmt);
-                fmt.subregion(
-                    Indent::inherit(),
-                    Newline::IfTooLongOrMultiLineParent,
-                    |fmt| item.format(fmt),
-                );
-            }
+            self.format_items(fmt);
         });
     }
 }
@@ -216,6 +207,19 @@ impl<T: Format, D: Format> NonEmptyItems<T, D> {
                 fmt.subregion(Indent::inherit(), Newline::Always, |fmt| item.format(fmt));
             }
         });
+    }
+
+    fn format_items(&self, fmt: &mut Formatter) {
+        let item = self.items().first().expect("unreachable");
+        fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+        for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
+            delimiter.format(fmt);
+            fmt.subregion(
+                Indent::inherit(),
+                Newline::IfTooLongOrMultiLineParent,
+                |fmt| item.format(fmt),
+            );
+        }
     }
 }
 
@@ -241,11 +245,9 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T, D = CommaDelimiter, const MAX_ONELINE_N: usize = { std::usize::MAX }>(
-    Items<T, D>,
-);
+struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
 
-impl<T: Format, D: Format, const MAX_ONELINE_N: usize> MaybePackedItems<T, D, MAX_ONELINE_N> {
+impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             let item = self.0.items().first().expect("unreachable");
@@ -264,33 +266,11 @@ impl<T: Format, D: Format, const MAX_ONELINE_N: usize> MaybePackedItems<T, D, MA
             }
         });
     }
-
-    fn multiline_format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            let item = self.0.items().first().expect("unreachable");
-            item.format(fmt);
-            for (item, delimiter) in self
-                .0
-                .items()
-                .iter()
-                .skip(1)
-                .zip(self.0.delimiters().iter())
-            {
-                delimiter.format(fmt);
-                fmt.add_newline();
-                item.format(fmt);
-            }
-        });
-    }
 }
 
-impl<T: Format + Element, D: Format, const MAX_ONELINE_N: usize> Format
-    for MaybePackedItems<T, D, MAX_ONELINE_N>
-{
+impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
-        } else if self.0.items().len() > MAX_ONELINE_N {
-            self.multiline_format(fmt);
         } else if self.0.items().iter().all(Element::is_packable) {
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 self.packed_format(fmt)
@@ -313,10 +293,10 @@ pub struct ListLike<T: Element, D = CommaDelimiter> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct TupleLike<T: Element, const MAX_ONELINE_N: usize = { std::usize::MAX }> {
+pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
     tag: Maybe<(AtomToken, CommaDelimiter)>,
-    items: MaybePackedItems<T, CommaDelimiter, MAX_ONELINE_N>,
+    items: MaybePackedItems<T, CommaDelimiter>,
     close: CloseBraceSymbol,
 }
 
@@ -356,18 +336,18 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct RecordLike<Prefix, Field, const FIELDS_OFFSET: usize = 0> {
+pub struct RecordLike<Prefix, Field> {
     prefix: Prefix,
     fields: RecordFieldsLike<Field>,
 }
 
-impl<Prefix, Field, const FIELDS_OFFSET: usize> RecordLike<Prefix, Field, FIELDS_OFFSET> {
+impl<Prefix, Field> RecordLike<Prefix, Field> {
     pub(crate) fn new(prefix: Prefix, fields: RecordFieldsLike<Field>) -> Self {
         Self { prefix, fields }
     }
 }
 
-impl<Prefix, Field, const FIELDS_OFFSET: usize> Format for RecordLike<Prefix, Field, FIELDS_OFFSET>
+impl<Prefix, Field> Format for RecordLike<Prefix, Field>
 where
     Prefix: Format,
     Field: Format + Element,
@@ -375,9 +355,7 @@ where
     fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             self.prefix.format(fmt);
-            fmt.subregion(Indent::Offset(FIELDS_OFFSET), Newline::Never, |fmt| {
-                self.fields.format(fmt);
-            });
+            self.fields.format(fmt);
         })
     }
 }
@@ -385,11 +363,23 @@ where
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RecordFieldsLike<T> {
     open: OpenBraceSymbol,
-    fields: MaybePackedItems<T, CommaDelimiter, 2>,
+    fields: Items<T, CommaDelimiter>,
     close: CloseBraceSymbol,
 }
 
-impl<T: Format + Element> Format for RecordFieldsLike<T> {
+impl<T: Format> RecordFieldsLike<T> {
+    fn format_fields(&self, fmt: &mut Formatter) {
+        if let Some(items) = self.fields.0.get() {
+            if items.items().len() > 2 {
+                items.format_multi_line(fmt);
+            } else {
+                items.format_items(fmt);
+            }
+        }
+    }
+}
+
+impl<T: Format> Format for RecordFieldsLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
         fmt.subregion(Indent::Offset(1), Newline::Never, |fmt| {
@@ -397,7 +387,7 @@ impl<T: Format + Element> Format for RecordFieldsLike<T> {
                 Indent::Offset(1),
                 Newline::IfTooLongOrMultiLineParent,
                 |fmt| {
-                    self.fields.format(fmt);
+                    self.format_fields(fmt);
                 },
             );
 

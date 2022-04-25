@@ -190,7 +190,7 @@ pub struct MapType(MapLike<Type>);
 /// - $FIELD: [AtomToken] `::` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
-    record: RecordLike<(SharpSymbol, AtomToken), RecordItem, 1>,
+    record: RecordLike<(SharpSymbol, AtomToken), RecordItem>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
@@ -316,14 +316,20 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             #foo{
-               bar :: integer()
-              }"},
+              bar :: integer()
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
             #foo{
-               bar :: b,
-               baz :: 2
-              }"},
+              bar :: b,
+              baz :: 2
+             }"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            #foo{
+              bar :: b,
+              baz :: bb()
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);
