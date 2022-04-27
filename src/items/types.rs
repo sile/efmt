@@ -182,7 +182,7 @@ struct TupleItem(Type);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapType(MapLike<Type>);
+pub struct MapType(MapLike<SharpSymbol, Type>);
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -190,7 +190,7 @@ pub struct MapType(MapLike<Type>);
 /// - $FIELD: [AtomToken] `::` [Type]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
-    record: RecordLike<(SharpSymbol, AtomToken), RecordItem, 1>,
+    record: RecordLike<(SharpSymbol, AtomToken), RecordItem>,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
@@ -291,18 +291,24 @@ mod tests {
             "#{a => b, 1 := 2}",
             indoc::indoc! {"
             %---10---|%---20---|
-            #{atom() :=
-                  integer()}"},
+            #{
+              atom() :=
+                  integer()
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #{atom() := {Aaa,
+            #{
+              atom() := {Aaa,
                          bbb,
-                         ccc}}"},
+                         ccc}
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #{a => b,
+            #{
+              a => b,
               1 := 2,
-              atom() := atom()}"},
+              atom() := atom()
+             }"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
@@ -316,14 +322,20 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             #foo{
-               bar :: integer()
-              }"},
+              bar :: integer()
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
             #foo{
-               bar :: b,
-               baz :: 2
-              }"},
+              bar :: b,
+              baz :: 2
+             }"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            #foo{
+              bar :: b,
+              baz :: bb()
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);

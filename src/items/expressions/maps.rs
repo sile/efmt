@@ -1,5 +1,6 @@
 use crate::format::Format;
 use crate::items::components::MapLike;
+use crate::items::symbols::SharpSymbol;
 use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
@@ -8,24 +9,18 @@ use crate::span::Span;
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapConstructExpr(MapLike<Expr>);
+pub struct MapConstructExpr(MapLike<SharpSymbol, Expr>);
 
 /// `$VALUE` `#` `{` (`$ENTRY`, `,`?)* `}`
 ///
 /// - $VALUE: `Expr`
 /// - $ENTRY: `Expr` (`:=` | `=>`) `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapUpdateExpr {
-    value: Expr,
-    map: MapLike<Expr>,
-}
+pub struct MapUpdateExpr(MapLike<(Expr, SharpSymbol), Expr>);
 
 impl ResumeParse<Expr> for MapUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
-        Ok(Self {
-            value,
-            map: ts.parse()?,
-        })
+        Ok(Self(MapLike::new((value, ts.parse()?), ts.parse()?)))
     }
 }
 
@@ -39,9 +34,12 @@ mod tests {
             "#{}",
             indoc::indoc! {"
             %---10---|%---20---|
-            #{1 => 2,
+            #{
+              1 => 2,
               333 => {444, 55},
-              foo => {bar, baz}}"},
+              foo => {666, 777,
+                      888}
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -56,10 +54,10 @@ mod tests {
             "M#{}#{}",
             indoc::indoc! {"
             %---10---|%---20---|
-            (foo())#{1 => 2,
-                     foo :=
-                         {Bar,
-                          baz}}"},
+            (foo())#{
+              1 => 2,
+              foo := {Bar, baz}
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

@@ -36,7 +36,7 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 /// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordConstructExpr {
-    record: RecordLike<(SharpSymbol, AtomToken), RecordField, 1>,
+    record: RecordLike<(SharpSymbol, AtomToken), RecordField>,
 }
 
 /// `$VALUE` `#` `$NAME` `.` `$FIELD`
@@ -118,20 +118,20 @@ mod tests {
             "#foo{}",
             indoc::indoc! {"
             #foo{
-               module = Mod,
-               _ = '_'
-              }"},
+              module = Mod,
+              _ = '_'
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
             #a{b = 1, c = 2}"},
             indoc::indoc! {"
             %---10---|%---20---|
             #foo{
-               bar = 2,
-               baz =
-                   {Bar, baz,
-                    qux}
-              }"},
+              bar = 2,
+              baz =
+                  {Bar, baz,
+                   qux}
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
