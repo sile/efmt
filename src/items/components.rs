@@ -3,7 +3,7 @@ use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
     DoubleRightAngleSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
-    OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol, SharpSymbol,
+    OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::AtomToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -308,13 +308,20 @@ pub struct BitstringLike<T: Element> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapLike<T> {
-    sharp: SharpSymbol,
-    items: TupleLike<MapItem<T>>,
+pub struct MapLike<Prefix, Item> {
+    inner: RecordLike<Prefix, MapItem<Item>>,
+}
+
+impl<Prefix, Item> MapLike<Prefix, Item> {
+    pub fn new(prefix: Prefix, items: RecordFieldsLike<MapItem<Item>>) -> Self {
+        Self {
+            inner: RecordLike::new(prefix, items),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct MapItem<T>(BinaryOpLike<T, MapDelimiter, T>);
+pub struct MapItem<T>(BinaryOpLike<T, MapDelimiter, T>);
 
 impl<T> Element for MapItem<T> {
     fn is_packable(&self) -> bool {

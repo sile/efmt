@@ -182,7 +182,7 @@ struct TupleItem(Type);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapType(MapLike<Type>);
+pub struct MapType(MapLike<SharpSymbol, Type>);
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -291,18 +291,24 @@ mod tests {
             "#{a => b, 1 := 2}",
             indoc::indoc! {"
             %---10---|%---20---|
-            #{atom() :=
-                  integer()}"},
+            #{
+              atom() :=
+                  integer()
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #{atom() := {Aaa,
+            #{
+              atom() := {Aaa,
                          bbb,
-                         ccc}}"},
+                         ccc}
+             }"},
             indoc::indoc! {"
             %---10---|%---20---|
-            #{a => b,
+            #{
+              a => b,
               1 := 2,
-              atom() := atom()}"},
+              atom() := atom()
+             }"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
