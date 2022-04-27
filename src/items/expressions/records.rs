@@ -104,7 +104,7 @@ impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
     }
 
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLongOrMultiLine
+        Newline::IfTooLong
     }
 }
 
@@ -128,9 +128,8 @@ mod tests {
             %---10---|%---20---|
             #foo{
               bar = 2,
-              baz =
-                  {Bar, baz,
-                   qux}
+              baz = {Bar, baz,
+                     qux}
              }"},
         ];
         for text in texts {
