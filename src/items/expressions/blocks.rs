@@ -264,8 +264,7 @@ mod tests {
                 {1, 2} ->
                     3;
                 A when is_integer(A),
-                       A >
-                       100 ->
+                       A > 100 ->
                     A / 10
             end"},
         ];
