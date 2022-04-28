@@ -265,8 +265,9 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     log::info!("{:?} is already formatted correctly.", file);
                     true
                 } else {
-                    let diff = efmt::diff::text_diff(&original, &formatted);
-                    log::info!("{:?} is not formatted correctly.\n{}", file, diff);
+                    let diff = efmt::diff::text_diff(&original, &formatted, file);
+                    println!("{}", diff);
+                    log::info!("{:?} is not formatted correctly.", file);
                     false
                 }
             }
