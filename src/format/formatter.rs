@@ -291,6 +291,7 @@ impl<'a> ItemWriter<'a> {
         let mut allow_multi_line = true;
         let mut allow_too_long_line = true;
         let parent_allow_multi_line = self.writer.is_multi_line_allowed();
+        let mut force_noimprove_newline = false;
         match newline {
             Newline::Always => {
                 needs_newline = true;
@@ -303,12 +304,15 @@ impl<'a> ItemWriter<'a> {
                 allow_too_long_line = false;
                 allow_multi_line = false;
             }
-            Newline::IfTooLongOrMultiLineParent => {
+            Newline::IfTooLongOrMultiLineParent | Newline::IfTooLongOrMultiLineParentForce => {
                 if parent_allow_multi_line {
                     needs_newline = true;
                 } else {
                     allow_too_long_line = false;
                     allow_multi_line = false;
+                }
+                if *newline == Newline::IfTooLongOrMultiLineParentForce {
+                    force_noimprove_newline = true;
                 }
             }
         };
@@ -356,7 +360,9 @@ impl<'a> ItemWriter<'a> {
                 };
 
                 return self.with_subregion(config, |this| {
-                    if needs_newline && indent < this.writer.current_column() {
+                    if needs_newline
+                        && (force_noimprove_newline || indent < this.writer.current_column())
+                    {
                         this.writer.write_newline()?;
                     }
                     this.write_items(items)
@@ -493,6 +499,7 @@ pub enum Newline {
     IfTooLong,
     IfTooLongOrMultiLine,
     IfTooLongOrMultiLineParent,
+    IfTooLongOrMultiLineParentForce,
 }
 
 #[derive(Debug)]

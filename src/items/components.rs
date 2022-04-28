@@ -392,7 +392,7 @@ impl<T: Format> Format for RecordFieldsLike<T> {
         fmt.subregion(Indent::Offset(1), Newline::Never, |fmt| {
             fmt.subregion(
                 Indent::Offset(1),
-                Newline::IfTooLongOrMultiLineParent,
+                Newline::IfTooLongOrMultiLineParentForce,
                 |fmt| {
                     self.format_fields(fmt);
                 },
