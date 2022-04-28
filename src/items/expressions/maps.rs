@@ -40,6 +40,12 @@ mod tests {
               foo => {666, 777,
                       888}
              }"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            #{
+              1 => 2,
+              333 => {444, 55}
+             }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
