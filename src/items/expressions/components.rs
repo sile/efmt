@@ -226,6 +226,8 @@ impl BinaryOpStyle<Expr> for BinaryOp {
                 | Self::GreaterEq(_)
         ) {
             Newline::Never
+        } else if rhs.is_parenthesized() && !is_macro_expanded() {
+            Newline::IfTooLongOrMultiLine
         } else {
             Newline::IfTooLong
         }

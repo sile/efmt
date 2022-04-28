@@ -65,4 +65,8 @@ impl Expr {
     pub(crate) fn is_block(&self) -> bool {
         self.0.is_block()
     }
+
+    pub(crate) fn is_parenthesized(&self) -> bool {
+        self.0.is_parenthesized()
+    }
 }

@@ -158,6 +158,10 @@ impl FullExpr {
     pub fn is_block(&self) -> bool {
         matches!(self, Self::Base(BaseExpr::Block(_)))
     }
+
+    pub fn is_parenthesized(&self) -> bool {
+        matches!(self, Self::Base(BaseExpr::Parenthesized(_)))
+    }
 }
 
 impl Element for FullExpr {
