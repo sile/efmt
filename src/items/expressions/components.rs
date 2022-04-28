@@ -213,8 +213,21 @@ impl BinaryOpStyle<Expr> for BinaryOp {
 
         if rhs.is_block() && !is_macro_expanded() {
             Newline::Always
-        } else if matches!(self, Self::Send(_)) {
+        } else if matches!(
+            self,
+            Self::Send(_)
+                | Self::ExactEq(_)
+                | Self::Eq(_)
+                | Self::ExactNotEq(_)
+                | Self::NotEq(_)
+                | Self::Less(_)
+                | Self::LessEq(_)
+                | Self::Greater(_)
+                | Self::GreaterEq(_)
+        ) {
             Newline::Never
+        } else if rhs.is_parenthesized() && !is_macro_expanded() {
+            Newline::IfTooLongOrMultiLine
         } else {
             Newline::IfTooLong
         }
