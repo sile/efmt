@@ -265,13 +265,13 @@ impl<'a> ItemWriter<'a> {
         if token.is_trailing_comment() {
             self.writer.write_trailing_comment(self.text, token)
         } else {
-            self.writer.write_span(self.text, token)
+            self.writer.write_span(self.text, token, token.is_comment())
         }
     }
 
     fn write_span(&mut self, start_position: Position, end_position: Position) -> Result<()> {
         self.writer
-            .write_span(self.text, &(start_position, end_position))
+            .write_span(self.text, &(start_position, end_position), false)
     }
 
     fn write_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) -> Result<()> {

@@ -99,6 +99,10 @@ impl VisibleToken {
             false
         }
     }
+
+    pub fn is_comment(&self) -> bool {
+        matches!(self, Self::Comment(_))
+    }
 }
 
 macro_rules! impl_traits {

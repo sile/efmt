@@ -102,10 +102,13 @@ impl Writer {
         }
     }
 
-    pub fn write_span(&mut self, text: &str, span: &impl Span) -> Result<()> {
+    pub fn write_span(&mut self, text: &str, span: &impl Span, is_comment: bool) -> Result<()> {
         let start = span.start_position();
         let end = span.end_position();
-        let text = &text[start.offset()..end.offset()];
+        let mut text = &text[start.offset()..end.offset()];
+        if is_comment {
+            text = text.trim_end();
+        }
         if text.is_empty() {
             return Ok(());
         }
@@ -146,7 +149,7 @@ impl Writer {
         }
 
         self.write("  ", true)?;
-        self.write(text, true)?;
+        self.write(text.trim_end(), true)?;
         self.region.next_position = end;
         Ok(())
     }
