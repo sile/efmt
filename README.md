@@ -55,7 +55,7 @@ Installation
 Just add the following line to your `rebar.config`.
 
 ```erlang
-{plugins, [rebar3_efmt]}.
+{project_plugins, [rebar3_efmt]}.
 ```
 
 Then, you can run the `$ rebar3 efmt` command.
