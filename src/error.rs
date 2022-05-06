@@ -1,4 +1,5 @@
 use crate::span::Position;
+use std::fmt::Write as _;
 use std::path::Path;
 
 pub fn generate_error_message<P: AsRef<Path>>(
@@ -16,16 +17,17 @@ pub fn generate_error_message<P: AsRef<Path>>(
     let line_string = get_line_string(text, position);
 
     let mut m = String::new();
-    m.push_str(&format!("\n--> {}:{}:{}\n", file, line, column));
-    m.push_str(&format!("{} | {}\n", line, line_string));
-    m.push_str(&format!(
-        "{:line_width$} | {:>token_column$} {}",
+    writeln!(m, "\n--> {file}:{line}:{column}").expect("unreachable");
+    writeln!(m, "{line} | {line_string}").expect("unreachable");
+    write!(
+        m,
+        "{:line_width$} | {:>token_column$} {reason}",
         "",
         "^",
-        reason,
         line_width = line.to_string().len(),
         token_column = column
-    ));
+    )
+    .expect("unreachable");
     m
 }
 
