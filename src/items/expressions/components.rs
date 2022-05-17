@@ -80,7 +80,9 @@ impl<RHS> BinaryOpStyle<RHS> for GeneratorDelimiter {
 #[derive(Debug, Clone, Span, Parse)]
 pub(crate) struct ComprehensionExpr<Open, Close> {
     open: Open,
-    body: BinaryOpLike<Expr, ComprehensionDelimiter, NonEmptyItems<Qualifier>>,
+    value: Expr,
+    delimiter: DoubleVerticalBarSymbol,
+    qualifiers: NonEmptyItems<Qualifier>,
     close: Close,
 }
 
@@ -90,24 +92,19 @@ impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
             self.open.format(fmt);
             fmt.add_space();
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                self.body.format(fmt)
+                self.value.format(fmt);
+                fmt.add_space();
+                fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
+                    self.delimiter.format(fmt);
+                    fmt.add_space();
+                    fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                        self.qualifiers.format(fmt);
+                    });
+                });
             });
             fmt.add_space();
             self.close.format(fmt);
         });
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct ComprehensionDelimiter(DoubleVerticalBarSymbol);
-
-impl<RHS> BinaryOpStyle<RHS> for ComprehensionDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::ParentOffset(4)
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLongOrMultiLine
     }
 }
 
