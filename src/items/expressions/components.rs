@@ -88,9 +88,11 @@ impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
             self.open.format(fmt);
+            fmt.add_space();
             fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
                 self.body.format(fmt)
             });
+            fmt.add_space();
             self.close.format(fmt);
         });
     }

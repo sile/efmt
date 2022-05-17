@@ -122,29 +122,30 @@ mod tests {
         let texts = [
             indoc::indoc! {"
             %---10---|%---20---|
-            <<<<X>> ||
-                X <- [1, 2, 3]>>"},
+            << <<X>> ||
+                X <- [1, 2,
+                      3] >>"},
             indoc::indoc! {"
             %---10---|%---20---|
-            <<(foo(X,
-                   Y,
-                   Z,
-                   bar(),
-                   baz())) ||
+            << (foo(X,
+                    Y,
+                    Z,
+                    bar(),
+                    baz())) ||
                 X <- [1, 2, 3,
                       4, 5],
                 Y <= Z,
-                false>>"},
+                false >>"},
             indoc::indoc! {"
             %---10---|%---20---|
-            <<<<if
-                    X < 10 ->
-                        X + $0;
-                    true ->
-                        X - 10 +
-                        $A
-                end>> ||
-                <<X:4>> <= B>>"},
+            << <<if
+                     X < 10 ->
+                         X + $0;
+                     true ->
+                         X -
+                         10 + $A
+                 end>> ||
+                <<X:4>> <= B >>"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
