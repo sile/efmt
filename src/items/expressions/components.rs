@@ -1,6 +1,6 @@
 use crate::format::{Format, Formatter, Indent, Newline};
 use crate::items::components::{
-    BinaryOpLike, BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
+    BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
 };
 use crate::items::keywords;
 use crate::items::symbols::{
@@ -61,21 +61,31 @@ impl<const OFFSET: usize> Format for Body<OFFSET> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Qualifier(Either<Generator, Expr>);
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct Generator(BinaryOpLike<Expr, GeneratorDelimiter, Expr>);
+#[derive(Debug, Clone, Span, Parse)]
+struct Generator {
+    pattern: Expr,
+    delimiter: GeneratorDelimiter,
+    sequence: Expr,
+}
+
+impl Format for Generator {
+    fn format(&self, fmt: &mut Formatter) {
+        self.pattern.format(fmt);
+        fmt.add_space();
+        fmt.subregion(
+            Indent::CurrentColumnOrOffset(4),
+            Newline::IfTooLong,
+            |fmt| {
+                self.delimiter.format(fmt);
+                fmt.add_space();
+                self.sequence.format(fmt);
+            },
+        );
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
-
-impl<RHS> BinaryOpStyle<RHS> for GeneratorDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(4)
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::Never
-    }
-}
 
 #[derive(Debug, Clone, Span, Parse)]
 pub(crate) struct ComprehensionExpr<Open, Close> {

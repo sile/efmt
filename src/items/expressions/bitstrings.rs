@@ -145,7 +145,8 @@ mod tests {
                          X -
                          10 + $A
                  end>>
-               || <<X:4>> <= B >>"},
+               || <<X:4>>
+                      <= B >>"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
