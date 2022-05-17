@@ -278,6 +278,14 @@ impl<'a> ItemWriter<'a> {
         let indent = match indent {
             Indent::Offset(n) => self.writer.current_indent() + n,
             Indent::ParentOffset(n) => self.writer.parent_indent() + n,
+            Indent::CurrentColumnOrOffset(n) => {
+                let column = if self.writer.current_column() == 0 {
+                    self.writer.current_indent()
+                } else {
+                    self.writer.current_column()
+                };
+                std::cmp::min(column, self.writer.current_indent() + n)
+            }
             Indent::CurrentColumn => {
                 if self.writer.current_column() == 0 {
                     self.writer.current_indent()
@@ -483,6 +491,7 @@ pub enum Indent {
     CurrentColumn,
     Offset(usize),
     ParentOffset(usize),
+    CurrentColumnOrOffset(usize),
     Absolute(usize),
 }
 

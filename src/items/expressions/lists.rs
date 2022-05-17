@@ -101,18 +101,19 @@ mod tests {
         let texts = [
             indoc::indoc! {"
             %---10---|%---20---|
-            [X || X <- [1, 2]]"},
+            [ X || X <- [1, 2] ]"},
             indoc::indoc! {"
             %---10---|%---20---|
-            [X ||
-                X <- [1, 2, 3]]"},
+            [ X
+              || X <- [1, 2,
+                       3] ]"},
             indoc::indoc! {"
             %---10---|%---20---|
-            [[X, Y] ||
-                X <- [1, 2, 3,
-                      4, 5],
-                Y <= Z,
-                false]"},
+            [ [X, Y]
+              || X <- [1, 2, 3,
+                       4, 5],
+                 Y <= Z,
+                 false ]"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
