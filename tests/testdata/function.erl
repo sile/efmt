@@ -10,3 +10,12 @@ foo() ->
                        hello,
                        ok
                end.
+
+
+bar() ->
+    fun() ->
+            fun() ->
+                    hello,
+                    world
+            end
+    end.
