@@ -24,7 +24,7 @@ impl<Name: Format, const OFFSET: usize> FunctionClause<Name, OFFSET> {
         self.name.format(fmt);
         self.params.format(fmt);
         fmt.subregion(
-            Indent::Offset(4),
+            Indent::Offset(OFFSET),
             Newline::IfTooLongOrMultiLineParent,
             |fmt| self.body.exprs.format(fmt),
         );
