@@ -38,11 +38,7 @@ impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
     }
 
     fn needs_spaces(&self) -> bool {
-        if matches!(self, Self::Range(_)) {
-            false
-        } else {
-            true
-        }
+        !matches!(self, Self::Range(_))
     }
 }
 
