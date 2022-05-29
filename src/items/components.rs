@@ -521,7 +521,7 @@ impl<T: Format, D: Format> Format for Guard<T, D> {
             fmt.add_space();
             self.when.format(fmt);
             fmt.add_space();
-            self.conditions.format(fmt);
+            self.conditions.format_multi_line(fmt);
         });
     }
 }

@@ -41,3 +41,10 @@ baz()
         jjj) orelse
        kkk ->
     ok.
+
+
+qux()
+  when aaa,
+       bbb;
+       ccc ->
+    ok.

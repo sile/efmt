@@ -521,7 +521,9 @@ mod tests {
             indoc::indoc! {"
             %---10---|%---20---|
             foo(A)
-              when a, b; c ->
+              when a,
+                   b;
+                   c ->
                 d."},
             indoc::indoc! {"
             foo(A)
