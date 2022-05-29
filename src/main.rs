@@ -73,11 +73,6 @@ struct Opt {
     /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
     #[clap(long)]
     default_off: bool,
-
-    /// Enable profiling by `pprof`. The profile report will be generated in `flamegraph.svg`.
-    #[cfg(feature = "pprof")]
-    #[clap(long)]
-    profile: bool,
 }
 
 impl Opt {
@@ -125,10 +120,6 @@ fn main() -> anyhow::Result<()> {
     let loglevel = if opt.verbose { "debug" } else { "info" };
     env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
 
-    #[cfg(feature = "pprof")]
-    if opt.profile {
-        return efmt::profile::with_profile(|| main_with_opt(opt));
-    }
     main_with_opt(opt)
 }
 
