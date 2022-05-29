@@ -237,7 +237,10 @@ impl BinaryOpStyle<Expr> for BinaryOp {
             Newline::Never
         } else if matches!(self, Self::Andalso(_) | Self::Orelse(_)) {
             Newline::IfTooLongOrMultiLineParent
-        } else if rhs.is_parenthesized() && !is_macro_expanded() {
+        } else if (rhs.is_parenthesized()
+            || matches!(self, Self::PlusPlus(_) | Self::MinusMinus(_)))
+            && !is_macro_expanded()
+        {
             Newline::IfTooLongOrMultiLine
         } else {
             Newline::IfTooLong
