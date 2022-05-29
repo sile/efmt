@@ -383,7 +383,7 @@ mod tests {
             %---10---|%---20---|
             foo |
             (3 + 10) |
-            -1 .. +20"},
+            -1..+20"},
         ];
         for text in texts {
             crate::assert_format!(text, Type);

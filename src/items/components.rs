@@ -441,6 +441,10 @@ pub trait BinaryOpStyle<RHS> {
     fn indent(&self) -> Indent;
 
     fn newline(&self, rhs: &RHS, fmt: &Formatter) -> Newline;
+
+    fn needs_spaces(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -470,9 +474,13 @@ impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike
     fn format(&self, fmt: &mut Formatter) {
         self.left.format(fmt);
 
-        fmt.add_space();
-        self.op.format(fmt);
-        fmt.add_space();
+        if self.op.needs_spaces() {
+            fmt.add_space();
+            self.op.format(fmt);
+            fmt.add_space();
+        } else {
+            self.op.format(fmt);
+        }
 
         let indent = self.op.indent();
         let newline = self.op.newline(&self.right, fmt);

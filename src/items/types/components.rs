@@ -36,6 +36,10 @@ impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
         Newline::IfTooLong
     }
+
+    fn needs_spaces(&self) -> bool {
+        !matches!(self, Self::Range(_))
+    }
 }
 
 /// `+` | `-` | `bnot`
