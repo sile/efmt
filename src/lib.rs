@@ -8,8 +8,6 @@ pub mod files;
 pub mod format;
 pub mod items;
 pub mod parse;
-#[cfg(feature = "pprof")]
-pub mod profile;
 pub mod span;
 
 pub(crate) mod erl;

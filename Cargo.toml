@@ -23,7 +23,6 @@ serde_json = "1"
 similar = { version= "2", features = ["inline"] }
 tempfile = "3"
 thiserror = "1"
-pprof = { version="0.8", features = ["flamegraph"], optional=true }
 
 [dev-dependencies]
 indoc = "1"
