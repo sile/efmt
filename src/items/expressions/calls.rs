@@ -103,7 +103,10 @@ fn format_op_and_right<'a>(
     let newline = op.newline(right, fmt);
 
     if let FullExpr::BinaryOpCall(x) = &right.0 {
-        if matches!(x.0.op, BinaryOp::Andalso(_) | BinaryOp::Orelse(_)) {
+        if indent != Indent::inherit() {
+            fmt.subregion(indent, newline, |fmt| right.format(fmt));
+            None
+        } else if matches!(x.0.op, BinaryOp::Andalso(_) | BinaryOp::Orelse(_)) {
             fmt.subregion(indent, newline, |fmt| x.0.left.format(fmt));
             Some((&x.0.op, &x.0.right))
         } else {
