@@ -151,8 +151,12 @@ pub struct TryExpr {
 impl Format for TryExpr {
     fn format(&self, fmt: &mut Formatter) {
         self.r#try.format(fmt);
-        self.body.format(fmt);
-        fmt.add_newline();
+        if self.clauses.get().is_some() && self.body.exprs().len() == 1 {
+            self.body.exprs()[0].format(fmt);
+        } else {
+            self.body.format(fmt);
+            fmt.add_newline();
+        }
         self.clauses.format(fmt);
         fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
             self.catch.format(fmt)
@@ -377,8 +381,23 @@ mod tests {
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
+            try X of
+                {_, _} ->
+                    1;
+                [_, _] ->
+                    2
+            catch
+                _:E:Stacktrace
+                  when is_atom(E) ->
+                    foo
+            after
+                bar
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
             try
-                X
+                X,
+                Y
             of
                 {_, _} ->
                     1;
