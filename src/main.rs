@@ -139,12 +139,12 @@ impl Opt {
                     (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
                         if key == "erl_opts" =>
                     {
-                        self.handle_rebar_config_erl_opts(&items, &rebar_config_dir);
+                        self.handle_rebar_config_erl_opts(items, &rebar_config_dir);
                     }
                     (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
                         if key == "efmt" =>
                     {
-                        self.handle_rebar_config_efmt(&items, &rebar_config_dir);
+                        self.handle_rebar_config_efmt(items, &rebar_config_dir);
                     }
                     _ => {}
                 }
@@ -175,7 +175,7 @@ impl Opt {
     fn handle_rebar_config_erl_opts(
         &mut self,
         items: &[RebarConfigValue],
-        rebar_config_dir: &PathBuf,
+        rebar_config_dir: &Path,
     ) {
         for item in items {
             if let RebarConfigValue::Tuple(kv) = item {
@@ -193,7 +193,7 @@ impl Opt {
         }
     }
 
-    fn handle_rebar_config_efmt(&mut self, items: &[RebarConfigValue], rebar_config_dir: &PathBuf) {
+    fn handle_rebar_config_efmt(&mut self, items: &[RebarConfigValue], rebar_config_dir: &Path) {
         let matches = Self::command().get_matches();
         for item in items {
             log::debug!("found an efmt option in rebar.config: {item:?}");
