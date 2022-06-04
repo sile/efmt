@@ -19,6 +19,12 @@ pub enum ListExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListConstructExpr(ListLike<Expr, ListItemDelimiter>);
 
+impl ListConstructExpr {
+    pub(crate) fn items(&self) -> &[Expr] {
+        self.0.items()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 enum ListItemDelimiter {
     Comma(CommaSymbol),

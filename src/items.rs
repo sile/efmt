@@ -1,5 +1,6 @@
 use crate::format::Format;
 use crate::items::components::{Either, Element};
+use crate::items::tokens::AtomToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -68,5 +69,64 @@ impl Expr {
 
     pub(crate) fn is_parenthesized(&self) -> bool {
         self.0.is_parenthesized()
+    }
+
+    pub(crate) fn as_atom(&self) -> Option<&str> {
+        if let self::expressions::FullExpr::Base(x) = &self.0 {
+            if let self::expressions::BaseExpr::Literal(x) = x {
+                if let self::expressions::LiteralExpr::Atom(x) = x {
+                    return Some(x.value());
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_string(&self) -> Option<&str> {
+        if let self::expressions::FullExpr::Base(x) = &self.0 {
+            if let self::expressions::BaseExpr::Literal(x) = x {
+                if let self::expressions::LiteralExpr::String(x) = x {
+                    if x.tokens().len() == 1 {
+                        return Some(x.tokens()[0].value());
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_u32(&self, text: &str) -> Option<u32> {
+        if let self::expressions::FullExpr::Base(x) = &self.0 {
+            if let self::expressions::BaseExpr::Literal(x) = x {
+                if let self::expressions::LiteralExpr::Integer(x) = x {
+                    if let Ok(x) =
+                        text[x.start_position().offset()..x.end_position().offset()].parse()
+                    {
+                        return Some(x);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_list(&self) -> Option<&[Expr]> {
+        if let self::expressions::FullExpr::Base(x) = &self.0 {
+            if let self::expressions::BaseExpr::List(x) = x {
+                if let self::expressions::ListExpr::Construct(x) = &**x {
+                    return Some(x.items());
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_tuple(&self) -> Option<(Option<&AtomToken>, &[Expr])> {
+        if let self::expressions::FullExpr::Base(x) = &self.0 {
+            if let self::expressions::BaseExpr::Tuple(x) = x {
+                return Some(x.items());
+            }
+        }
+        None
     }
 }

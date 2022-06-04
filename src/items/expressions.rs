@@ -2,7 +2,6 @@
 use self::bitstrings::BitstringExpr;
 use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
-use self::lists::ListExpr;
 use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::Format;
 use crate::items::components::{Either, Element, Parenthesized};
@@ -26,6 +25,8 @@ mod maps;
 mod records;
 mod strings;
 mod tuples;
+
+pub(crate) use self::lists::ListExpr;
 
 pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
 pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};

@@ -8,6 +8,12 @@ use crate::span::{Position, Span};
 #[derive(Debug, Clone)]
 pub struct StringExpr(Vec<StringToken>);
 
+impl StringExpr {
+    pub(crate) fn tokens(&self) -> &[StringToken] {
+        &self.0
+    }
+}
+
 impl Span for StringExpr {
     fn start_position(&self) -> Position {
         self.0[0].start_position()
