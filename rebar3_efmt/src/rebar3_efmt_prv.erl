@@ -28,7 +28,7 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     ok = ensure_efmt_installed(),
-    Args0 = rebar_state:command_args(State),
+    Args0 = rebar_state:command_args(State) ++ ["--disable-rebar3-efmt-mode"],
     Args1 = [case Entry of
                  {K, V} ->
                      atom_to_arg_key(K) ++ "=" ++ term_to_arg_value(V);

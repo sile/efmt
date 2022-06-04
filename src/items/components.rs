@@ -247,6 +247,12 @@ impl<T, D> Items<T, D> {
 #[derive(Debug, Clone, Span, Parse)]
 struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
 
+impl<T, D> MaybePackedItems<T, D> {
+    pub(crate) fn items(&self) -> &[T] {
+        self.0.items()
+    }
+}
+
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {
         fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
@@ -292,12 +298,24 @@ pub struct ListLike<T: Element, D = CommaDelimiter> {
     close: CloseSquareSymbol,
 }
 
+impl<T: Element, D> ListLike<T, D> {
+    pub(crate) fn items(&self) -> &[T] {
+        self.items.items()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
     tag: Maybe<(AtomToken, CommaDelimiter)>,
     items: MaybePackedItems<T, CommaDelimiter>,
     close: CloseBraceSymbol,
+}
+
+impl<T: Element> TupleLike<T> {
+    pub(crate) fn items(&self) -> (Option<&AtomToken>, &[T]) {
+        (self.tag.get().map(|(x, _)| x), self.items.items())
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]

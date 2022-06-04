@@ -1,5 +1,7 @@
 use crate::format::Format;
 use crate::items::components::{Either, Element};
+use crate::items::expressions::{BaseExpr, FullExpr, ListExpr, LiteralExpr};
+use crate::items::tokens::AtomToken;
 use crate::parse::Parse;
 use crate::span::Span;
 
@@ -55,10 +57,10 @@ impl Element for Type {
 
 /// One of [expressions].
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
-pub struct Expr(self::expressions::FullExpr);
+pub struct Expr(FullExpr);
 
 impl Expr {
-    pub(crate) fn get(&self) -> &self::expressions::FullExpr {
+    pub(crate) fn get(&self) -> &FullExpr {
         &self.0
     }
 
@@ -68,5 +70,47 @@ impl Expr {
 
     pub(crate) fn is_parenthesized(&self) -> bool {
         self.0.is_parenthesized()
+    }
+
+    pub(crate) fn as_atom(&self) -> Option<&str> {
+        if let FullExpr::Base(BaseExpr::Literal(LiteralExpr::Atom(x))) = &self.0 {
+            Some(x.value())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn as_string(&self) -> Option<&str> {
+        if let FullExpr::Base(BaseExpr::Literal(LiteralExpr::String(x))) = &self.0 {
+            if x.tokens().len() == 1 {
+                return Some(x.tokens()[0].value());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_u32(&self, text: &str) -> Option<u32> {
+        if let FullExpr::Base(BaseExpr::Literal(LiteralExpr::Integer(x))) = &self.0 {
+            if let Ok(x) = text[x.start_position().offset()..x.end_position().offset()].parse() {
+                return Some(x);
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_list(&self) -> Option<&[Expr]> {
+        if let FullExpr::Base(BaseExpr::List(x)) = &self.0 {
+            if let ListExpr::Construct(x) = &**x {
+                return Some(x.items());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn as_tuple(&self) -> Option<(Option<&AtomToken>, &[Expr])> {
+        if let FullExpr::Base(BaseExpr::Tuple(x)) = &self.0 {
+            return Some(x.items());
+        }
+        None
     }
 }

@@ -1,5 +1,6 @@
 use crate::format::Format;
 use crate::items::components::TupleLike;
+use crate::items::tokens::AtomToken;
 use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
@@ -7,6 +8,12 @@ use crate::span::Span;
 /// `{` ([Expr] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleExpr(TupleLike<Expr>);
+
+impl TupleExpr {
+    pub(crate) fn items(&self) -> (Option<&AtomToken>, &[Expr]) {
+        self.0.items()
+    }
+}
 
 #[cfg(test)]
 mod tests {

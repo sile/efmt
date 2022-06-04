@@ -1,5 +1,78 @@
+use crate::items::{Config, Expr};
+use crate::parse::{IncludeOptions, TokenStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+pub fn find_rebar_config_dir() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    while !dir.join("rebar.config").exists() {
+        dir = dir.parent()?.to_path_buf();
+    }
+    Some(dir)
+}
+
+pub fn load_rebar_config<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<RebarConfigValue>> {
+    let text = std::fs::read_to_string(&path)?;
+    let mut tokenizer = erl_tokenize::Tokenizer::new(text);
+    tokenizer.set_filepath(path);
+    let mut ts = TokenStream::new(tokenizer, IncludeOptions::new().disable_include());
+    let config: Config = ts.parse()?;
+
+    let mut values = Vec::new();
+    for expr in config.exprs() {
+        if let Some(x) = RebarConfigValue::from_expr(expr, &ts.text()) {
+            values.push(x);
+        }
+    }
+    Ok(values)
+}
+
+#[derive(Debug, Clone)]
+pub enum RebarConfigValue {
+    Atom(String),
+    String(String),
+    Integer(u32),
+    List(Vec<Self>),
+    Tuple(Vec<Self>),
+}
+
+impl RebarConfigValue {
+    pub fn as_kv_tuple(&self) -> Option<(&str, &Self)> {
+        if let Self::Tuple(kv) = self {
+            if kv.len() == 2 {
+                if let Self::Atom(k) = &kv[0] {
+                    return Some((k.as_str(), &kv[1]));
+                }
+            }
+        }
+        None
+    }
+}
+
+impl RebarConfigValue {
+    fn from_expr(expr: &Expr, text: &str) -> Option<Self> {
+        if let Some(x) = expr.as_atom() {
+            Some(Self::Atom(x.to_owned()))
+        } else if let Some(x) = expr.as_string() {
+            Some(Self::String(x.to_owned()))
+        } else if let Some(x) = expr.as_u32(text) {
+            Some(Self::Integer(x))
+        } else if let Some(xs) = expr.as_list() {
+            Some(Self::List(
+                xs.iter().filter_map(|x| Self::from_expr(x, text)).collect(),
+            ))
+        } else if let Some((tag, xs)) = expr.as_tuple() {
+            Some(Self::Tuple(
+                tag.iter()
+                    .map(|tag| Self::Atom(tag.value().to_owned()))
+                    .chain(xs.iter().filter_map(|x| Self::from_expr(x, text)))
+                    .collect(),
+            ))
+        } else {
+            None
+        }
+    }
+}
 
 pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
     let current_dir = std::env::current_dir()?;

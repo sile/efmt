@@ -1,11 +1,14 @@
 use anyhow::Context;
 use clap::{CommandFactory as _, Parser};
+use efmt::files::RebarConfigValue;
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+
+const DEFAULT_CACHE_DIR: &str = ".efmt/cache";
 
 /// Erlang Code Formatter.
 #[derive(Debug, Parser)]
@@ -61,9 +64,10 @@ struct Opt {
     #[clap(long)]
     disable_include: bool,
 
-    /// Where to save the caches for the macro definitions collected during processing `-include` or `-include_lib` directives.
-    #[clap(long, default_value = ".efmt/cache")]
-    include_cache_dir: PathBuf,
+    /// Where to save the caches for the macro definitions collected during processing `-include` or `-include_lib` directives
+    /// [default: .efmt/cache]
+    #[clap(long)]
+    include_cache_dir: Option<PathBuf>,
 
     /// Disables include cache.
     #[clap(long)]
@@ -73,6 +77,10 @@ struct Opt {
     /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
     #[clap(long)]
     default_off: bool,
+
+    /// Disables mimicking the behavior of `rebar3 efmt`.
+    #[clap(long)]
+    disable_rebar3_efmt_mode: bool,
 }
 
 impl Opt {
@@ -101,7 +109,11 @@ impl Opt {
             .include_dirs(self.include_dirs.clone());
 
         if !self.disable_include_cache {
-            format_options = format_options.include_cache_dir(self.include_cache_dir.clone());
+            format_options = format_options.include_cache_dir(
+                self.include_cache_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from(DEFAULT_CACHE_DIR)),
+            );
         }
         if self.disable_include {
             format_options = format_options.disable_include();
@@ -112,18 +124,150 @@ impl Opt {
 
         format_options
     }
+
+    fn enable_rebar3_efmt_mode(&mut self, rebar_config_dir: PathBuf) -> anyhow::Result<()> {
+        // rebar.config
+        let rebar_config_path = rebar_config_dir.join("rebar.config");
+        for value in efmt::files::load_rebar_config(&rebar_config_path)
+            .with_context(|| format!("failed to load rebar.config file: {rebar_config_path:?}"))?
+        {
+            if let RebarConfigValue::Tuple(item) = value {
+                if item.len() != 2 {
+                    continue;
+                }
+                match (&item[0], &item[1]) {
+                    (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
+                        if key == "erl_opts" =>
+                    {
+                        self.handle_rebar_config_erl_opts(items, &rebar_config_dir);
+                    }
+                    (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
+                        if key == "efmt" =>
+                    {
+                        self.handle_rebar_config_efmt(items, &rebar_config_dir);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // ERL_LIBS
+        let libs_path = rebar_config_dir.join("_build/default/lib/");
+        if let Some(paths) = std::env::var_os("ERL_LIBS") {
+            let paths = std::env::split_paths(&paths).chain(std::iter::once(libs_path));
+            let paths = std::env::join_paths(paths)?;
+            std::env::set_var("ERL_LIBS", paths);
+        } else {
+            std::env::set_var("ERL_LIBS", libs_path);
+        }
+        if let Some(paths) = std::env::var_os("ERL_LIBS") {
+            log::debug!("set 'ERL_LIBS' envvar to {paths:?}");
+        }
+
+        // include cache dir
+        if self.include_cache_dir.is_none() {
+            self.include_cache_dir = Some(rebar_config_dir.join(DEFAULT_CACHE_DIR));
+        }
+
+        Ok(())
+    }
+
+    fn handle_rebar_config_erl_opts(
+        &mut self,
+        items: &[RebarConfigValue],
+        rebar_config_dir: &Path,
+    ) {
+        for item in items {
+            if let RebarConfigValue::Tuple(kv) = item {
+                if kv.len() != 2 {
+                    continue;
+                }
+                match (&kv[0], &kv[1]) {
+                    (RebarConfigValue::Atom(k), RebarConfigValue::String(v)) if k == "i" => {
+                        log::debug!("found `{{i, {v:?}}}` in rebar.config");
+                        self.include_dirs.push(rebar_config_dir.join(v));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    fn handle_rebar_config_efmt(&mut self, items: &[RebarConfigValue], rebar_config_dir: &Path) {
+        let matches = Self::command().get_matches();
+        for item in items {
+            log::debug!("found an efmt option in rebar.config: {item:?}");
+            if let RebarConfigValue::Atom(k) = item {
+                match k.as_str() {
+                    "parallel" => {
+                        self.parallel = true;
+                        continue;
+                    }
+                    "disable_include" => {
+                        self.disable_include = true;
+                        continue;
+                    }
+                    "disable_include_cache" => {
+                        self.disable_include_cache = true;
+                        continue;
+                    }
+                    "default_off" => {
+                        self.default_off = true;
+                        continue;
+                    }
+                    _ => {}
+                }
+            } else if let Some((k, v)) = item.as_kv_tuple() {
+                match k {
+                    "print_width" => {
+                        if let RebarConfigValue::Integer(v) = v {
+                            if matches.occurrences_of("print-width") == 0 {
+                                self.print_width = *v as usize;
+                            } else {
+                                log::debug!("ignored {k:?} option in rebar.config in favor of command line arg");
+                            }
+                            continue;
+                        }
+                    }
+                    "I" | "include_search_dir" => {
+                        if let RebarConfigValue::String(v) = v {
+                            self.include_dirs.push(rebar_config_dir.join(v));
+                            continue;
+                        }
+                    }
+                    "include_cache_dir" => {
+                        if let RebarConfigValue::String(v) = v {
+                            if matches.occurrences_of("include-cache-dir") == 0 {
+                                self.include_cache_dir = Some(rebar_config_dir.join(v));
+                            } else {
+                                log::debug!("ignored {k:?} option in rebar.config in favor of command line arg");
+                            }
+                            continue;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            log::warn!("found an unhandled efmt option in rebar.config: {item:?}");
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
-    let opt = Opt::parse();
+    let mut opt = Opt::parse();
 
     let loglevel = if opt.verbose { "debug" } else { "info" };
     env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
 
-    main_with_opt(opt)
-}
+    if !opt.disable_rebar3_efmt_mode {
+        if let Some(rebar_config_dir) = efmt::files::find_rebar_config_dir() {
+            log::debug!("rebar.config file found: dir={rebar_config_dir:?}");
+            opt.enable_rebar3_efmt_mode(rebar_config_dir)?;
+        } else {
+            log::debug!("rebar.config file not found");
+        }
+    }
 
-fn main_with_opt(mut opt: Opt) -> anyhow::Result<()> {
     opt.collect_default_files_if_need()?;
     if opt.files.is_empty() {
         Opt::command().print_help()?;

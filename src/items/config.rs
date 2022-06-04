@@ -12,6 +12,12 @@ pub struct Config {
     eof: Position,
 }
 
+impl Config {
+    pub(crate) fn exprs(&self) -> impl Iterator<Item = &Expr> {
+        self.terms.iter().map(|t| &t.expr)
+    }
+}
+
 impl Parse for Config {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let sof = ts.prev_token_end_position();
