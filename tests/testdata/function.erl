@@ -12,10 +12,31 @@ foo() ->
                end.
 
 
+-spec bar() -> term().
 bar() ->
     fun() ->
             fun() ->
                     hello,
                     world
             end
-    end.
+    end.  % bar
+
+
+baz() ->
+    ok.
+
+
+-type qux() :: any().
+%% This is qux.
+
+
+-spec qux() -> ok.
+qux() ->
+    ok.
+
+
+%%----
+
+
+quux() ->
+    ok.

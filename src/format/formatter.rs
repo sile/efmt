@@ -139,6 +139,24 @@ impl Formatter {
         self.item.add_space();
     }
 
+    pub fn flush_non_preceding_comments(&mut self, next: &impl Span) {
+        for (i, comment_start) in self
+            .ts
+            .comments()
+            .range(self.next_position..next.start_position())
+            .map(|(k, _)| *k)
+            .rev()
+            .enumerate()
+        {
+            if comment_start.line() == next.start_position().line() - i - 1 {
+                continue;
+            }
+
+            self.add_macros_and_comments(comment_start);
+            break;
+        }
+    }
+
     pub fn add_newline(&mut self) {
         self.add_newlines(NonZeroUsize::new(1).expect("unreachable"));
     }
