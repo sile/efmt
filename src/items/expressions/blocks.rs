@@ -153,6 +153,7 @@ impl Format for TryExpr {
         self.r#try.format(fmt);
         if self.clauses.get().is_some() && self.body.exprs().len() == 1 {
             self.body.exprs()[0].format(fmt);
+            fmt.add_space();
         } else {
             self.body.format(fmt);
             fmt.add_newline();
@@ -392,6 +393,15 @@ mod tests {
                     foo
             after
                 bar
+            end"},
+            indoc::indoc! {"
+            %---10---|%---20---|
+            try foo() of
+                1 ->
+                    2
+            catch
+                _:_ ->
+                    foo
             end"},
             indoc::indoc! {"
             %---10---|%---20---|
