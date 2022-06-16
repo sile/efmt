@@ -152,7 +152,7 @@ impl Format for FunSpecItem {
 #[derive(Debug, Clone, Span, Parse)]
 struct SpecClause {
     params: WithArrow<Params<Type>>,
-    r#return: WithGuard<Type, Type, CommaDelimiter>,
+    r#return: WithGuard<Type, Type, CommaDelimiter, 4>,
 }
 
 impl Format for SpecClause {
@@ -569,7 +569,7 @@ mod tests {
             -spec foobar(A) ->
                       {atom(),
                        atom()}
-                        when A :: atom();
+                          when A :: atom();
                         (a) ->
                       b."},
             indoc::indoc! {"

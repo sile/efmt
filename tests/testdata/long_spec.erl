@@ -10,3 +10,8 @@
           {ok, #quz{}} |
           {error, term()} |
           undefined.
+
+
+-spec baz() ->
+          {ok, term()} | {error, Reason} | timeout
+              when Reason :: term().

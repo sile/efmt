@@ -522,25 +522,29 @@ impl<T: Format> Format for WithArrow<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct WithGuard<T, U, D = GuardDelimiter> {
+pub struct WithGuard<T, U, D = GuardDelimiter, const WHEN_OFFSET: usize = 2> {
     item: T,
-    guard: Maybe<Guard<U, D>>,
+    guard: Maybe<Guard<U, D, WHEN_OFFSET>>,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct Guard<T, D> {
+struct Guard<T, D, const OFFSET: usize = 2> {
     when: WhenKeyword,
     conditions: NonEmptyItems<T, D>,
 }
 
-impl<T: Format, D: Format> Format for Guard<T, D> {
+impl<T: Format, D: Format, const OFFSET: usize> Format for Guard<T, D, OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(2), Newline::IfTooLongOrMultiLine, |fmt| {
-            fmt.add_space();
-            self.when.format(fmt);
-            fmt.add_space();
-            self.conditions.format_multi_line(fmt);
-        });
+        fmt.subregion(
+            Indent::Offset(OFFSET),
+            Newline::IfTooLongOrMultiLine,
+            |fmt| {
+                fmt.add_space();
+                self.when.format(fmt);
+                fmt.add_space();
+                self.conditions.format_multi_line(fmt);
+            },
+        );
     }
 }
 
