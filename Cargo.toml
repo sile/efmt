@@ -29,4 +29,4 @@ indoc = "1"
 similar-asserts = "1"
 
 [workspace]
-members = ["efmt_derive"]
+members = ["efmt_derive", "efmt_wasm"]
