@@ -1,0 +1,58 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Efmt: Erlang Code Formatter</title>
+
+  </head>
+  <body>
+    <h1>Efmt: Erlang Code Formatter</h1>
+
+
+    <h3>Original Text</h3>
+    <textarea id="before" cols="120" rows="20"></textarea>
+    <br />
+    <input type="button" value="Format" onclick="format()" />
+
+    <h3>Formatted Text</h3>
+    <textarea id="after" cols="120" rows="20"></textarea>
+
+    <script>
+      let wasmInstance;
+      let wasmMemory;
+      (async () => {
+          wasmInstance = (await WebAssembly.instantiateStreaming(fetch("efmt_wasm.wasm"))).instance;
+          wasmMemory = wasmInstance.exports.memory;
+      })();
+
+      function format() {
+          const originalText = document.getElementById("before");
+          const originalTextBytes = new TextEncoder().encode(originalText.value);
+
+          const buffer = wasmInstance.exports.allocate_vec(originalTextBytes.length);
+          const bufferOffset = wasmInstance.exports.vec_offset(buffer);
+          new Uint8Array(wasmMemory.buffer, bufferOffset, originalTextBytes.length).set(originalTextBytes);
+
+          const error = wasmInstance.exports.check(bufferOffset, originalTextBytes.length);
+          const errorOffset = wasmInstance.exports.vec_offset(error);
+          const errorLen = wasmInstance.exports.vec_len(error);
+          const errorText = new TextDecoder('utf-8').decode(
+              new Uint8Array(wasmMemory.buffer, errorOffset, errorLen));
+          wasmInstance.exports.free_vec(error);
+
+          if (errorText.length == 0) {
+              const formatted = wasmInstance.exports.format(bufferOffset, originalTextBytes.length);
+              wasmInstance.exports.free_vec(buffer);
+
+              const formattedOffset = wasmInstance.exports.vec_offset(formatted);
+              const formattedLen = wasmInstance.exports.vec_len(formatted);
+              const formattedText = new TextDecoder('utf-8').decode(
+                  new Uint8Array(wasmMemory.buffer, formattedOffset, formattedLen));
+              wasmInstance.exports.free_vec(formatted);
+              document.getElementById("after").value = formattedText;
+          } else{
+              document.getElementById("after").value = errorText;
+          }
+      }
+    </script>
+  </body>
+</html>
