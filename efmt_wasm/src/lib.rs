@@ -1,3 +1,5 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 #[no_mangle]
 pub fn check(text: *const u8, text_len: i32) -> *mut Vec<u8> {
     let text = unsafe { std::slice::from_raw_parts(text, text_len as usize) };
