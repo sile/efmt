@@ -9,7 +9,12 @@
 
 
     <h3>Original Text</h3>
-    <textarea id="before" cols="120" rows="20"></textarea>
+    <textarea id="before" cols="120" rows="20">
+%% Functions from: https://www.erlang.org/doc/programming_examples/list_comprehensions.html
+
+sort([Pivot|T]) -> sort([ X || X <- T, X < Pivot]) ++ [Pivot] ++ sort([ X || X <- T, X >= Pivot]); sort([]) -> [].
+perms([]) -> [[]]; perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
+    </textarea>
     <br />
     <input type="button" value="Format" onclick="format()" />
 
