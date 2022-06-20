@@ -9,8 +9,8 @@
 
 
     <h3>Original Text</h3>
-    <textarea id="before" cols="120" rows="20">
-%% Functions from: https://www.erlang.org/doc/programming_examples/list_comprehensions.html
+    <textarea id="before" cols="120" rows="20" style="font-family:monospace, serif;">
+%% Functions from https://www.erlang.org/doc/programming_examples/list_comprehensions.html
 
 sort([Pivot|T]) -> sort([ X || X <- T, X < Pivot]) ++ [Pivot] ++ sort([ X || X <- T, X >= Pivot]); sort([]) -> [].
 perms([]) -> [[]]; perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
@@ -19,7 +19,7 @@ perms([]) -> [[]]; perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
     <input type="button" value="Format" onclick="format()" />
 
     <h3>Formatted Text</h3>
-    <textarea id="after" cols="120" rows="20"></textarea>
+    <textarea id="after" cols="120" rows="20" style="font-family:monospace, serif;"></textarea>
 
     <script>
       let wasmInstance;
