@@ -9,11 +9,13 @@ efmt
 
 An Erlang code formatter.
 
+[Online demo](https://sile.github.io/efmt/examples/efmt.html).
+
 Features
 --------
 
 - Opinionated: only maximum line length is configurable by users
-- [Emacs Erlang Mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation
+- [Emacs Erlang Mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation with some exceptions
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
 - Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
@@ -39,13 +41,12 @@ fac(1) -> 1; fac(N) -> N*fac(N-1).
 -module(example).
 -export([fac/1]).
 
+
 fac(1) ->
     1;
 fac(N) ->
     N * fac(N - 1).
 ```
-
-Please refer to [FORMAT_RULES.md](FORMAT_RULES.md) about the formatting style.
 
 Installation
 ------------
@@ -75,6 +76,7 @@ Pre-built binaries for Linux and MacOS are available in [the releases page](http
 
 ```console
 // An example to download the binary for Linux.
+$ VERSION=0.4.0
 $ curl -L https://github.com/sile/efmt/releases/download/${VERSION}/efmt-${VERSION}.x86_64-unknown-linux-musl -o efmt
 $ chmod +x efmt
 $ ./efmt
@@ -102,19 +104,22 @@ $ efmt example.erl rebar.config ...
 Checks diff between the original text and the formatted one:
 ```console
 $ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
-...
-    1   1    | -module(example).
-    2        |--export(
-    3        |-  [fac/1]
-    4        |-).
-        2    |+-export([fac/1]).
-    5   3    |
-    6        |-fac(1) -> 1; fac(N) -> N*fac(N-1).
-        4    |+fac(1) ->
-        5    |+    1;
-        6    |+fac(N) ->
-        7    |+    N * fac(N - 1).
-...
+--- a/example.erl
++++ b/example.erl
+@@ -1,6 +1,8 @@
+ -module(example).
+--export(
+-  [fac/1]
+-).
++-export([fac/1]).
++
+
+-fac(1) -> 1; fac(N) -> N*fac(N-1).
++fac(1) ->
++    1;
++fac(N) ->
++    N * fac(N - 1).
+
 
 // If you omit the filename, all the Erlang-like files (i.e., `*.{erl, hrl, app.src}` and `rebar.config`)
 // are included in the target (if you're in a git repository the files specified by `.gitignore` are excluded).
@@ -220,11 +225,11 @@ hello(Error, X) when
 ```erlang
 -module(foo).
 
+
 -spec hello(term(),
             integer()) ->
           {ok, integer()} |
-          {error,
-           Reason :: term()}.
+          {error, Reason :: term()}.
 hello({_, _, A, _, [B, _, C]},
       D) ->
     {ok, A + B + C + D};
