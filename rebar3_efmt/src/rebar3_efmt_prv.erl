@@ -67,6 +67,8 @@ opts() ->
       "Note that this is a soft limit. "
       "Ths is, some lines could exceed the limit after formatting. "
       "Besides, this limit doesn't apply to comments. [default: 120]"},
+     {exclude_files, undefined, "exclude-file", string,
+      "Excludes files that matches the specified regexs from the default target file list."},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},
      {parallel, undefined, "parallel", undefined, "Executes formatting in parallel"},
      {include_dirs, $I, "include-search-dir", string,

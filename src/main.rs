@@ -37,6 +37,10 @@ struct Opt {
     #[clap(long, conflicts_with = "check", conflicts_with = "write")]
     show_files: bool,
 
+    /// Excludes files that matches the specified regexs from the default target file list.
+    #[clap(short, long = "exclude-file")]
+    exclude_files: Vec<regex::Regex>,
+
     /// Outputs debug log messages.
     #[clap(long)]
     verbose: bool,
@@ -89,7 +93,15 @@ impl Opt {
             return Ok(());
         }
 
-        self.files = efmt::files::collect_default_target_files()?;
+        self.files = efmt::files::collect_default_target_files()?
+            .into_iter()
+            .filter(|path| {
+                let path = path.to_string_lossy();
+                self.exclude_files
+                    .iter()
+                    .all(|regex| !regex.is_match(&path))
+            })
+            .collect::<Vec<_>>();
         if !self.files.is_empty() && !self.show_files {
             log::info!(
                 "The following files were added as the default input files:\n{}",
