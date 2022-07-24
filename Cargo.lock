@@ -193,6 +193,7 @@ dependencies = [
  "indoc",
  "log",
  "rayon",
+ "regex",
  "serde",
  "serde_json",
  "sha256",
