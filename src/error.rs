@@ -33,10 +33,10 @@ pub fn generate_error_message<P: AsRef<Path>>(
 
 fn get_line_string(text: &str, position: Position) -> &str {
     let offset = position.offset();
-    let line_start = (&text[..offset]).rfind('\n').unwrap_or(0);
-    let line_end = (&text[offset..])
+    let line_start = text[..offset].rfind('\n').unwrap_or(0);
+    let line_end = text[offset..]
         .find('\n')
         .map(|x| x + offset)
         .unwrap_or_else(|| text.len());
-    (&text[line_start..line_end]).trim_matches(char::is_control)
+    text[line_start..line_end].trim_matches(char::is_control)
 }
