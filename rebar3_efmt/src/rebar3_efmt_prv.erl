@@ -28,6 +28,12 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     ok = ensure_efmt_installed(),
+    case is_update_check_enabled(State) of
+        true ->
+            ok = update_check();
+        false ->
+            ok
+    end,
     Args0 = rebar_state:command_args(State) ++ ["--disable-rebar3-efmt-mode"],
     Args1 = [case Entry of
                  {K, V} ->
@@ -36,7 +42,7 @@ do(State) ->
                      atom_to_arg_key(Flag)
              end || Entry <- rebar_state:get(State, efmt, [])] ++ Args0,
     Args2 = ["-I=" ++ Dir || {i, Dir} <- rebar_state:get(State, erl_opts, [])] ++ Args1,
-    ok = rebar3_efmt_command:execute(Args2),
+    ok = rebar3_efmt_command:execute(Args2 -- ["--disable-update-check"]),
     {ok, State}.
 
 -spec format_error(any()) ->  iolist().
@@ -81,7 +87,9 @@ opts() ->
       "Format target files. "
       "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
       "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
-      "(note that files spcified by `.gitignore` will be ignored)"}
+      "(note that files spcified by `.gitignore` will be ignored)"},
+     {disable_update_check, undefined, "disable-update-check", undefined,
+      "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"}
     ].
 
 -spec ensure_efmt_installed() -> ok.
@@ -130,4 +138,48 @@ atom_to_arg_key(X) ->
             [$-, C];
         S ->
             "--" ++ string:replace(S, "_", "-")
+    end.
+
+-spec update_check() -> ok.
+update_check() ->
+    Url = "https://github.com/sile/efmt/releases/latest",
+    case httpc:request(get, {Url, []}, [{autoredirect, false}, {ssl, [{log_level, error}]}], []) of
+        {error, Reason} ->
+            rebar_api:warn("Failed to check update due to HTTP error: url=~p, reason=~p", [Url, Reason]),
+            ok;
+        {ok, {{_, 302, _}, Header, _Body}} ->
+            case proplists:get_value("location", Header) of
+                "https://github.com/sile/efmt/releases/tag/" ++ LatestVersion ->
+                    {ok, CurrentVersion} = application:get_key(rebar3_efmt, vsn),
+                    case CurrentVersion =:= LatestVersion of
+                        true ->
+                            rebar_api:debug("The efmt version is up-to-date", []);
+                        false ->
+                            rebar_api:warn("A new release of rebar3_efmt is available: ~p -> ~p\n"
+                                           "To use the latest version, please execute the following command:\n"
+                                           "$ rebar3 plugins upgrade rebar3_efmt",
+                                           [CurrentVersion, LatestVersion])
+                    end,
+                    ok;
+                Location ->
+                    rebar_api:warn("Unexpected location URL format: ~p", [Location]),
+                    ok
+            end;
+        {ok, {Status, _Header, _Body}} ->
+            rebar_api:warn("Expected HTTP 302 response from ~p, but got ~p", [Url, Status]),
+            ok
+    end.
+
+-spec is_update_check_enabled(rebar_state:t()) -> boolean().
+is_update_check_enabled(State) ->
+    case lists:member("--disable-update-check", rebar_state:command_args(State)) of
+        true ->
+            false;
+        false ->
+            case lists:member(disable_update_check, rebar_state:get(State, efmt, [])) of
+                true ->
+                    false;
+                false ->
+                    true
+            end
     end.
