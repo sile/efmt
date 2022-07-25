@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
@@ -116,7 +116,7 @@ impl<T> Parenthesized<T> {
 impl<T: Format> Format for Parenthesized<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.item.format(fmt);
         });
         self.close.format(fmt);
@@ -191,7 +191,7 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.format_items(fmt);
         });
     }
@@ -199,26 +199,22 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> NonEmptyItems<T, D> {
     pub fn format_multi_line(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), Newline::Always, |fmt| item.format(fmt));
+                fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
             }
         });
     }
 
     fn format_items(&self, fmt: &mut Formatter) {
         let item = self.items().first().expect("unreachable");
-        fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+        fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
         for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
             delimiter.format(fmt);
-            fmt.subregion(
-                Indent::inherit(),
-                Newline::IfTooLongOrMultiLineParent,
-                |fmt| item.format(fmt),
-            );
+            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
         }
     }
 }
@@ -255,9 +251,9 @@ impl<T, D> MaybePackedItems<T, D> {
 
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             let item = self.0.items().first().expect("unreachable");
-            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
             for (item, delimiter) in self
                 .0
                 .items()
@@ -266,7 +262,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+                fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
             }
         });
     }
@@ -276,9 +272,7 @@ impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
         } else if self.0.items().iter().all(Element::is_packable) {
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                self.packed_format(fmt)
-            });
+            fmt.subregion(Indent::CurrentColumn, |fmt| self.packed_format(fmt));
         } else {
             self.0.format(fmt);
         }
@@ -352,10 +346,6 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
     }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::Never
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -376,7 +366,7 @@ where
     Field: Format + Element,
 {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.prefix.format(fmt);
             self.fields.format(fmt);
         })
@@ -405,17 +395,12 @@ impl<T: Format> RecordFieldsLike<T> {
 impl<T: Format> Format for RecordFieldsLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
-        fmt.subregion(Indent::Offset(1), Newline::Never, |fmt| {
-            fmt.subregion(
-                Indent::Offset(1),
-                Newline::IfTooLongOrMultiLineParentForce,
-                |fmt| {
-                    self.format_fields(fmt);
-                },
-            );
+        fmt.subregion(Indent::Offset(1), |fmt| {
+            fmt.subregion(Indent::Offset(1), |fmt| {
+                self.format_fields(fmt);
+            });
 
-            let newline = Newline::IfTooLongOrMultiLineParent;
-            fmt.subregion(Indent::Offset(0), newline, |fmt| {
+            fmt.subregion(Indent::Offset(0), |fmt| {
                 self.close.format(fmt);
             });
         });
@@ -455,8 +440,6 @@ impl<O, T> UnaryOpLike<O, T> {
 
 pub trait BinaryOpStyle<RHS> {
     fn indent(&self) -> Indent;
-
-    fn newline(&self, rhs: &RHS, fmt: &Formatter) -> Newline;
 
     fn needs_spaces(&self) -> bool {
         true
@@ -499,8 +482,7 @@ impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike
         }
 
         let indent = self.op.indent();
-        let newline = self.op.newline(&self.right, fmt);
-        fmt.subregion(indent, newline, |fmt| self.right.format(fmt));
+        fmt.subregion(indent, |fmt| self.right.format(fmt));
     }
 }
 
@@ -533,16 +515,12 @@ struct Guard<T, D, const OFFSET: usize = 2> {
 
 impl<T: Format, D: Format, const OFFSET: usize> Format for Guard<T, D, OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(
-            Indent::Offset(OFFSET),
-            Newline::IfTooLongOrMultiLine,
-            |fmt| {
-                fmt.add_space();
-                self.when.format(fmt);
-                fmt.add_space();
-                self.conditions.format_multi_line(fmt);
-            },
-        );
+        fmt.subregion(Indent::Offset(OFFSET), |fmt| {
+            fmt.add_space();
+            self.when.format(fmt);
+            fmt.add_space();
+            self.conditions.format_multi_line(fmt);
+        });
     }
 }
 

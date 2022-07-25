@@ -2,7 +2,7 @@
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
     NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike, UnaryOpLike,
@@ -125,10 +125,6 @@ impl<RHS> BinaryOpStyle<RHS> for RightArrowDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(8)
     }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLongOrMultiLine
-    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -202,10 +198,6 @@ struct DoubleColonDelimiter(DoubleColonSymbol);
 impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {
     fn indent(&self) -> Indent {
         Indent::Offset(4)
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::Never
     }
 }
 

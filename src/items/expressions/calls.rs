@@ -1,5 +1,5 @@
 use super::FullExpr;
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{Args, BinaryOpLike, BinaryOpStyle, Maybe, UnaryOpLike};
 use crate::items::expressions::components::{BinaryOp, UnaryOp};
 use crate::items::expressions::BaseExpr;
@@ -77,7 +77,7 @@ impl Format for BinaryOpCallExpr {
             self.0.op.format(fmt);
             self.0.right.format(fmt);
         } else {
-            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| {
+            fmt.subregion(Indent::inherit(), |fmt| {
                 self.0.left.format(fmt);
                 let mut op = &self.0.op;
                 let mut right = &self.0.right;
@@ -100,25 +100,24 @@ fn format_op_and_right<'a>(
     fmt.add_space();
 
     let indent = op.indent();
-    let newline = op.newline(right, fmt);
 
     if let FullExpr::BinaryOpCall(x) = &right.0 {
         if indent != Indent::inherit() {
-            fmt.subregion(indent, newline, |fmt| right.format(fmt));
+            fmt.subregion(indent, |fmt| right.format(fmt));
             None
         } else if matches!(x.0.op, BinaryOp::Andalso(_) | BinaryOp::Orelse(_)) {
-            fmt.subregion(indent, newline, |fmt| x.0.left.format(fmt));
+            fmt.subregion(indent, |fmt| x.0.left.format(fmt));
             Some((&x.0.op, &x.0.right))
         } else {
             let mut result = None;
-            fmt.subregion(indent, newline, |fmt| {
+            fmt.subregion(indent, |fmt| {
                 x.0.left.format(fmt);
                 result = format_op_and_right(&x.0.op, &x.0.right, fmt)
             });
             result
         }
     } else {
-        fmt.subregion(indent, newline, |fmt| right.format(fmt));
+        fmt.subregion(indent, |fmt| right.format(fmt));
         None
     }
 }

@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{
     BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
 };
@@ -23,11 +23,7 @@ impl<Name: Format, const OFFSET: usize> FunctionClause<Name, OFFSET> {
     pub fn format_maybe_one_line_body(&self, fmt: &mut Formatter) {
         self.name.format(fmt);
         self.params.format(fmt);
-        fmt.subregion(
-            Indent::Offset(OFFSET),
-            Newline::IfTooLongOrMultiLineParent,
-            |fmt| self.body.exprs.format(fmt),
-        );
+        fmt.subregion(Indent::Offset(OFFSET), |fmt| self.body.exprs.format(fmt));
     }
 
     pub fn body(&self) -> &Body<OFFSET> {
@@ -49,7 +45,7 @@ impl<const OFFSET: usize> Body<OFFSET> {
 
 impl<const OFFSET: usize> Format for Body<OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(OFFSET), Newline::Always, |fmt| {
+        fmt.subregion(Indent::Offset(OFFSET), |fmt| {
             self.exprs.format_multi_line(fmt)
         });
     }
@@ -72,7 +68,7 @@ impl Format for Generator {
     fn format(&self, fmt: &mut Formatter) {
         self.pattern.format(fmt);
         fmt.add_space();
-        fmt.subregion(Indent::CurrentColumnOrOffset(4), Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumnOrOffset(4), |fmt| {
             self.delimiter.format(fmt);
             fmt.add_space();
             self.sequence.format(fmt);
@@ -94,16 +90,16 @@ pub(crate) struct ComprehensionExpr<Open, Close> {
 
 impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.open.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            fmt.subregion(Indent::CurrentColumn, |fmt| {
                 self.value.format(fmt);
                 fmt.add_space();
-                fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
+                fmt.subregion(Indent::inherit(), |fmt| {
                     self.delimiter.format(fmt);
                     fmt.add_space();
-                    fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+                    fmt.subregion(Indent::CurrentColumn, |fmt| {
                         self.qualifiers.format(fmt);
                     });
                 });
@@ -206,40 +202,6 @@ impl BinaryOpStyle<Expr> for BinaryOp {
             Indent::Offset(4)
         } else {
             Indent::inherit()
-        }
-    }
-
-    fn newline(&self, rhs: &Expr, fmt: &Formatter) -> Newline {
-        let is_macro_expanded = || {
-            fmt.token_stream()
-                .macros()
-                .contains_key(&rhs.start_position())
-        };
-
-        if rhs.is_block() && !is_macro_expanded() {
-            Newline::Always
-        } else if matches!(
-            self,
-            Self::Send(_)
-                | Self::ExactEq(_)
-                | Self::Eq(_)
-                | Self::ExactNotEq(_)
-                | Self::NotEq(_)
-                | Self::Less(_)
-                | Self::LessEq(_)
-                | Self::Greater(_)
-                | Self::GreaterEq(_)
-        ) {
-            Newline::Never
-        } else if matches!(self, Self::Andalso(_) | Self::Orelse(_)) {
-            Newline::IfTooLongOrMultiLineParent
-        } else if (rhs.is_parenthesized()
-            || matches!(self, Self::PlusPlus(_) | Self::MinusMinus(_)))
-            && !is_macro_expanded()
-        {
-            Newline::IfTooLongOrMultiLine
-        } else {
-            Newline::Never
         }
     }
 }

@@ -1,5 +1,5 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
     RecordAtom, SpecAtom, TypeAtom,
@@ -50,7 +50,7 @@ struct RecordDeclValue {
 
 impl Format for RecordDeclValue {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.name.format(fmt);
             self.comma.format(fmt);
             fmt.add_space();
@@ -107,15 +107,13 @@ struct TypeDeclItem {
 
 impl Format for TypeDeclItem {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.name.format(fmt);
             self.params.format(fmt);
             fmt.add_space();
             self.delimiter.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::Offset(2), Newline::Never, |fmt| {
-                self.r#type.format(fmt)
-            });
+            fmt.subregion(Indent::Offset(2), |fmt| self.r#type.format(fmt));
         });
     }
 }
@@ -141,7 +139,7 @@ struct FunSpecItem {
 
 impl Format for FunSpecItem {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.module_name.format(fmt);
             self.function_name.format(fmt);
             self.clauses.format(fmt);
@@ -158,11 +156,7 @@ struct SpecClause {
 impl Format for SpecClause {
     fn format(&self, fmt: &mut Formatter) {
         self.params.format(fmt);
-        fmt.subregion(
-            Indent::ParentOffset(4),
-            Newline::IfTooLongOrMultiLine,
-            |fmt| self.r#return.format(fmt),
-        );
+        fmt.subregion(Indent::ParentOffset(4), |fmt| self.r#return.format(fmt));
     }
 }
 
@@ -199,7 +193,7 @@ impl Format for ExportItems {
         let items = self.items.items();
         let delimiters = self.items.delimiters();
         if !items.is_empty() {
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            fmt.subregion(Indent::CurrentColumn, |fmt| {
                 items.first().expect("unreachable").format(fmt);
 
                 for (prev_item, (item, delimiter)) in items
@@ -211,7 +205,7 @@ impl Format for ExportItems {
                     let is_same_group = prev_item.name.value() == item.name.value()
                         && prev_item.start_position().line() + 1 >= item.end_position().line();
                     if is_same_group {
-                        fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
+                        fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
                     } else {
                         fmt.add_newline();
                         item.format(fmt);
@@ -297,7 +291,7 @@ impl DefineDirective {
         self.hyphen.format(fmt);
         self.define.format(fmt);
         self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.macro_name.format(fmt);
             self.variables.format(fmt);
             self.comma.format(fmt);
@@ -306,9 +300,7 @@ impl DefineDirective {
             let indent = replacement_indent
                 .map(Indent::Absolute)
                 .unwrap_or(Indent::inherit());
-            fmt.subregion(indent, Newline::IfTooLongOrMultiLine, |fmt| {
-                self.replacement.format(fmt)
-            });
+            fmt.subregion(indent, |fmt| self.replacement.format(fmt));
         });
         self.close.format(fmt);
         self.dot.format(fmt);

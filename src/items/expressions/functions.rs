@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{Clauses, Maybe, Null};
 use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
@@ -44,7 +44,7 @@ pub struct AnonymousFunctionExpr {
 
 impl Format for AnonymousFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.fun.format(fmt);
             self.clauses_and_end.format(fmt);
         });
@@ -64,7 +64,7 @@ pub struct NamedFunctionExpr {
 
 impl Format for NamedFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.subregion(Indent::CurrentColumn, |fmt| {
             self.fun.format(fmt);
             fmt.add_space();
             self.clauses_and_end.format(fmt);
@@ -91,14 +91,10 @@ impl<Name: Format, const OFFSET: usize> Format for FunctionClausesAndEnd<Name, O
     fn format(&self, fmt: &mut Formatter) {
         if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
             let clause = &self.clauses.items()[0];
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            fmt.subregion(Indent::CurrentColumn, |fmt| {
                 clause.format_maybe_one_line_body(fmt);
                 fmt.add_space();
-                fmt.subregion(
-                    Indent::ParentOffset(0),
-                    Newline::IfTooLongOrMultiLineParent,
-                    |fmt| self.end.format(fmt),
-                );
+                fmt.subregion(Indent::ParentOffset(0), |fmt| self.end.format(fmt));
             });
         } else {
             self.clauses.format(fmt);

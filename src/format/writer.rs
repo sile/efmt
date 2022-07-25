@@ -52,10 +52,6 @@ impl Writer {
         Ok(())
     }
 
-    pub fn write_newline(&mut self) -> Result<()> {
-        self.write_newlines(NonZeroUsize::new(1).expect("unreachable"))
-    }
-
     pub fn write_newlines(&mut self, count: NonZeroUsize) -> Result<()> {
         if self.buf.is_empty() {
             return Ok(());

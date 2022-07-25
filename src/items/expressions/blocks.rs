@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
@@ -53,7 +53,7 @@ struct End(EndKeyword);
 
 impl Format for End {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| self.0.format(fmt));
+        fmt.subregion(Indent::inherit(), |fmt| self.0.format(fmt));
     }
 }
 
@@ -114,7 +114,7 @@ struct ReceiveTimeout {
 
 impl Format for ReceiveTimeout {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
+        fmt.subregion(Indent::inherit(), |fmt| {
             self.after.format(fmt);
             self.clause.format(fmt);
         });
@@ -159,12 +159,8 @@ impl Format for TryExpr {
             fmt.add_newline();
         }
         self.clauses.format(fmt);
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
-            self.catch.format(fmt)
-        });
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
-            self.after.format(fmt)
-        });
+        fmt.subregion(Indent::inherit(), |fmt| self.catch.format(fmt));
+        fmt.subregion(Indent::inherit(), |fmt| self.after.format(fmt));
         self.end.format(fmt);
     }
 }
@@ -205,9 +201,7 @@ impl Format for CatchExpr {
     fn format(&self, fmt: &mut Formatter) {
         self.catch.format(fmt);
         fmt.add_space();
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.expr.format(fmt)
-        });
+        fmt.subregion(Indent::CurrentColumn, |fmt| self.expr.format(fmt));
     }
 }
 
@@ -216,7 +210,7 @@ struct Block<T>(T);
 
 impl<T: Format> Format for Block<T> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
+        fmt.subregion(Indent::Offset(4), |fmt| {
             self.0.format(fmt);
             fmt.add_newline();
         });

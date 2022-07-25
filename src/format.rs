@@ -3,7 +3,7 @@ use crate::span::Span;
 mod formatter;
 mod writer;
 
-pub use self::formatter::{Formatter, Indent, Newline};
+pub use self::formatter::{Formatter, Indent};
 
 /// A procedural macro to derive [Format].
 pub use efmt_derive::Format;

@@ -202,7 +202,7 @@ impl Formatter {
             .unwrap_or_else(|| Position::new(self.ts.text().len(), usize::MAX, usize::MAX))
     }
 
-    pub fn subregion<F>(&mut self, indent: Indent, newline: Newline, f: F)
+    pub fn subregion<F>(&mut self, indent: Indent, f: F)
     where
         F: FnOnce(&mut Self),
     {
@@ -210,7 +210,6 @@ impl Formatter {
             &mut self.item,
             Item::Region {
                 indent,
-                newline,
                 items: Vec::new(),
             },
         );
@@ -255,12 +254,7 @@ impl<'a> ItemWriter<'a> {
 
     fn write_item(&mut self, item: &Item) -> Result<()> {
         match item {
-            Item::Region {
-                indent,
-                newline,
-                items,
-                ..
-            } => self.write_region(indent, newline, items)?,
+            Item::Region { indent, items, .. } => self.write_region(indent, items)?,
             Item::Span {
                 start_position,
                 end_position,
@@ -292,7 +286,7 @@ impl<'a> ItemWriter<'a> {
             .write_span(self.text, &(start_position, end_position), false)
     }
 
-    fn write_region(&mut self, indent: &Indent, newline: &Newline, items: &[Item]) -> Result<()> {
+    fn write_region(&mut self, indent: &Indent, items: &[Item]) -> Result<()> {
         let indent = match indent {
             Indent::Offset(n) => self.writer.current_indent() + n,
             Indent::ParentOffset(n) => self.writer.parent_indent() + n,
@@ -313,39 +307,10 @@ impl<'a> ItemWriter<'a> {
             }
             Indent::Absolute(n) => *n,
         };
-        let mut needs_newline = false;
         let mut allow_multi_line = true;
         let parent_allow_multi_line = self.writer.is_multi_line_allowed();
-        let mut force_noimprove_newline = false;
-        match newline {
-            Newline::Always => {
-                needs_newline = true;
-            }
-            Newline::Never => {}
-            Newline::IfTooLongOrMultiLine => {
-                allow_multi_line = false;
-            }
-            Newline::IfTooLongOrMultiLineParent | Newline::IfTooLongOrMultiLineParentForce => {
-                if parent_allow_multi_line {
-                    needs_newline = true;
-                } else {
-                    allow_multi_line = false;
-                }
-                if *newline == Newline::IfTooLongOrMultiLineParentForce {
-                    force_noimprove_newline = true;
-                }
-            }
-        };
 
-        let check_multi_line = items.iter().any(|item| {
-            matches!(
-                item,
-                Item::Region {
-                    newline: Newline::IfTooLongOrMultiLineParent,
-                    ..
-                }
-            )
-        });
+        let check_multi_line = items.iter().any(|item| matches!(item, Item::Region { .. }));
         if check_multi_line {
             allow_multi_line = false;
         }
@@ -354,21 +319,16 @@ impl<'a> ItemWriter<'a> {
             indent,
             allow_multi_line,
         };
-        let result = self.with_subregion(config, |this| {
-            if needs_newline {
-                this.writer.write_newline()?;
-            }
-            this.write_items(items)
-        });
+        let result = self.with_subregion(config, |this| this.write_items(items));
         if result.is_err() {
             if !parent_allow_multi_line {
                 return Err(Error::MultiLine);
             }
 
-            let (retry, needs_newline) = match &result {
-                Err(Error::MultiLine) if check_multi_line => (true, needs_newline),
-                Err(Error::MultiLine) if !allow_multi_line => (true, true),
-                _ => (false, false),
+            let retry = match &result {
+                Err(Error::MultiLine) if check_multi_line => true,
+                Err(Error::MultiLine) if !allow_multi_line => true,
+                _ => false,
             };
             if retry {
                 let config = RegionConfig {
@@ -376,14 +336,7 @@ impl<'a> ItemWriter<'a> {
                     allow_multi_line: true,
                 };
 
-                return self.with_subregion(config, |this| {
-                    if needs_newline
-                        && (force_noimprove_newline || indent < this.writer.current_column())
-                    {
-                        this.writer.write_newline()?;
-                    }
-                    this.write_items(items)
-                });
+                return self.with_subregion(config, |this| this.write_items(items));
             }
         }
         result
@@ -417,7 +370,6 @@ enum Item {
     },
     Region {
         indent: Indent,
-        newline: Newline,
         items: Vec<Item>,
     },
 }
@@ -426,7 +378,6 @@ impl Item {
     fn new() -> Self {
         Self::Region {
             indent: Indent::CurrentColumn,
-            newline: Newline::Never,
             items: Vec::new(),
         }
     }
@@ -508,16 +459,6 @@ impl Indent {
     pub const fn inherit() -> Self {
         Self::Offset(0)
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Newline {
-    Always,
-    Never,
-    // TODO: rename (remove "TooLong" part)
-    IfTooLongOrMultiLine,
-    IfTooLongOrMultiLineParent,
-    IfTooLongOrMultiLineParentForce,
 }
 
 #[derive(Debug)]
