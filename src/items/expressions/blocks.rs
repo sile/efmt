@@ -32,28 +32,35 @@ pub struct CaseExpr {
     case: CaseKeyword,
     value: Expr,
     of: OfKeyword,
-    clauses: Block<Clauses<CaseClause>>,
-    end: End,
+    clauses: Clauses<CaseClause>,
+    end: EndKeyword,
 }
 
 impl Format for CaseExpr {
     fn format(&self, fmt: &mut Formatter) {
-        self.case.format(fmt);
-        fmt.add_space();
-        self.value.format(fmt);
-        fmt.add_space();
-        self.of.format(fmt);
-        self.clauses.format(fmt);
-        self.end.format(fmt);
-    }
-}
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.case.format(fmt);
 
-#[derive(Debug, Clone, Span, Parse)]
-struct End(EndKeyword);
+            fmt.with_scoped_indent(|fmt| {
+                fmt.write_space();
+                fmt.set_indent(fmt.column());
 
-impl Format for End {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), |fmt| self.0.format(fmt));
+                self.value.format(fmt);
+                fmt.write_space();
+                fmt.set_indent(fmt.column());
+
+                self.of.format(fmt);
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+                    self.clauses.format(fmt);
+                });
+            });
+
+            fmt.write_newline();
+            self.end.format(fmt);
+        });
     }
 }
 
@@ -71,7 +78,7 @@ struct CaseClause {
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Block<Clauses<IfClause>>,
-    end: End,
+    end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -89,7 +96,7 @@ struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>)
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Body,
-    end: End,
+    end: EndKeyword,
 }
 
 /// `receive` (`$CLAUSE` `;`?)* `$TIMEOUT`? `end`
@@ -103,7 +110,7 @@ pub struct ReceiveExpr {
     receive: ReceiveKeyword,
     clauses: Block<Maybe<Clauses<CaseClause>>>,
     timeout: Maybe<ReceiveTimeout>,
-    end: End,
+    end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -145,7 +152,7 @@ pub struct TryExpr {
     clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
-    end: End,
+    end: EndKeyword,
 }
 
 impl Format for TryExpr {
@@ -228,7 +235,7 @@ pub struct MaybeExpr {
     maybe: MaybeKeyword,
     body: Body,
     else_block: Maybe<ElseBlock>,
-    end: End,
+    end: EndKeyword,
 }
 
 #[derive(Debug, Clone, Span, Parse)]

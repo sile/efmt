@@ -8,6 +8,11 @@ pub trait Span {
     fn text<'a>(&self, s: &'a str) -> &'a str {
         &s[self.start_position().offset()..self.end_position().offset()]
     }
+
+    fn contains_newline(&self) -> bool {
+        // TODO: consider macro(?)
+        self.start_position().line() != self.end_position().line()
+    }
 }
 
 impl<T: Span + ?Sized> Span for &T {

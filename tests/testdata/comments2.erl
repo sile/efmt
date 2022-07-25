@@ -7,5 +7,10 @@ foo(A)
        %% comment1
        A == ?BAR ->
     hello;
-foo(_) ->
+foo(B) ->
+    case B of
+        1 ->
+            ok
+            %% comment2
+    end,
     world.

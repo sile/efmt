@@ -11,43 +11,30 @@ use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
+use std::cmp::min;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name, const OFFSET: usize = 4> {
+pub(crate) struct FunctionClause<Name> {
     name: Name,
     params: WithArrow<WithGuard<Params<Expr>, Expr>>,
-    body: Body<OFFSET>,
+    body: Body,
 }
 
-impl<Name: Format, const OFFSET: usize> FunctionClause<Name, OFFSET> {
-    pub fn format_maybe_one_line_body(&self, fmt: &mut Formatter) {
-        self.name.format(fmt);
-        self.params.format(fmt);
-        fmt.subregion(Indent::Offset(OFFSET), |fmt| self.body.exprs.format(fmt));
-    }
-
-    pub fn body(&self) -> &Body<OFFSET> {
+impl<Name: Format> FunctionClause<Name> {
+    pub fn body(&self) -> &Body {
         &self.body
     }
 }
 
 /// ([Expr], `,`?)+
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Body<const OFFSET: usize = 4> {
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct Body {
     exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
 
-impl<const OFFSET: usize> Body<OFFSET> {
+impl Body {
     pub(crate) fn exprs(&self) -> &[Expr] {
         self.exprs.items()
-    }
-}
-
-impl<const OFFSET: usize> Format for Body<OFFSET> {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(OFFSET), |fmt| {
-            self.exprs.format_multi_line(fmt)
-        });
     }
 }
 
@@ -66,11 +53,19 @@ struct Generator {
 
 impl Format for Generator {
     fn format(&self, fmt: &mut Formatter) {
-        self.pattern.format(fmt);
-        fmt.add_space();
-        fmt.subregion(Indent::CurrentColumnOrOffset(4), |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            self.pattern.format(fmt);
+
+            if fmt.has_newline_until(&self.sequence) {
+                fmt.set_indent(min(fmt.column(), fmt.indent() + 4));
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+
             self.delimiter.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
             self.sequence.format(fmt);
         });
     }
@@ -90,23 +85,26 @@ pub(crate) struct ComprehensionExpr<Open, Close> {
 
 impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
-            self.open.format(fmt);
-            fmt.add_space();
-            fmt.subregion(Indent::CurrentColumn, |fmt| {
-                self.value.format(fmt);
-                fmt.add_space();
-                fmt.subregion(Indent::inherit(), |fmt| {
-                    self.delimiter.format(fmt);
-                    fmt.add_space();
-                    fmt.subregion(Indent::CurrentColumn, |fmt| {
-                        self.qualifiers.format(fmt);
-                    });
-                });
-            });
-            fmt.add_space();
-            self.close.format(fmt);
+        self.open.format(fmt);
+        fmt.with_scoped_indent(|fmt| {
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
+
+            self.value.format(fmt);
+
+            if fmt.has_newline_until(&self.qualifiers) {
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+
+            self.delimiter.format(fmt);
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
+
+            self.qualifiers.format(fmt);
         });
+        self.close.format(fmt);
     }
 }
 

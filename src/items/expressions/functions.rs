@@ -39,7 +39,7 @@ pub struct DefinedFunctionExpr {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
     fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<Null, 5>,
+    clauses_and_end: FunctionClausesAndEnd<Null>,
 }
 
 impl Format for AnonymousFunctionExpr {
@@ -82,12 +82,12 @@ impl Format for Fun {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunctionClausesAndEnd<Name, const OFFSET: usize = 4> {
-    clauses: Clauses<FunctionClause<Name, OFFSET>>,
+struct FunctionClausesAndEnd<Name> {
+    clauses: Clauses<FunctionClause<Name>>,
     end: EndKeyword,
 }
 
-impl<Name: Format, const OFFSET: usize> Format for FunctionClausesAndEnd<Name, OFFSET> {
+impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
     fn format(&self, fmt: &mut Formatter) {
         if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
             let clause = &self.clauses.items()[0];
