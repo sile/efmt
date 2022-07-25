@@ -113,7 +113,7 @@ impl Format for TypeDeclItem {
             fmt.add_space();
             self.delimiter.format(fmt);
             fmt.add_space();
-            fmt.subregion(Indent::Offset(2), Newline::IfTooLong, |fmt| {
+            fmt.subregion(Indent::Offset(2), Newline::Never, |fmt| {
                 self.r#type.format(fmt)
             });
         });
@@ -211,9 +211,7 @@ impl Format for ExportItems {
                     let is_same_group = prev_item.name.value() == item.name.value()
                         && prev_item.start_position().line() + 1 >= item.end_position().line();
                     if is_same_group {
-                        fmt.subregion(Indent::inherit(), Newline::IfTooLong, |fmt| {
-                            item.format(fmt)
-                        });
+                        fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
                     } else {
                         fmt.add_newline();
                         item.format(fmt);

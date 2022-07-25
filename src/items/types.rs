@@ -205,7 +205,7 @@ impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {
     }
 
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
+        Newline::Never
     }
 }
 

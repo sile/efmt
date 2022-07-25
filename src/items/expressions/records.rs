@@ -104,7 +104,7 @@ impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
     }
 
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
+        Newline::Never
     }
 }
 

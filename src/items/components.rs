@@ -266,9 +266,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), Newline::IfTooLong, |fmt| {
-                    item.format(fmt)
-                });
+                fmt.subregion(Indent::inherit(), Newline::Never, |fmt| item.format(fmt));
             }
         });
     }
@@ -356,7 +354,7 @@ impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
     }
 
     fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
+        Newline::Never
     }
 }
 

@@ -72,15 +72,11 @@ impl Format for Generator {
     fn format(&self, fmt: &mut Formatter) {
         self.pattern.format(fmt);
         fmt.add_space();
-        fmt.subregion(
-            Indent::CurrentColumnOrOffset(4),
-            Newline::IfTooLong,
-            |fmt| {
-                self.delimiter.format(fmt);
-                fmt.add_space();
-                self.sequence.format(fmt);
-            },
-        );
+        fmt.subregion(Indent::CurrentColumnOrOffset(4), Newline::Never, |fmt| {
+            self.delimiter.format(fmt);
+            fmt.add_space();
+            self.sequence.format(fmt);
+        });
     }
 }
 
@@ -243,7 +239,7 @@ impl BinaryOpStyle<Expr> for BinaryOp {
         {
             Newline::IfTooLongOrMultiLine
         } else {
-            Newline::IfTooLong
+            Newline::Never
         }
     }
 }

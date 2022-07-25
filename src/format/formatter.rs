@@ -228,9 +228,9 @@ impl Formatter {
         &mut self.ts
     }
 
-    pub fn format(mut self, max_columns: usize) -> String {
+    pub fn format(mut self) -> String {
         self.add_macros_and_comments(Position::new(usize::MAX - 1, usize::MAX, usize::MAX));
-        ItemWriter::new(&self.ts.text(), max_columns).write_to_string(&self.item)
+        ItemWriter::new(&self.ts.text()).write_to_string(&self.item)
     }
 }
 
@@ -241,9 +241,9 @@ struct ItemWriter<'a> {
 }
 
 impl<'a> ItemWriter<'a> {
-    fn new(text: &'a str, max_columns: usize) -> Self {
+    fn new(text: &'a str) -> Self {
         Self {
-            writer: Writer::new(max_columns),
+            writer: Writer::new(),
             text,
         }
     }
@@ -315,7 +315,6 @@ impl<'a> ItemWriter<'a> {
         };
         let mut needs_newline = false;
         let mut allow_multi_line = true;
-        let mut allow_too_long_line = true;
         let parent_allow_multi_line = self.writer.is_multi_line_allowed();
         let mut force_noimprove_newline = false;
         match newline {
@@ -323,18 +322,13 @@ impl<'a> ItemWriter<'a> {
                 needs_newline = true;
             }
             Newline::Never => {}
-            Newline::IfTooLong => {
-                allow_too_long_line = false;
-            }
             Newline::IfTooLongOrMultiLine => {
-                allow_too_long_line = false;
                 allow_multi_line = false;
             }
             Newline::IfTooLongOrMultiLineParent | Newline::IfTooLongOrMultiLineParentForce => {
                 if parent_allow_multi_line {
                     needs_newline = true;
                 } else {
-                    allow_too_long_line = false;
                     allow_multi_line = false;
                 }
                 if *newline == Newline::IfTooLongOrMultiLineParentForce {
@@ -358,7 +352,6 @@ impl<'a> ItemWriter<'a> {
 
         let config = RegionConfig {
             indent,
-            allow_too_long_line,
             allow_multi_line,
         };
         let result = self.with_subregion(config, |this| {
@@ -375,13 +368,11 @@ impl<'a> ItemWriter<'a> {
             let (retry, needs_newline) = match &result {
                 Err(Error::MultiLine) if check_multi_line => (true, needs_newline),
                 Err(Error::MultiLine) if !allow_multi_line => (true, true),
-                Err(Error::LineTooLong) if !allow_too_long_line => (true, true),
                 _ => (false, false),
             };
             if retry {
                 let config = RegionConfig {
                     indent,
-                    allow_too_long_line: true,
                     allow_multi_line: true,
                 };
 
@@ -523,7 +514,7 @@ impl Indent {
 pub enum Newline {
     Always,
     Never,
-    IfTooLong,
+    // TODO: rename (remove "TooLong" part)
     IfTooLongOrMultiLine,
     IfTooLongOrMultiLineParent,
     IfTooLongOrMultiLineParentForce,

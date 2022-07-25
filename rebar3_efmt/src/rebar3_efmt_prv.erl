@@ -62,11 +62,6 @@ opts() ->
       "If so, exits with 0. Otherwise, exits with 1 and shows a diff."},
      {write, $w, "write", undefined, "Overwrites input file with the formatted text"},
      {show_files, undefined, "show-files", undefined, "Shows the target input files"},
-     {print_width, undefined, "print-width", integer,
-      "Maximum line length. "
-      "Note that this is a soft limit. "
-      "Ths is, some lines could exceed the limit after formatting. "
-      "Besides, this limit doesn't apply to comments. [default: 120]"},
      {exclude_files, undefined, "exclude-file", string,
       "Excludes files that matches the specified regexs from the default target file list."},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},

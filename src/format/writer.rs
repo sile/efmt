@@ -3,9 +3,6 @@ use std::num::NonZeroUsize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("max columns exceeded")]
-    LineTooLong,
-
     #[error("unexpected multi-line")]
     MultiLine,
 }
@@ -14,15 +11,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Writer {
-    max_columns: usize,
     buf: String,
     region: RegionState,
 }
 
 impl Writer {
-    pub fn new(max_columns: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            max_columns,
             buf: String::new(),
             region: RegionState::new(),
         }
@@ -52,7 +47,7 @@ impl Writer {
 
     pub fn write_space(&mut self) -> Result<()> {
         if self.last_whitespace_char().is_none() {
-            self.write(" ", true)?;
+            self.write(" ")?;
         }
         Ok(())
     }
@@ -87,7 +82,7 @@ impl Writer {
         }
 
         for _ in 0..count.get() {
-            self.write("\n", false)?;
+            self.write("\n")?;
         }
         Ok(())
     }
@@ -116,7 +111,7 @@ impl Writer {
         if self.region.next_position.line() + 1 < span.start_position().line()
             && !self.is_last_triple_newlines()
         {
-            self.write("\n", false)?;
+            self.write("\n")?;
         }
 
         if self.last_whitespace_char() == Some('\n') {
@@ -134,7 +129,7 @@ impl Writer {
             }
         }
 
-        self.write(text, false)?;
+        self.write(text)?;
         self.region.next_position = end;
         Ok(())
     }
@@ -148,25 +143,19 @@ impl Writer {
             self.pop_last_char();
         }
 
-        self.write("  ", true)?;
-        self.write(text.trim_end(), true)?;
+        self.write("  ")?;
+        self.write(text.trim_end())?;
         self.region.next_position = end;
         Ok(())
     }
 
-    fn write(&mut self, s: &str, skip_column_check: bool) -> Result<()> {
+    fn write(&mut self, s: &str) -> Result<()> {
         for c in s.chars() {
             if c == '\n' {
                 if !self.is_multi_line_allowed() {
                     return Err(Error::MultiLine);
                 }
                 self.region.current_column = 0;
-                self.region.config.allow_too_long_line = true; // Only first line is relevant.
-            } else if !skip_column_check
-                && !self.region.config.allow_too_long_line
-                && self.region.current_column >= self.max_columns
-            {
-                return Err(Error::LineTooLong);
             }
 
             self.buf.push(c);
@@ -180,9 +169,6 @@ impl Writer {
     pub fn start_subregion(&mut self, mut config: RegionConfig) {
         if !self.region.config.allow_multi_line {
             config.allow_multi_line = false;
-        }
-        if !self.region.config.allow_too_long_line {
-            config.allow_too_long_line = false;
         }
 
         let new = RegionState {
@@ -234,7 +220,6 @@ impl Writer {
 #[derive(Debug, Clone)]
 pub struct RegionConfig {
     pub indent: usize,
-    pub allow_too_long_line: bool,
     pub allow_multi_line: bool,
 }
 
@@ -242,7 +227,6 @@ impl RegionConfig {
     fn new() -> Self {
         Self {
             indent: 0,
-            allow_too_long_line: true,
             allow_multi_line: true,
         }
     }
