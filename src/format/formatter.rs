@@ -15,12 +15,13 @@ pub struct Formatter {
     indent: usize,
     column: usize,
     last_position: Position,
-    // item: Item,
-    // last_comment_or_macro_position: Option<Position>,
-    // next_position: Position,
-    // last_token: Option<VisibleToken>,
-    // skip_whitespaces: bool,
-    // last_skipped_whitespace: Option<Item>,
+    buf: String,
+    single_line_mode: bool, // item: Item,
+                            // last_comment_or_macro_position: Option<Position>,
+                            // next_position: Position,
+                            // last_token: Option<VisibleToken>,
+                            // skip_whitespaces: bool,
+                            // last_skipped_whitespace: Option<Item>,
 }
 
 impl Formatter {
@@ -30,6 +31,8 @@ impl Formatter {
             indent: 0,
             column: 0,
             last_position: Position::new(0, 0, 0),
+            buf: String::new(),
+            single_line_mode: false,
             // item: Item::new(),
             // last_comment_or_macro_position: None,
             // next_position: Position::new(0, 0, 0),
@@ -40,11 +43,12 @@ impl Formatter {
     }
 
     pub fn finish(self) -> String {
-        todo!()
+        self.buf
     }
 
     pub fn flush_non_preceding_comments(&mut self, _next: &impl Span) {
-        todo!();
+        // todo!();
+
         // for (i, comment_start) in self
         //     .ts
         //     .comments()
@@ -86,8 +90,18 @@ impl Formatter {
         self.last_position.line() != next.start_position().line()
     }
 
-    pub fn write_span(&mut self, _span: &impl Span) {
-        todo!();
+    pub fn write_span(&mut self, span: &impl Span) {
+        let text = &self.ts.text()[span.start_position().offset()..span.end_position().offset()];
+        self.buf.push_str(text);
+
+        // TODO: optimize
+        for c in text.chars() {
+            if c == '\n' {
+                self.column = 0;
+            } else {
+                self.column += 1;
+            }
+        }
     }
 
     pub fn write_newlines(&mut self, _n: NonZeroUsize) {
@@ -95,15 +109,26 @@ impl Formatter {
     }
 
     pub fn write_newline(&mut self) {
-        todo!();
+        if self.single_line_mode {
+            self.write_space();
+            return;
+        }
+
+        self.buf.push('\n');
+        self.column = 0;
+
+        for _ in 0..self.indent {
+            self.write_space();
+        }
     }
 
     pub fn write_space(&mut self) {
-        todo!();
+        self.buf.push(' ');
+        self.column += 1;
     }
 
-    pub fn write_token(&mut self, _token: VisibleToken) {
-        todo!();
+    pub fn write_token(&mut self, token: VisibleToken) {
+        self.write_span(&token);
     }
 
     pub fn write_subsequent_comment_lines(&mut self) {
@@ -123,8 +148,10 @@ impl Formatter {
     where
         F: FnOnce(&mut Self),
     {
-        // TODO:
+        let mode = self.single_line_mode;
+        self.single_line_mode = true;
         f(self);
+        self.single_line_mode = mode;
     }
 
     pub fn skip_formatting(&mut self) {

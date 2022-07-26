@@ -1,7 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{
-    Clauses, Either, Guard, Maybe, NonEmptyItems, WithArrow, WithGuard,
-};
+use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems, WithArrow};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
@@ -70,7 +68,7 @@ impl Format for CaseExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -78,10 +76,42 @@ impl Format for CaseExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct CaseClause {
-    pattern: WithArrow<WithGuard<Expr, Expr>>,
+    pattern: Expr,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl Format for CaseClause {
+    fn format(&self, fmt: &mut Formatter) {
+        // 'Pattern'
+        self.pattern.format(fmt);
+        fmt.write_space();
+
+        // 'when'
+        if let Some(guard) = self.guard.get() {
+            guard.format(fmt);
+            fmt.write_space();
+        }
+
+        // '->'
+        let multiline = fmt.has_newline_until(&self.body.end_position());
+        self.arrow.format(fmt);
+
+        // 'Body'
+        if multiline {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+                self.body.format(fmt);
+            });
+        } else {
+            fmt.write_space();
+            self.body.format(fmt);
+        }
+    }
 }
 
 /// `if` (`$CLAUSE` `;`?)+ `end`
@@ -156,7 +186,7 @@ impl Format for ReceiveExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -284,7 +314,7 @@ impl Format for TryExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -425,7 +455,7 @@ impl Format for MaybeExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -452,7 +482,8 @@ mod tests {
                     2
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            case Foo of 1 -> 2 end"},
+            indoc::indoc! {"
             case foo() of
                 {1, 2} ->
                     3;

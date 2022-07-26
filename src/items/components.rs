@@ -194,7 +194,13 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
             fmt.set_indent(fmt.column());
-            self.format_items(fmt);
+            if self.contains_newline() {
+                self.format_items(fmt);
+            } else {
+                fmt.with_single_line_mode(|fmt| {
+                    self.format_items(fmt);
+                });
+            }
         });
     }
 }
@@ -217,6 +223,7 @@ impl<T: Format, D: Format> NonEmptyItems<T, D> {
         item.format(fmt);
         for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
             delimiter.format(fmt);
+            fmt.write_newline();
             item.format(fmt);
         }
     }
@@ -416,17 +423,7 @@ impl<T: Format> Format for RecordFieldsLike<T> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
-
-#[derive(Debug, Clone, Span, Parse)]
-pub struct SemicolonDelimiter(SemicolonSymbol);
-
-impl Format for SemicolonDelimiter {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-        fmt.write_newline();
-    }
-}
+pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpLike<O, T> {
@@ -508,6 +505,7 @@ pub struct WithGuard<T, U, D = GuardDelimiter, const WHEN_OFFSET: usize = 2> {
     guard: Maybe<Guard<U, D, WHEN_OFFSET>>,
 }
 
+// TODO: remove OFFSET
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Guard<T, D = GuardDelimiter, const OFFSET: usize = 2> {
     when: WhenKeyword,
@@ -525,12 +523,5 @@ impl<T: Format, D: Format, const OFFSET: usize> Format for Guard<T, D, OFFSET> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct GuardDelimiter(Either<CommaSymbol, SemicolonSymbol>);
-
-impl Format for GuardDelimiter {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-        fmt.write_space();
-    }
-}

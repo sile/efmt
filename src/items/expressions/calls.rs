@@ -78,15 +78,16 @@ impl Format for BinaryOpCallExpr {
         } else {
             self.0.left.format(fmt);
 
-            let multiline = fmt.has_newline_until(&self.0.right);
+            // TODO
+            // let multiline = fmt.has_newline_until(&self.0.right);
             fmt.write_space();
             self.0.op.format(fmt);
 
-            if multiline {
-                fmt.write_newline();
-            } else {
-                fmt.write_space();
-            }
+            // if multiline {
+            //     fmt.write_newline();
+            // } else {
+            fmt.write_space();
+            //}
             self.0.right.format(fmt);
 
             // TODO:
