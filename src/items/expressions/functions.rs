@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent};
+use crate::format::{Format, Formatter};
 use crate::items::components::{Clauses, Maybe, Null};
 use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
@@ -24,7 +24,7 @@ pub enum FunctionExpr {
 /// - $ARITY: [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct DefinedFunctionExpr {
-    fun: Fun,
+    fun: FunKeyword,
     module: Maybe<(BaseExpr, ColonSymbol)>,
     name: BaseExpr,
     slash: SlashSymbol,
@@ -38,16 +38,35 @@ pub struct DefinedFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
-    fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<Null>,
+    fun: FunKeyword,
+    clauses: Clauses<FunctionClause<Null>>,
+    end: EndKeyword,
 }
 
 impl Format for AnonymousFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
-            self.fun.format(fmt);
-            self.clauses_and_end.format(fmt);
-        });
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'fun'
+                fmt.set_indent(fmt.column());
+                self.fun.format(fmt);
+
+                // 'Clauses'
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.column());
+                    self.clauses.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
     }
 }
 
@@ -58,48 +77,35 @@ impl Format for AnonymousFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct NamedFunctionExpr {
-    fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<VariableToken>,
+    fun: FunKeyword,
+    clauses: Clauses<FunctionClause<VariableToken>>,
+    end: EndKeyword,
 }
 
 impl Format for NamedFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
-            self.fun.format(fmt);
-            fmt.add_space();
-            self.clauses_and_end.format(fmt);
-        });
-    }
-}
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'fun'
+                fmt.set_indent(fmt.column());
+                self.fun.format(fmt);
 
-#[derive(Debug, Clone, Span, Parse)]
-struct Fun(FunKeyword);
+                // 'Clauses'
+                fmt.write_space();
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.column());
+                    self.clauses.format(fmt);
+                });
 
-impl Format for Fun {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-struct FunctionClausesAndEnd<Name> {
-    clauses: Clauses<FunctionClause<Name>>,
-    end: EndKeyword,
-}
-
-impl<Name: Format> Format for FunctionClausesAndEnd<Name> {
-    fn format(&self, fmt: &mut Formatter) {
-        if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
-            let clause = &self.clauses.items()[0];
-            fmt.subregion(Indent::CurrentColumn, |fmt| {
-                clause.format_maybe_one_line_body(fmt);
-                fmt.add_space();
-                fmt.subregion(Indent::ParentOffset(0), |fmt| self.end.format(fmt));
-            });
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
         } else {
-            self.clauses.format(fmt);
-            fmt.add_newline();
-            self.end.format(fmt);
+            fmt.with_single_line_mode(f);
         }
     }
 }
