@@ -1,3 +1,4 @@
+use crate::items::tokens::VisibleToken;
 // TODO
 //use crate::format::writer::{Error, RegionConfig, Result, Writer};
 //use crate::format::Format;
@@ -60,6 +61,14 @@ impl Formatter {
         todo!();
     }
 
+    pub fn write_token(&mut self, _token: VisibleToken) {
+        todo!();
+    }
+
+    pub fn write_subsequent_comment_lines(&mut self) {
+        todo!();
+    }
+
     pub fn with_scoped_indent<F>(&mut self, f: F)
     where
         F: FnOnce(&mut Self),
@@ -68,6 +77,20 @@ impl Formatter {
         f(self);
         self.indent = indent;
     }
+
+    pub fn with_single_line_mode<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        // TODO:
+        f(self);
+    }
+
+    pub fn skip_formatting(&mut self) {
+        todo!()
+    }
+
+    //pub fn with_single_line_mode
 
     // pub fn subregion<F>(&mut self, indent: Indent, f: F)
     // where

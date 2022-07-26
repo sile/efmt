@@ -5,7 +5,7 @@ use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
     MaybeKeyword, OfKeyword, ReceiveKeyword, TryKeyword,
 };
-use crate::items::symbols::{ColonSymbol, CommaSymbol, SemicolonSymbol};
+use crate::items::symbols::{ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::items::Expr;
 use crate::parse::Parse;
@@ -38,29 +38,41 @@ pub struct CaseExpr {
 
 impl Format for CaseExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.column());
-            self.case.format(fmt);
-
+        let f = |fmt: &mut Formatter| {
             fmt.with_scoped_indent(|fmt| {
-                fmt.write_space();
+                // 'case'
                 fmt.set_indent(fmt.column());
+                self.case.format(fmt);
 
-                self.value.format(fmt);
-                fmt.write_space();
-                fmt.set_indent(fmt.column());
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.write_space();
+                    fmt.set_indent(fmt.column());
 
+                    // 'Expr'
+                    self.value.format(fmt);
+                    fmt.write_space();
+                });
+
+                // 'of'
                 self.of.format(fmt);
                 fmt.with_scoped_indent(|fmt| {
                     fmt.set_indent(fmt.indent() + 4);
                     fmt.write_newline();
+
+                    // 'Clauses'
                     self.clauses.format(fmt);
                 });
-            });
 
-            fmt.write_newline();
-            self.end.format(fmt);
-        });
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
     }
 }
 
@@ -105,33 +117,78 @@ pub struct BeginExpr {
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $TIMEOUT: `after` [Expr] `->` [Body]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ReceiveExpr {
     receive: ReceiveKeyword,
-    clauses: Block<Maybe<Clauses<CaseClause>>>,
+    clauses: Maybe<Clauses<CaseClause>>,
     timeout: Maybe<ReceiveTimeout>,
     end: EndKeyword,
+}
+
+impl Format for ReceiveExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'receive'
+                fmt.set_indent(fmt.column());
+                self.receive.format(fmt);
+
+                if self.clauses.get().is_some() {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+
+                        // 'Clauses'
+                        self.clauses.format(fmt);
+                    });
+                }
+
+                // 'after'
+                if self.timeout.get().is_some() {
+                    fmt.write_newline();
+                    self.timeout.format(fmt);
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
 struct ReceiveTimeout {
     after: AfterKeyword,
-    clause: Block<ReceiveTimeoutClause>,
+    timeout: Expr,
+    arrow: RightArrowSymbol,
+    body: Body,
 }
 
 impl Format for ReceiveTimeout {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            // 'after'
             self.after.format(fmt);
-            self.clause.format(fmt);
+
+            // 'Timeout' '->'
+            fmt.set_indent(fmt.indent() + 4);
+            fmt.write_newline();
+            self.timeout.format(fmt);
+            fmt.write_space();
+            self.arrow.format(fmt);
+
+            // 'Body'
+            fmt.set_indent(fmt.indent() + 4);
+            fmt.write_newline();
+            self.body.format(fmt);
         });
     }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct ReceiveTimeoutClause {
-    timeout: WithArrow<Expr>,
-    body: Body,
 }
 
 /// `try` [Body] `$BRANCHES`? `$CATCH`? `$AFTER`? `end`
@@ -149,7 +206,7 @@ struct ReceiveTimeoutClause {
 pub struct TryExpr {
     r#try: TryKeyword,
     body: Body,
-    clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
+    clauses: Maybe<(OfKeyword, Clauses<CaseClause>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
     end: EndKeyword,
@@ -157,18 +214,68 @@ pub struct TryExpr {
 
 impl Format for TryExpr {
     fn format(&self, fmt: &mut Formatter) {
-        self.r#try.format(fmt);
-        if self.clauses.get().is_some() && self.body.exprs().len() == 1 {
-            self.body.exprs()[0].format(fmt);
-            fmt.add_space();
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'try'
+                fmt.set_indent(fmt.column());
+                self.r#try.format(fmt);
+
+                // 'Body'
+                if self.clauses.get().is_some()
+                    && (self.body.exprs().len() == 1 || !fmt.has_newline_until(&self.clauses))
+                {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.write_space();
+                        fmt.set_indent(fmt.column());
+                        self.body.format(fmt);
+                        fmt.write_space();
+                    });
+                } else {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        self.body.format(fmt);
+                    });
+                    if self.clauses.get().is_some() {
+                        fmt.write_newline();
+                    }
+                }
+
+                if let Some((of, clauses)) = self.clauses.get() {
+                    // 'of'
+                    of.format(fmt);
+
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+
+                        // 'Clauses'
+                        self.clauses.format(fmt);
+                    });
+                }
+
+                // 'catch'
+                if self.catch.get().is_some() {
+                    fmt.write_newline();
+                    self.catch.format(fmt);
+                }
+
+                // 'after'
+                if self.after.get().is_some() {
+                    fmt.write_newline();
+                    self.after.format(fmt);
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
         } else {
-            self.body.format(fmt);
-            fmt.add_newline();
+            fmt.with_single_line_mode(f);
         }
-        self.clauses.format(fmt);
-        fmt.subregion(Indent::inherit(), |fmt| self.catch.format(fmt));
-        fmt.subregion(Indent::inherit(), |fmt| self.after.format(fmt));
-        self.end.format(fmt);
     }
 }
 

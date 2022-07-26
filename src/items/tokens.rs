@@ -128,7 +128,7 @@ macro_rules! impl_traits {
 
         impl Format for $name {
             fn format(&self, fmt: &mut Formatter) {
-                fmt.add_token(self.clone().into());
+                fmt.write_token(self.clone().into());
             }
         }
 
