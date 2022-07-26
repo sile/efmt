@@ -495,9 +495,8 @@ pub struct WithArrow<T> {
 impl<T: Format> Format for WithArrow<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.item.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
         self.arrow.format(fmt);
-        fmt.add_space();
     }
 }
 
@@ -508,18 +507,18 @@ pub struct WithGuard<T, U, D = GuardDelimiter, const WHEN_OFFSET: usize = 2> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct Guard<T, D, const OFFSET: usize = 2> {
+pub struct Guard<T, D = GuardDelimiter, const OFFSET: usize = 2> {
     when: WhenKeyword,
     conditions: NonEmptyItems<T, D>,
 }
 
 impl<T: Format, D: Format, const OFFSET: usize> Format for Guard<T, D, OFFSET> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(OFFSET), |fmt| {
-            fmt.add_space();
-            self.when.format(fmt);
-            fmt.add_space();
-            self.conditions.format_multi_line(fmt);
+        self.when.format(fmt);
+        fmt.write_space();
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.conditions.format(fmt);
         });
     }
 }

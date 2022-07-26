@@ -1,5 +1,7 @@
-use crate::format::{Format, Formatter, Indent};
-use crate::items::components::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
+use crate::format::{Format, Formatter};
+use crate::items::components::{
+    Clauses, Either, Guard, Maybe, NonEmptyItems, WithArrow, WithGuard,
+};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
@@ -89,7 +91,7 @@ struct CaseClause {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct IfExpr {
     r#if: IfKeyword,
-    clauses: Block<Clauses<IfClause>>,
+    clauses: Clauses<IfClause>,
     end: EndKeyword,
 }
 
@@ -255,15 +257,26 @@ impl Format for TryExpr {
                 }
 
                 // 'catch'
-                if self.catch.get().is_some() {
+                if let Some(catch) = self.catch.get() {
                     fmt.write_newline();
-                    self.catch.format(fmt);
+                    catch.catch.format(fmt);
+
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        catch.clauses.format(fmt);
+                    });
                 }
 
                 // 'after'
-                if self.after.get().is_some() {
+                if let Some(after) = self.after.get() {
                     fmt.write_newline();
-                    self.after.format(fmt);
+                    after.after.format(fmt);
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        after.body.format(fmt);
+                    });
                 }
 
                 // 'end'
@@ -279,26 +292,67 @@ impl Format for TryExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct TryCatch {
     catch: CatchKeyword,
-    clauses: Block<Clauses<CatchClause>>,
+    clauses: Clauses<CatchClause>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct CatchClause {
-    pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
+    pattern: CatchPattern,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format for CatchClause {
+    fn format(&self, fmt: &mut Formatter) {
+        // 'Class:Patter:Stacktrace'
+        self.pattern.class.format(fmt);
+        self.pattern.pattern.format(fmt);
+        self.pattern.stacktrace.format(fmt);
+
+        // 'when'
+        if self.guard.get().is_some() {
+            if fmt.has_newline_until(&self.arrow) {
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 2);
+                    fmt.write_newline();
+                    self.guard.format(fmt);
+                });
+            } else {
+                fmt.write_space();
+                self.guard.format(fmt);
+            }
+        }
+
+        // '->'
+        fmt.write_space();
+        self.arrow.format(fmt);
+
+        // 'Body'
+        if fmt.has_newline_until(&self.body) {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+                self.body.format(fmt);
+            });
+        } else {
+            fmt.write_space();
+            self.body.format(fmt);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
@@ -313,31 +367,25 @@ pub struct CatchExpr {
 
 impl Format for CatchExpr {
     fn format(&self, fmt: &mut Formatter) {
+        // 'catch'
         self.catch.format(fmt);
-        fmt.add_space();
-        fmt.subregion(Indent::CurrentColumn, |fmt| self.expr.format(fmt));
-    }
-}
 
-#[derive(Debug, Clone, Span, Parse)]
-struct Block<T>(T);
-
-impl<T: Format> Format for Block<T> {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(4), |fmt| {
-            self.0.format(fmt);
-            fmt.add_newline();
+        // 'Expr'
+        fmt.write_space();
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.expr.format(fmt);
         });
     }
 }
 
-/// `maybe` [Body] `$ELSE`? `end`
+/// `Maybe` [Body] `$ELSE`? `end`
 ///
 /// - $ELSE: `else` (`$CLAUSE` `;`?)+
 /// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct MaybeExpr {
     maybe: MaybeKeyword,
     body: Body,
@@ -345,18 +393,50 @@ pub struct MaybeExpr {
     end: EndKeyword,
 }
 
+impl Format for MaybeExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'maybe'
+                fmt.set_indent(fmt.column());
+                self.maybe.format(fmt);
+
+                // 'Body'
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.column() + 4);
+                    fmt.write_newline();
+                    self.body.format(fmt);
+                });
+
+                // 'else'
+                if let Some(else_block) = self.else_block.get() {
+                    else_block.else_keyword.format(fmt);
+
+                    // 'Clauses'
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        else_block.clauses.format(fmt);
+                    });
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if fmt.has_newline_until(&self.end) {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct ElseBlock {
     else_keyword: ElseKeyword,
-    clauses: Block<Clauses<CaseClause>>,
-}
-
-impl Format for ElseBlock {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.add_newline();
-        self.else_keyword.format(fmt);
-        self.clauses.format(fmt);
-    }
+    clauses: Clauses<CaseClause>,
 }
 
 #[cfg(test)]
