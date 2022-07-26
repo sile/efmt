@@ -37,7 +37,7 @@ impl Format for Module {
 
         for form in &self.forms {
             if is_last_fun_decl {
-                fmt.add_newlines(THREE);
+                fmt.write_newlines(THREE);
                 is_last_fun_decl = false;
             }
 
@@ -52,7 +52,7 @@ impl Format for Module {
             state.insert_two_empty_newlines_if_need(fmt, form);
 
             form.format(fmt);
-            fmt.add_newline();
+            fmt.write_newline();
             is_last_fun_decl = form.is_func_decl();
         }
 
@@ -80,7 +80,7 @@ impl<'a> FormatState<'a> {
 
         for constant in self.pending_constants.drain(..) {
             constant.format_with_indent(fmt, Some(indent));
-            fmt.add_newline();
+            fmt.write_newline();
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> FormatState<'a> {
 
         for constant in self.pending_constants.drain(..) {
             constant.format(fmt);
-            fmt.add_newline();
+            fmt.write_newline();
         }
     }
 
@@ -119,13 +119,13 @@ impl<'a> FormatState<'a> {
     fn insert_two_empty_newlines_if_need(&mut self, fmt: &mut Formatter, form: &'a Form) {
         if form.is_func_decl() && !self.is_last_spec {
             fmt.flush_non_preceding_comments(form);
-            fmt.add_newlines(THREE);
+            fmt.write_newlines(THREE);
         }
 
         self.is_last_spec = form.is_func_spec();
         if form.is_func_spec() {
             fmt.flush_non_preceding_comments(form);
-            fmt.add_newlines(THREE);
+            fmt.write_newlines(THREE);
         }
     }
 }

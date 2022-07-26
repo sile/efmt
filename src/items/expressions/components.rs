@@ -20,12 +20,6 @@ pub(crate) struct FunctionClause<Name> {
     body: Body,
 }
 
-impl<Name: Format> FunctionClause<Name> {
-    pub fn body(&self) -> &Body {
-        &self.body
-    }
-}
-
 /// ([Expr], `,`?)+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Body {

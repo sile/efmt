@@ -155,7 +155,7 @@ impl Format for MacroReplacement {
             }
         }
 
-        fmt.add_span(self);
+        fmt.write_span(self);
     }
 }
 
@@ -257,7 +257,7 @@ impl Format for MacroArg {
             }
         }
 
-        fmt.add_span(self);
+        fmt.write_span(self);
     }
 }
 

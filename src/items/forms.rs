@@ -1,5 +1,5 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format::{Format, Formatter, Indent};
+use crate::format::{Format, Formatter};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
     RecordAtom, SpecAtom, TypeAtom,
@@ -50,10 +50,11 @@ struct RecordDeclValue {
 
 impl Format for RecordDeclValue {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.name.format(fmt);
             self.comma.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             self.fields.format(fmt);
         });
     }
@@ -68,18 +69,18 @@ struct RecordField {
 
 impl Format for RecordField {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.add_newline();
+        fmt.write_newline(); // TODO: maybe single line
         self.name.format(fmt);
         if let Some((x, y)) = self.default.get() {
-            fmt.add_space();
+            fmt.write_space();
             x.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             y.format(fmt);
         }
         if let Some((x, y)) = self.r#type.get() {
-            fmt.add_space();
+            fmt.write_space();
             x.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             y.format(fmt);
         }
     }
@@ -107,13 +108,17 @@ struct TypeDeclItem {
 
 impl Format for TypeDeclItem {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.name.format(fmt);
             self.params.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             self.delimiter.format(fmt);
-            fmt.add_space();
-            fmt.subregion(Indent::Offset(2), |fmt| self.r#type.format(fmt));
+            fmt.write_space();
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 2);
+                self.r#type.format(fmt);
+            });
         });
     }
 }
@@ -139,7 +144,8 @@ struct FunSpecItem {
 
 impl Format for FunSpecItem {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.module_name.format(fmt);
             self.function_name.format(fmt);
             self.clauses.format(fmt);
@@ -156,7 +162,10 @@ struct SpecClause {
 impl Format for SpecClause {
     fn format(&self, fmt: &mut Formatter) {
         self.params.format(fmt);
-        fmt.subregion(Indent::ParentOffset(4), |fmt| self.r#return.format(fmt));
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.indent() + 4); // TODO: parent-offset
+            self.r#return.format(fmt);
+        });
     }
 }
 
@@ -193,7 +202,8 @@ impl Format for ExportItems {
         let items = self.items.items();
         let delimiters = self.items.delimiters();
         if !items.is_empty() {
-            fmt.subregion(Indent::CurrentColumn, |fmt| {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.column());
                 items.first().expect("unreachable").format(fmt);
 
                 for (prev_item, (item, delimiter)) in items
@@ -205,9 +215,9 @@ impl Format for ExportItems {
                     let is_same_group = prev_item.name.value() == item.name.value()
                         && prev_item.start_position().line() + 1 >= item.end_position().line();
                     if is_same_group {
-                        fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+                        item.format(fmt);
                     } else {
-                        fmt.add_newline();
+                        fmt.write_newline();
                         item.format(fmt);
                     }
                 }
@@ -249,7 +259,7 @@ impl<Name: Format, Value: Format, Empty: Format> Format for AttrLike<Name, Value
         self.hyphen.format(fmt);
         self.name.format(fmt);
         if matches!(self.value, Either::B(Either::A(_))) {
-            fmt.add_space();
+            fmt.write_space();
         }
         self.value.format(fmt);
         self.dot.format(fmt);
@@ -291,16 +301,17 @@ impl DefineDirective {
         self.hyphen.format(fmt);
         self.define.format(fmt);
         self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+
             self.macro_name.format(fmt);
             self.variables.format(fmt);
             self.comma.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
 
-            let indent = replacement_indent
-                .map(Indent::Absolute)
-                .unwrap_or(Indent::inherit());
-            fmt.subregion(indent, |fmt| self.replacement.format(fmt));
+            let indent = replacement_indent.unwrap_or_else(|| fmt.indent());
+            fmt.set_indent(indent);
+            self.replacement.format(fmt);
         });
         self.close.format(fmt);
         self.dot.format(fmt);

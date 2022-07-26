@@ -34,7 +34,7 @@ impl Format for Config {
     fn format(&self, fmt: &mut Formatter) {
         for term in &self.terms {
             term.format(fmt);
-            fmt.add_newline();
+            fmt.write_newline();
         }
     }
 }

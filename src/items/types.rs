@@ -28,9 +28,9 @@ struct UnionDelimiter(VerticalBarSymbol);
 
 impl Format for UnionDelimiter {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.add_space();
+        fmt.write_space();
         self.0.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
     }
 }
 
@@ -78,9 +78,9 @@ pub struct AnnotatedVariableType {
 impl Format for AnnotatedVariableType {
     fn format(&self, fmt: &mut Formatter) {
         self.variable.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
         self.colon.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
         self.ty.format(fmt);
     }
 }

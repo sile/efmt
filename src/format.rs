@@ -1,7 +1,7 @@
 use crate::span::Span;
 
 mod formatter;
-mod writer;
+// TODO: delete mod writer;
 
 pub use self::formatter::{Formatter, Indent};
 

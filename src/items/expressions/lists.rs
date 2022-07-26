@@ -36,12 +36,10 @@ impl Format for ListItemDelimiter {
         match self {
             Self::Comma(x) => {
                 x.format(fmt);
-                fmt.add_space();
             }
             Self::VerticalBar(x) => {
-                fmt.add_space();
+                fmt.write_space();
                 x.format(fmt);
-                fmt.add_space();
             }
         }
     }

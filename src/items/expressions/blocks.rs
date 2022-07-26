@@ -252,7 +252,7 @@ impl Format for TryExpr {
                         fmt.write_newline();
 
                         // 'Clauses'
-                        self.clauses.format(fmt);
+                        clauses.format(fmt);
                     });
                 }
 

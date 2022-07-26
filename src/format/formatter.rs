@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use crate::items::tokens::VisibleToken;
 // TODO
 //use crate::format::writer::{Error, RegionConfig, Result, Writer};
@@ -37,6 +39,37 @@ impl Formatter {
         }
     }
 
+    pub fn finish(self) -> String {
+        todo!()
+    }
+
+    pub fn flush_non_preceding_comments(&mut self, _next: &impl Span) {
+        todo!();
+        // for (i, comment_start) in self
+        //     .ts
+        //     .comments()
+        //     .range(self.next_position..next.start_position())
+        //     .map(|(k, _)| *k)
+        //     .rev()
+        //     .enumerate()
+        // {
+        //     if comment_start.line() == next.start_position().line() - i - 1 {
+        //         continue;
+        //     }
+
+        //     self.add_macros_and_comments(comment_start);
+        //     break;
+        // }
+    }
+
+    pub(crate) fn token_stream(&self) -> &TokenStream {
+        &self.ts
+    }
+
+    pub(crate) fn token_stream_mut(&mut self) -> &mut TokenStream {
+        &mut self.ts
+    }
+
     pub fn indent(&self) -> usize {
         self.indent
     }
@@ -51,6 +84,14 @@ impl Formatter {
 
     pub fn has_newline_until(&self, next: &impl Span) -> bool {
         self.last_position.line() != next.start_position().line()
+    }
+
+    pub fn write_span(&mut self, _span: &impl Span) {
+        todo!();
+    }
+
+    pub fn write_newlines(&mut self, _n: NonZeroUsize) {
+        todo!();
     }
 
     pub fn write_newline(&mut self) {
@@ -90,8 +131,7 @@ impl Formatter {
         todo!()
     }
 
-    //pub fn with_single_line_mode
-
+    // TODO:
     // pub fn subregion<F>(&mut self, indent: Indent, f: F)
     // where
     //     F: FnOnce(&mut Self),
@@ -115,6 +155,7 @@ impl Formatter {
     // }
 }
 
+// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Indent {
     CurrentColumn,
@@ -130,6 +171,7 @@ impl Indent {
     }
 }
 
+// TODO
 //     pub fn token_stream(&self) -> &TokenStream {
 //         &self.ts
 //     }
@@ -240,24 +282,6 @@ impl Indent {
 //         self.item.add_space();
 //     }
 
-//     pub fn flush_non_preceding_comments(&mut self, next: &impl Span) {
-//         for (i, comment_start) in self
-//             .ts
-//             .comments()
-//             .range(self.next_position..next.start_position())
-//             .map(|(k, _)| *k)
-//             .rev()
-//             .enumerate()
-//         {
-//             if comment_start.line() == next.start_position().line() - i - 1 {
-//                 continue;
-//             }
-
-//             self.add_macros_and_comments(comment_start);
-//             break;
-//         }
-//     }
-
 //     pub fn add_newline(&mut self) {
 //         self.add_newlines(NonZeroUsize::new(1).expect("unreachable"));
 //     }
@@ -301,10 +325,6 @@ impl Indent {
 //             .find(|c| matches!(c.text(&self.ts.text()).parse(), Ok(Directive::FormatOn)))
 //             .map(|c| c.end_position())
 //             .unwrap_or_else(|| Position::new(self.ts.text().len(), usize::MAX, usize::MAX))
-//     }
-
-//     pub(crate) fn token_stream_mut(&mut self) -> &mut TokenStream {
-//         &mut self.ts
 //     }
 
 //     pub fn format(mut self) -> String {

@@ -89,7 +89,7 @@ impl Options {
             formatter.skip_formatting();
         }
         item.format(&mut formatter);
-        let formatted_text = formatter.format();
+        let formatted_text = formatter.finish();
         Ok(formatted_text)
     }
 }

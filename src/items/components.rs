@@ -116,7 +116,8 @@ impl<T> Parenthesized<T> {
 impl<T: Format> Format for Parenthesized<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.item.format(fmt);
         });
         self.close.format(fmt);
@@ -147,7 +148,7 @@ pub struct CommaDelimiter(CommaSymbol);
 impl Format for CommaDelimiter {
     fn format(&self, fmt: &mut Formatter) {
         self.0.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
     }
 }
 
@@ -191,7 +192,8 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.format_items(fmt);
         });
     }
@@ -199,22 +201,23 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> NonEmptyItems<T, D> {
     pub fn format_multi_line(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             let item = self.items().first().expect("unreachable");
-            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+            item.format(fmt);
             for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+                item.format(fmt);
             }
         });
     }
 
     fn format_items(&self, fmt: &mut Formatter) {
         let item = self.items().first().expect("unreachable");
-        fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+        item.format(fmt);
         for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
             delimiter.format(fmt);
-            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+            item.format(fmt);
         }
     }
 }
@@ -251,9 +254,10 @@ impl<T, D> MaybePackedItems<T, D> {
 
 impl<T: Format, D: Format> MaybePackedItems<T, D> {
     fn packed_format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             let item = self.0.items().first().expect("unreachable");
-            fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+            item.format(fmt);
             for (item, delimiter) in self
                 .0
                 .items()
@@ -262,7 +266,7 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .zip(self.0.delimiters().iter())
             {
                 delimiter.format(fmt);
-                fmt.subregion(Indent::inherit(), |fmt| item.format(fmt));
+                item.format(fmt);
             }
         });
     }
@@ -272,7 +276,10 @@ impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         if self.0.items().is_empty() {
         } else if self.0.items().iter().all(Element::is_packable) {
-            fmt.subregion(Indent::CurrentColumn, |fmt| self.packed_format(fmt));
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.column());
+                self.packed_format(fmt);
+            });
         } else {
             self.0.format(fmt);
         }
@@ -366,10 +373,11 @@ where
     Field: Format + Element,
 {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.prefix.format(fmt);
             self.fields.format(fmt);
-        })
+        });
     }
 }
 
@@ -395,26 +403,20 @@ impl<T: Format> RecordFieldsLike<T> {
 impl<T: Format> Format for RecordFieldsLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
-        fmt.subregion(Indent::Offset(1), |fmt| {
-            fmt.subregion(Indent::Offset(1), |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.indent() + 1);
+
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 1);
                 self.format_fields(fmt);
             });
-
-            fmt.subregion(Indent::Offset(0), |fmt| {
-                self.close.format(fmt);
-            });
         });
+        self.close.format(fmt);
     }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonDelimiter>);
-
-impl<T> Clauses<T> {
-    pub fn items(&self) -> &[T] {
-        self.0.items()
-    }
-}
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct SemicolonDelimiter(SemicolonSymbol);
@@ -422,7 +424,7 @@ pub struct SemicolonDelimiter(SemicolonSymbol);
 impl Format for SemicolonDelimiter {
     fn format(&self, fmt: &mut Formatter) {
         self.0.format(fmt);
-        fmt.add_newline();
+        fmt.write_newline();
     }
 }
 
@@ -474,15 +476,15 @@ impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike
         self.left.format(fmt);
 
         if self.op.needs_spaces() {
-            fmt.add_space();
+            fmt.write_space();
             self.op.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
         } else {
             self.op.format(fmt);
         }
 
-        let indent = self.op.indent();
-        fmt.subregion(indent, |fmt| self.right.format(fmt));
+        // let indent = self.op.indent(); TODO
+        self.right.format(fmt);
     }
 }
 
@@ -529,6 +531,6 @@ pub struct GuardDelimiter(Either<CommaSymbol, SemicolonSymbol>);
 impl Format for GuardDelimiter {
     fn format(&self, fmt: &mut Formatter) {
         self.0.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
     }
 }
