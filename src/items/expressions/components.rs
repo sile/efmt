@@ -1,10 +1,9 @@
 use crate::format::{Format, Formatter, Indent};
-use crate::items::components::{
-    BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
-};
+use crate::items::components::{BinaryOpStyle, Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
+    RightArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
@@ -13,11 +12,61 @@ use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
 use std::cmp::min;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name> {
+#[derive(Debug, Clone, Span, Parse)]
+pub(crate) struct FunctionClause<Name, const BODY_INDENT: usize = 4> {
     name: Name,
-    params: WithArrow<WithGuard<Params<Expr>, Expr>>,
+    params: Params<Expr>,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl<Name: Format, const BODY_INDENT: usize> Format for FunctionClause<Name, BODY_INDENT> {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                let base_indent = fmt.indent();
+
+                // 'Name'
+                self.name.format(fmt);
+
+                // 'Params'
+                self.params.format(fmt);
+
+                // 'Guard'
+                if let Some(guard) = self.guard.get() {
+                    let newline = fmt.has_newline_until(&guard.end_position());
+                    if newline {
+                        fmt.set_indent(base_indent + BODY_INDENT - 2);
+                        fmt.write_newline();
+                    } else {
+                        fmt.write_space();
+                    }
+                    guard.format(fmt);
+                }
+                fmt.write_space();
+
+                // '->'
+                let newline = fmt.has_newline_until(&self.body.end_position());
+                self.arrow.format(fmt);
+                if newline {
+                    fmt.set_indent(base_indent + BODY_INDENT);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+
+                // 'Body'
+                self.body.format(fmt);
+            });
+        };
+
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        };
+    }
 }
 
 /// ([Expr], `,`?)+

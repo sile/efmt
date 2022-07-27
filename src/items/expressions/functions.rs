@@ -39,7 +39,7 @@ pub struct DefinedFunctionExpr {
 #[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
     fun: FunKeyword,
-    clauses: Clauses<FunctionClause<Null>>,
+    clauses: Clauses<FunctionClause<Null, 5>>,
     end: EndKeyword,
 }
 
@@ -62,7 +62,7 @@ impl Format for AnonymousFunctionExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -102,7 +102,7 @@ impl Format for NamedFunctionExpr {
                 self.end.format(fmt);
             })
         };
-        if fmt.has_newline_until(&self.end) {
+        if self.contains_newline() {
             f(fmt);
         } else {
             fmt.with_single_line_mode(f);
@@ -127,30 +127,26 @@ mod tests {
         let texts = [
             "fun() -> hi end",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(a) ->
                     a;
                (A) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun({a, b}, C) ->
                     C;
                (A, B)
-                 when is_integer(A);
-                      is_atom(B) ->
+                  when is_integer(A);
+                       is_atom(B) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(A) ->
                     foo(),
                     bar,
                     baz(A)
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(a) ->
                     foo(),
                     bar,
@@ -159,7 +155,6 @@ mod tests {
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun() -> foo() end"},
         ];
         for text in texts {
@@ -172,19 +167,16 @@ mod tests {
         let texts = [
             "fun Foo() -> hi end",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo() ->
                     hello
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo(a) ->
                     a;
                 Foo(A) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo({a, b},
                     C) ->
                     C;

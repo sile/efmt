@@ -148,7 +148,6 @@ mod tests {
             "foo()",
             "Foo(1, 2, 3)",
             indoc::indoc! {"
-            %---10---|%---20---|
             (foo(Bar))(a,
                        b,
                        c())"},
@@ -156,7 +155,6 @@ mod tests {
             "[]:bar(baz)",
             "foo:[](baz)",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo(A * 10 * B /
                 1_0.0)"},
         ];
