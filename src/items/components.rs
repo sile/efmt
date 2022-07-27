@@ -231,7 +231,7 @@ impl<T: Format, D: Format> NonEmptyItems<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Items<T, D = CommaDelimiter>(Maybe<NonEmptyItems<T, D>>);
+pub struct Items<T, D = CommaSymbol>(Maybe<NonEmptyItems<T, D>>);
 
 impl<T, D> Items<T, D> {
     pub fn items(&self) -> &[T] {
@@ -317,7 +317,7 @@ impl<T: Element, D> ListLike<T, D> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
     tag: Maybe<(AtomToken, CommaSymbol)>,
@@ -328,6 +328,18 @@ pub struct TupleLike<T: Element> {
 impl<T: Element> TupleLike<T> {
     pub(crate) fn items(&self) -> (Option<&AtomToken>, &[T]) {
         (self.tag.get().map(|(x, _)| x), self.items.items())
+    }
+}
+
+impl<T: Element + Format> Format for TupleLike<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
+        if let Some(tag) = self.tag.get() {
+            tag.format(fmt);
+            fmt.write_space();
+        }
+        self.items.format(fmt);
+        self.close.format(fmt);
     }
 }
 
