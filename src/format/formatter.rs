@@ -102,6 +102,8 @@ impl Formatter {
                 self.column += 1;
             }
         }
+
+        self.last_position = span.end_position();
     }
 
     pub fn write_newlines(&mut self, _n: NonZeroUsize) {

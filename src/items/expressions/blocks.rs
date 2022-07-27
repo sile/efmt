@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems, WithArrow};
+use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
@@ -118,17 +118,71 @@ impl Format for CaseClause {
 ///
 /// - $CLAUSE: `$GUARD` `->` [Body]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct IfExpr {
     r#if: IfKeyword,
     clauses: Clauses<IfClause>,
     end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format for IfExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'if'
+                fmt.set_indent(fmt.column());
+                self.r#if.format(fmt);
+
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+
+                    // 'Clauses'
+                    self.clauses.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct IfClause {
-    condigion: WithArrow<GuardCondition>,
+    condition: GuardCondition,
+    arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl Format for IfClause {
+    fn format(&self, fmt: &mut Formatter) {
+        // 'Condition'
+        self.condition.format(fmt);
+        fmt.write_space();
+
+        // '->'
+        let multiline = fmt.has_newline_until(&self.body.end_position());
+        self.arrow.format(fmt);
+
+        // 'Body'
+        if multiline {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+                self.body.format(fmt);
+            });
+        } else {
+            fmt.write_space();
+            self.body.format(fmt);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -501,18 +555,20 @@ mod tests {
     fn if_works() {
         let texts = [
             indoc::indoc! {"
-                if
-                    true ->
-                        2
-                end"},
+            if
+                true ->
+                    2
+            end"},
             indoc::indoc! {"
-                if
-                    A =:= {1, 2} ->
-                        3;
-                    is_integer(A),
-                    A > 100 ->
-                        A / 10
-                end"},
+            if true -> 2 end"},
+            indoc::indoc! {"
+            if
+                A =:= {1, 2} ->
+                    3;
+                is_integer(A),
+                A > 100 ->
+                    A / 10
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -523,7 +579,6 @@ mod tests {
     fn receive_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
                 {A, B} ->
                     [A, B];
@@ -532,7 +587,6 @@ mod tests {
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
                 A ->
                     A
@@ -541,14 +595,14 @@ mod tests {
                     timeout
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            receive A -> A after 1000 -> timeout end"},
+            indoc::indoc! {"
             receive
             after
                 N ->
                     timeout
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
             after
                 infinity ->

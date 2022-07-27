@@ -142,6 +142,7 @@ impl<T> Args<T> {
     }
 }
 
+// TODO: delete
 #[derive(Debug, Clone, Span, Parse)]
 pub struct CommaDelimiter(CommaSymbol);
 
@@ -272,7 +273,13 @@ impl<T: Format, D: Format> MaybePackedItems<T, D> {
                 .skip(1)
                 .zip(self.0.delimiters().iter())
             {
+                let newline = fmt.has_newline_until(item);
                 delimiter.format(fmt);
+                if newline {
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
                 item.format(fmt);
             }
         });
@@ -298,7 +305,7 @@ pub trait Element {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListLike<T: Element, D = CommaDelimiter> {
+pub struct ListLike<T: Element, D = CommaSymbol> {
     open: OpenSquareSymbol,
     items: MaybePackedItems<T, D>,
     close: CloseSquareSymbol,
@@ -313,8 +320,8 @@ impl<T: Element, D> ListLike<T, D> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleLike<T: Element> {
     open: OpenBraceSymbol,
-    tag: Maybe<(AtomToken, CommaDelimiter)>,
-    items: MaybePackedItems<T, CommaDelimiter>,
+    tag: Maybe<(AtomToken, CommaSymbol)>,
+    items: MaybePackedItems<T, CommaSymbol>,
     close: CloseBraceSymbol,
 }
 
