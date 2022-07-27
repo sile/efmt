@@ -5,7 +5,7 @@ use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter, Indent};
 use crate::items::components::{
     Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
-    NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike, UnaryOpLike,
+    NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike,
 };
 use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
@@ -96,8 +96,26 @@ impl ResumeParse<BaseType> for BinaryOpType {
 }
 
 /// [UnaryOp] [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpType(UnaryOpLike<UnaryOp, BaseType>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct UnaryOpType {
+    op: UnaryOp,
+    ty: BaseType,
+}
+
+impl Format for UnaryOpType {
+    fn format(&self, fmt: &mut Formatter) {
+        let last = fmt.last_char().unwrap_or('\n');
+        if !matches!(last, '\n' | ' ') {
+            fmt.write_space();
+        }
+
+        self.op.format(fmt);
+        if matches!(self.op, UnaryOp::Bnot(_)) {
+            fmt.write_space();
+        }
+        self.ty.format(fmt);
+    }
+}
 
 /// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`
 ///
@@ -116,14 +134,33 @@ impl Format for FunctionType {
     }
 }
 
-type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter, Type>;
+#[derive(Debug, Clone, Span, Parse)]
+struct FunctionParamsAndReturn {
+    params: FunctionParams,
+    arrow: RightArrowSymbol,
+    ty: Type,
+}
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct RightArrowDelimiter(RightArrowSymbol);
+impl Format for FunctionParamsAndReturn {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            // 'Params'
+            self.params.format(fmt);
+            fmt.write_space();
 
-impl<RHS> BinaryOpStyle<RHS> for RightArrowDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(8)
+            // '->'
+            let multiline = fmt.has_newline_until(&self.ty);
+            self.arrow.format(fmt);
+            if multiline {
+                fmt.set_indent(fmt.indent() + 8);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+
+            // 'Type'
+            self.ty.format(fmt);
+        });
     }
 }
 
@@ -218,12 +255,10 @@ mod tests {
             "foo()",
             "foo:bar(A, 1)",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo:bar(A,
                     BB,
                     baz())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo:bar(A,
                     B,
                     baz(12, 34),
@@ -241,7 +276,6 @@ mod tests {
             "[foo()]",
             "[10, ...]",
             indoc::indoc! {"
-            %---10---|%---20---|
             [fooooooooooo(),
              ...]"},
         ];
@@ -257,17 +291,14 @@ mod tests {
             "{foo()}",
             "{atom, 1}",
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo(),
              bar(),
              [baz()]}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo(),
              bar(),
              [baz(A, B)]}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo, bar,
                   [baz(A, B)]}"},
         ];
@@ -282,25 +313,24 @@ mod tests {
             "#{}",
             "#{a => b, 1 := 2}",
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               atom() :=
                   integer()
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               atom() := {Aaa,
                          bbb,
                          ccc}
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               a => b,
               1 := 2,
               atom() := atom()
              }"},
+            indoc::indoc! {"
+            #{a => b, 1 := 2, atom() := atom()}"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
@@ -312,18 +342,17 @@ mod tests {
         let texts = [
             "#foo{}",
             indoc::indoc! {"
-            %---10---|%---20---|
             #foo{
               bar :: integer()
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #foo{
               bar :: b,
               baz :: 2
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            #foo{bar :: b, baz :: 2}"},
+            indoc::indoc! {"
             #foo{
               bar :: b,
               baz :: bb()
@@ -340,14 +369,11 @@ mod tests {
             "fun()",
             "fun(() -> integer())",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((...) -> atom())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((A, b, $c) ->
                         tuple())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((A,
                  b,
                  $c,
@@ -361,7 +387,7 @@ mod tests {
 
     #[test]
     fn unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
+        let texts = ["-10", "+10", "bnot 100", "- - + +3"];
         for text in texts {
             crate::assert_format!(text, Type);
         }
@@ -372,7 +398,6 @@ mod tests {
         let texts = [
             "-10 + 20 rem 3",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo |
             (3 + 10) |
             -1..+20"},
@@ -390,7 +415,6 @@ mod tests {
             "<<_:_*8>>",
             "<<_:8, _:_*4>>",
             indoc::indoc! {"
-            %---10---|%---20---|
             <<_:(1 + 3 + 4),
               _:_*4>>"},
         ];
@@ -404,10 +428,8 @@ mod tests {
         let texts = [
             "Foo :: atom()",
             indoc::indoc! {"
-            %---10---|%---20---|
             Foo :: [bar:baz(qux)]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             Foo :: atom() |
                    integer() |
                    bar"},

@@ -207,18 +207,6 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
 }
 
 impl<T: Format, D: Format> NonEmptyItems<T, D> {
-    pub fn format_multi_line(&self, fmt: &mut Formatter) {
-        fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.column());
-            let item = self.items().first().expect("unreachable");
-            item.format(fmt);
-            for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-                delimiter.format(fmt);
-                item.format(fmt);
-            }
-        });
-    }
-
     fn format_items(&self, fmt: &mut Formatter) {
         let item = self.items().first().expect("unreachable");
         item.format(fmt);
@@ -363,8 +351,12 @@ impl<Prefix, Item> MapLike<Prefix, Item> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct MapItem<T>(BinaryOpLike<T, MapDelimiter, T>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct MapItem<T> {
+    key: T,
+    delimiter: Either<DoubleRightArrowSymbol, MapMatchSymbol>,
+    value: T,
+}
 
 impl<T> Element for MapItem<T> {
     fn is_packable(&self) -> bool {
@@ -372,12 +364,23 @@ impl<T> Element for MapItem<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct MapDelimiter(Either<DoubleRightArrowSymbol, MapMatchSymbol>);
+impl<T: Format> Format for MapItem<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            self.key.format(fmt);
 
-impl<RHS> BinaryOpStyle<RHS> for MapDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(4)
+            let multiline = fmt.has_newline_until(&self.value);
+            fmt.write_space();
+            self.delimiter.format(fmt);
+
+            if multiline {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            self.value.format(fmt);
+        });
     }
 }
 
@@ -410,34 +413,30 @@ where
 #[derive(Debug, Clone, Span, Parse)]
 pub struct RecordFieldsLike<T> {
     open: OpenBraceSymbol,
-    fields: Items<T, CommaDelimiter>,
+    fields: Items<T>,
     close: CloseBraceSymbol,
-}
-
-impl<T: Format> RecordFieldsLike<T> {
-    fn format_fields(&self, fmt: &mut Formatter) {
-        if let Some(items) = self.fields.0.get() {
-            if items.items().len() > 2 {
-                items.format_multi_line(fmt);
-            } else {
-                items.format_items(fmt);
-            }
-        }
-    }
 }
 
 impl<T: Format> Format for RecordFieldsLike<T> {
     fn format(&self, fmt: &mut Formatter) {
-        self.open.format(fmt);
+        let multiline = self.contains_newline();
         fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.indent() + 1);
+            let base_indent = fmt.indent();
+            self.open.format(fmt);
+            if self.fields.items().len() > 0 {
+                if multiline {
+                    fmt.set_indent(base_indent + 2);
+                    fmt.write_newline();
+                }
+                self.fields.format(fmt);
+            }
 
-            fmt.with_scoped_indent(|fmt| {
-                fmt.set_indent(fmt.indent() + 1);
-                self.format_fields(fmt);
-            });
+            if multiline {
+                fmt.set_indent(base_indent + 1);
+                fmt.write_newline();
+            }
+            self.close.format(fmt);
         });
-        self.close.format(fmt);
     }
 }
 

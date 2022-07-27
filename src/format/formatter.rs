@@ -46,6 +46,10 @@ impl Formatter {
         self.buf
     }
 
+    pub fn last_char(&self) -> Option<char> {
+        self.buf.chars().last()
+    }
+
     pub fn flush_non_preceding_comments(&mut self, _next: &impl Span) {
         // todo!();
 
