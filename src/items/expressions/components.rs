@@ -98,6 +98,7 @@ impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
 
             self.qualifiers.format(fmt);
         });
+        fmt.write_space();
         self.close.format(fmt);
     }
 }

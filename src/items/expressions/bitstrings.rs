@@ -99,7 +99,6 @@ mod tests {
         let texts = [
             "<<>>",
             indoc::indoc! {"
-            %---10---|%---20---|
             <<1, 2, 3, 4, 5, 6,
               7, 8, 9>>"},
             "<<1, 2:16, 3>>",
@@ -121,12 +120,10 @@ mod tests {
     fn bitstring_comprehension_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             << <<X>>
                || X <- [1, 2,
                         3] >>"},
             indoc::indoc! {"
-            %---10---|%---20---|
             << (foo(X,
                     Y,
                     Z,
@@ -137,13 +134,11 @@ mod tests {
                   Y <= Z,
                   false >>"},
             indoc::indoc! {"
-            %---10---|%---20---|
             << <<if
                      X < 10 ->
                          X + $0;
                      true ->
-                         X -
-                         10 + $A
+                         X - 10 + $A
                  end>>
                || <<X:4>>
                       <= B >>"},

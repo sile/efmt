@@ -154,7 +154,7 @@ impl Format for CommaDelimiter {
 }
 
 #[derive(Debug, Clone)]
-pub struct NonEmptyItems<T, D = CommaDelimiter> {
+pub struct NonEmptyItems<T, D = CommaSymbol> {
     items: Vec<T>,
     delimiters: Vec<D>,
 }
@@ -252,7 +252,7 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T, D = CommaDelimiter>(Items<T, D>);
+struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
 
 impl<T, D> MaybePackedItems<T, D> {
     pub(crate) fn items(&self) -> &[T] {
