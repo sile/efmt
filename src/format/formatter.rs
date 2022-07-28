@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use crate::items::tokens::VisibleToken;
 // TODO
 //use crate::format::writer::{Error, RegionConfig, Result, Writer};
@@ -110,8 +108,17 @@ impl Formatter {
         self.last_position = span.end_position();
     }
 
-    pub fn write_newlines(&mut self, _n: NonZeroUsize) {
-        todo!();
+    pub fn write_newlines(&mut self, mut n: usize) {
+        for c in self.buf.chars().rev() {
+            if c == '\n' {
+                n = n.saturating_sub(1);
+            } else {
+                break;
+            }
+        }
+        for _ in 0..n {
+            self.write_newline();
+        }
     }
 
     pub fn write_newline(&mut self) {

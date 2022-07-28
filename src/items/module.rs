@@ -3,9 +3,6 @@ use crate::items::forms::DefineDirective;
 use crate::items::{forms, Form};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
-use std::num::NonZeroUsize;
-
-const THREE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(3) };
 
 /// [Form]*
 #[derive(Debug, Clone, Span)]
@@ -37,7 +34,7 @@ impl Format for Module {
 
         for form in &self.forms {
             if is_last_fun_decl {
-                fmt.write_newlines(THREE);
+                fmt.write_newlines(3);
                 is_last_fun_decl = false;
             }
 
@@ -119,13 +116,13 @@ impl<'a> FormatState<'a> {
     fn insert_two_empty_newlines_if_need(&mut self, fmt: &mut Formatter, form: &'a Form) {
         if form.is_func_decl() && !self.is_last_spec {
             fmt.flush_non_preceding_comments(form);
-            fmt.write_newlines(THREE);
+            fmt.write_newlines(3);
         }
 
         self.is_last_spec = form.is_func_spec();
         if form.is_func_spec() {
             fmt.flush_non_preceding_comments(form);
-            fmt.write_newlines(THREE);
+            fmt.write_newlines(3);
         }
     }
 }
