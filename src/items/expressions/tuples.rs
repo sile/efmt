@@ -43,7 +43,6 @@ mod tests {
     #[test]
     fn tagged_tuple_works() {
         let texts = [indoc::indoc! {"
-            %---10---|%---20---|
             {error, {Foo, Bar,
                      Baz},
                     qux}"}];

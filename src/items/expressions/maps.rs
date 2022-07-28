@@ -33,7 +33,6 @@ mod tests {
         let texts = [
             "#{}",
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               1 => 2,
               333 => {444, 55},
@@ -41,11 +40,12 @@ mod tests {
                       888}
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               1 => 2,
               333 => {444, 55}
              }"},
+            indoc::indoc! {"
+            #{1 => 2, 333 => {444, 55}}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -56,10 +56,8 @@ mod tests {
     fn map_update_works() {
         let texts = [
             "M#{}",
-            "1 #{}",
             "M#{}#{}",
             indoc::indoc! {"
-            %---10---|%---20---|
             (foo())#{
               1 => 2,
               foo := {Bar, baz}

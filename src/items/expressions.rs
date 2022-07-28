@@ -189,7 +189,6 @@ mod tests {
             foo(A) when A ->
                 A."},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo(A, B, C)
               when A =:= B ->
                 C."},

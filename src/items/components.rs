@@ -443,16 +443,11 @@ impl<T: Format> Format for RecordFieldsLike<T> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
+// TODO: delete
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnaryOpLike<O, T> {
     op: O,
     item: T,
-}
-
-impl<O, T> UnaryOpLike<O, T> {
-    pub fn item(&self) -> &T {
-        &self.item
-    }
 }
 
 pub trait BinaryOpStyle<RHS> {

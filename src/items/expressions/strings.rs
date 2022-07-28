@@ -67,7 +67,6 @@ mod tests {
             "bar"
             "baz""#},
             indoc::indoc! {r#"
-            %---10---|%---20---|
             foo("bar"
                 "baz",
                 qux)"#},

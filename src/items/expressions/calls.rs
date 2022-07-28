@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{Args, BinaryOpLike, Maybe, UnaryOpLike};
+use crate::items::components::{Args, BinaryOpLike, Maybe};
 use crate::items::expressions::components::{BinaryOp, UnaryOp};
 use crate::items::expressions::BaseExpr;
 use crate::items::symbols::ColonSymbol;
@@ -41,12 +41,30 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
 }
 
 /// [UnaryOp] [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct UnaryOpCallExpr {
+    op: UnaryOp,
+    expr: BaseExpr,
+}
+
+impl Format for UnaryOpCallExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let last = fmt.last_char().unwrap_or('\n');
+        if !matches!(last, '\n' | ' ') {
+            fmt.write_space();
+        }
+
+        self.op.format(fmt);
+        if matches!(self.op, UnaryOp::Bnot(_) | UnaryOp::Not(_)) {
+            fmt.write_space();
+        }
+        self.expr.format(fmt);
+    }
+}
 
 impl UnaryOpCallExpr {
     pub(crate) fn item(&self) -> &BaseExpr {
-        self.0.item()
+        &self.expr
     }
 }
 
@@ -165,7 +183,7 @@ mod tests {
 
     #[test]
     fn unary_op_call_works() {
-        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ +-3"];
+        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ + -3"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
@@ -177,18 +195,15 @@ mod tests {
             "1 + 2",
             "1 - 2 * 3",
             indoc::indoc! {"
-            %---10---|%---20---|
             1 + 2 + 3 + 4 + 5 +
             6"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {A, B, C} = {Foo,
                          bar,
                          baz} =
                     qux() /
                     quux() div 2"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [a,
              b ! fooooooooooooooo,
              c +
@@ -197,7 +212,6 @@ mod tests {
              qux =
                  quuxxxxxxxxxxx]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo =
                 case bar of
                     baz ->

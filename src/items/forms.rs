@@ -520,7 +520,6 @@ mod tests {
             foo(_, _) ->
                 baz."},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo(A)
               when a,
                    b;
@@ -546,7 +545,6 @@ mod tests {
             -spec foo(X) -> X;
                      (Y) -> Y."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -spec foo(A, B) ->
                       C;
                      (T0, T1) ->
@@ -566,7 +564,6 @@ mod tests {
                           {atom(),
                            atom()}."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -spec foobar(A) ->
                       {atom(),
                        atom()}
@@ -591,11 +588,9 @@ mod tests {
             "-type foo() :: a.",
             "-type(foo() :: a).",
             indoc::indoc! {"
-            %---10---|%---20---|
             -type foo() :: bar |
                            baz."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -type foo() ::
                     barr | bazz."},
             indoc::indoc! {"

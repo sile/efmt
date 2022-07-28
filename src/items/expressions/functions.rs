@@ -22,13 +22,24 @@ pub enum FunctionExpr {
 /// - $MODULE: [Expr]
 /// - $NAME: [Expr]
 /// - $ARITY: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct DefinedFunctionExpr {
     fun: FunKeyword,
     module: Maybe<(BaseExpr, ColonSymbol)>,
     name: BaseExpr,
     slash: SlashSymbol,
     arity: BaseExpr,
+}
+
+impl Format for DefinedFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.fun.format(fmt);
+        fmt.write_space();
+        self.module.format(fmt);
+        self.name.format(fmt);
+        self.slash.format(fmt);
+        self.arity.format(fmt);
+    }
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -116,7 +127,7 @@ mod tests {
 
     #[test]
     fn defined_function_works() {
-        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun(foo()):Bar/(baz())"];
+        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
