@@ -5,8 +5,8 @@ use crate::items::atoms::{
     RecordAtom, SpecAtom, TypeAtom,
 };
 use crate::items::components::{
-    Clauses, CommaDelimiter, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params,
-    Parenthesized, RecordFieldsLike, WithArrow, WithGuard,
+    Clauses, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params, Parenthesized,
+    RecordFieldsLike,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::{ElseKeyword, IfKeyword};
@@ -21,6 +21,9 @@ use crate::items::Type;
 use crate::parse::Parse;
 use crate::span::Span;
 use std::path::{Path, PathBuf};
+
+use super::components::Guard;
+use super::symbols::RightArrowSymbol;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub(super) enum Form {
@@ -69,7 +72,6 @@ struct RecordField {
 
 impl Format for RecordField {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.write_newline(); // TODO: maybe single line
         self.name.format(fmt);
         if let Some((x, y)) = self.default.get() {
             fmt.write_space();
@@ -109,14 +111,18 @@ struct TypeDeclItem {
 impl Format for TypeDeclItem {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.column());
+            let base_indent = fmt.column();
             self.name.format(fmt);
             self.params.format(fmt);
             fmt.write_space();
             self.delimiter.format(fmt);
-            fmt.write_space();
             fmt.with_scoped_indent(|fmt| {
-                fmt.set_indent(fmt.indent() + 2);
+                if fmt.has_newline_until(&self.r#type) {
+                    fmt.set_indent(base_indent + 2);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
                 self.r#type.format(fmt);
             });
         });
@@ -131,18 +137,18 @@ impl Format for TypeDeclItem {
 ///
 /// Note that the parenthesized notation like `-spec(foo() -> bar()).` is also acceptable
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct FunSpec(AttrLike<FunSpecName, FunSpecItem>);
-
-type FunSpecName = Either<SpecAtom, CallbackAtom>;
+pub struct FunSpec(
+    Either<AttrLike<SpecAtom, FunSpecItem<6>>, AttrLike<CallbackAtom, FunSpecItem<10>>>,
+);
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunSpecItem {
+struct FunSpecItem<const INDENT: usize> {
     module_name: Maybe<(AtomToken, ColonSymbol)>,
     function_name: AtomToken,
-    clauses: Clauses<SpecClause>,
+    clauses: Clauses<SpecClause<INDENT>>,
 }
 
-impl Format for FunSpecItem {
+impl<const INDENT: usize> Format for FunSpecItem<INDENT> {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
             fmt.set_indent(fmt.column());
@@ -154,17 +160,43 @@ impl Format for FunSpecItem {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct SpecClause {
-    params: WithArrow<Params<Type>>,
-    r#return: WithGuard<Type, Type, CommaDelimiter, 4>,
+struct SpecClause<const INDENT: usize> {
+    params: Params<Type>,
+    arrow: RightArrowSymbol,
+    r#return: Type,
+    guard: Maybe<Guard<Type, CommaSymbol>>,
 }
 
-impl Format for SpecClause {
+impl<const INDENT: usize> Format for SpecClause<INDENT> {
     fn format(&self, fmt: &mut Formatter) {
-        self.params.format(fmt);
         fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.indent() + 4); // TODO: parent-offset
+            // 'Params'
+            self.params.format(fmt);
+            fmt.write_space();
+
+            // '->'
+            let multiline = fmt.has_newline_until(&self.r#return);
+            self.arrow.format(fmt);
+
+            // 'Return'
+            if multiline {
+                fmt.set_indent(INDENT + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
             self.r#return.format(fmt);
+
+            // 'Guard'
+            if let Some(guard) = self.guard.get() {
+                if fmt.has_newline_until(guard) {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                guard.format(fmt);
+            }
         });
     }
 }
@@ -191,7 +223,7 @@ pub struct ExportAttr(AttrLike<Either<ExportAtom, ExportTypeAtom>, ExportItems>)
 #[derive(Debug, Clone, Span, Parse)]
 struct ExportItems {
     open: OpenSquareSymbol,
-    items: Items<ExportItem, CommaDelimiter>,
+    items: Items<ExportItem, CommaSymbol>,
     close: CloseSquareSymbol,
 }
 
@@ -215,6 +247,7 @@ impl Format for ExportItems {
                     let is_same_group = prev_item.name.value() == item.name.value()
                         && prev_item.start_position().line() + 1 >= item.end_position().line();
                     if is_same_group {
+                        fmt.write_space();
                         item.format(fmt);
                     } else {
                         fmt.write_newline();
@@ -256,13 +289,21 @@ struct AttrLike<Name, Value, Empty = Never> {
 
 impl<Name: Format, Value: Format, Empty: Format> Format for AttrLike<Name, Value, Empty> {
     fn format(&self, fmt: &mut Formatter) {
-        self.hyphen.format(fmt);
-        self.name.format(fmt);
-        if matches!(self.value, Either::B(Either::A(_))) {
-            fmt.write_space();
+        let f = |fmt: &mut Formatter| {
+            self.hyphen.format(fmt);
+            self.name.format(fmt);
+            if matches!(self.value, Either::B(Either::A(_))) {
+                fmt.write_space();
+            }
+            self.value.format(fmt);
+            self.dot.format(fmt);
+        };
+
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
         }
-        self.value.format(fmt);
-        self.dot.format(fmt);
     }
 }
 
@@ -502,6 +543,8 @@ mod tests {
                       field2,
                       field3 = 421
                      })."},
+            indoc::indoc! {"
+            -record(rec, {field1 = [] :: Type1, field2, field3 = 421})."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);

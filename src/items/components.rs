@@ -3,7 +3,7 @@ use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
     DoubleRightAngleSymbol, DoubleRightArrowSymbol, MapMatchSymbol, OpenBraceSymbol,
-    OpenParenSymbol, OpenSquareSymbol, RightArrowSymbol, SemicolonSymbol,
+    OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::AtomToken;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
@@ -497,26 +497,6 @@ impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike
         // let indent = self.op.indent(); TODO
         self.right.format(fmt);
     }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-pub struct WithArrow<T> {
-    item: T,
-    arrow: RightArrowSymbol,
-}
-
-impl<T: Format> Format for WithArrow<T> {
-    fn format(&self, fmt: &mut Formatter) {
-        self.item.format(fmt);
-        fmt.write_space();
-        self.arrow.format(fmt);
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct WithGuard<T, U, D = GuardDelimiter, const WHEN_OFFSET: usize = 2> {
-    item: T,
-    guard: Maybe<Guard<U, D, WHEN_OFFSET>>,
 }
 
 // TODO: remove OFFSET
