@@ -450,6 +450,7 @@ pub struct UnaryOpLike<O, T> {
     item: T,
 }
 
+// TODO: delete(?)
 pub trait BinaryOpStyle<RHS> {
     fn indent(&self) -> Indent;
 

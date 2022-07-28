@@ -94,67 +94,34 @@ impl Format for BinaryOpCallExpr {
             self.0.op.format(fmt);
             self.0.right.format(fmt);
         } else {
-            self.0.left.format(fmt);
+            fmt.with_scoped_indent(|fmt| {
+                self.0.left.format(fmt);
+                fmt.write_space();
 
-            // TODO
-            // let multiline = fmt.has_newline_until(&self.0.right);
-            fmt.write_space();
-            self.0.op.format(fmt);
+                let update_indent = matches!(
+                    self.0.op,
+                    BinaryOp::Match(_) | BinaryOp::MaybeMatch(_) | BinaryOp::Send(_)
+                );
+                let multiline = fmt.has_newline_until(&self.0.right);
 
-            // if multiline {
-            //     fmt.write_newline();
-            // } else {
-            fmt.write_space();
-            //}
-            self.0.right.format(fmt);
+                self.0.op.format(fmt);
+                if multiline {
+                    if update_indent {
+                        fmt.set_indent(fmt.indent() + 4);
+                    }
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                    if update_indent {
+                        fmt.set_indent(fmt.column());
+                    }
+                }
 
-            // TODO:
-            // fmt.with_scoped_indent(|fmt| {
-            //     fmt.set_indent(fmt.column());
-            //     self.0.left.format(fmt);
-            //     let mut op = &self.0.op;
-            //     let mut right = &self.0.right;
-            //     while let Some(next_group) = format_op_and_right(op, right, fmt) {
-            //         op = next_group.0;
-            //         right = next_group.1;
-            //     }
-            // });
+                self.0.right.format(fmt);
+            });
         }
     }
 }
-
-// TODO: remove
-// fn format_op_and_right<'a>(
-//     op: &'a BinaryOp,
-//     right: &'a Expr,
-//     fmt: &mut Formatter,
-// ) -> Option<(&'a BinaryOp, &'a Expr)> {
-//     fmt.write_space();
-//     op.format(fmt);
-//     fmt.write_space();
-
-//     let indent = op.indent();
-
-//     if let FullExpr::BinaryOpCall(x) = &right.0 {
-//         if indent != Indent::inherit() {
-//             fmt.subregion(indent, |fmt| right.format(fmt));
-//             None
-//         } else if matches!(x.0.op, BinaryOp::Andalso(_) | BinaryOp::Orelse(_)) {
-//             fmt.subregion(indent, |fmt| x.0.left.format(fmt));
-//             Some((&x.0.op, &x.0.right))
-//         } else {
-//             let mut result = None;
-//             fmt.subregion(indent, |fmt| {
-//                 x.0.left.format(fmt);
-//                 result = format_op_and_right(&x.0.op, &x.0.right, fmt)
-//             });
-//             result
-//         }
-//     } else {
-//         fmt.subregion(indent, |fmt| right.format(fmt));
-//         None
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -201,8 +168,8 @@ mod tests {
             {A, B, C} = {Foo,
                          bar,
                          baz} =
-                    qux() /
-                    quux() div 2"},
+                            qux() /
+                            quux() div 2"},
             indoc::indoc! {"
             [a,
              b ! fooooooooooooooo,

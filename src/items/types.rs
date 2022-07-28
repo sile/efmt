@@ -30,7 +30,6 @@ impl Format for UnionDelimiter {
     fn format(&self, fmt: &mut Formatter) {
         fmt.write_space();
         self.0.format(fmt);
-        fmt.write_space();
     }
 }
 
@@ -105,7 +104,7 @@ pub struct UnaryOpType {
 impl Format for UnaryOpType {
     fn format(&self, fmt: &mut Formatter) {
         let last = fmt.last_char().unwrap_or('\n');
-        if !matches!(last, '\n' | ' ') {
+        if !matches!(last, '\n' | ' ' | '.') {
             fmt.write_space();
         }
 
