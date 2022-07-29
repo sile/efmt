@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent};
+use crate::format::{Format, Formatter};
 use crate::items::keywords::WhenKeyword;
 use crate::items::symbols::{
     CloseBraceSymbol, CloseParenSymbol, CloseSquareSymbol, CommaSymbol, DoubleLeftAngleSymbol,
@@ -452,8 +452,6 @@ pub struct UnaryOpLike<O, T> {
 
 // TODO: delete(?)
 pub trait BinaryOpStyle<RHS> {
-    fn indent(&self) -> Indent;
-
     fn needs_spaces(&self) -> bool {
         true
     }

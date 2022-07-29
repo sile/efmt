@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent};
+use crate::format::{Format, Formatter};
 use crate::items::components::{BinaryOpStyle, Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
@@ -238,12 +238,4 @@ impl Parse for BinaryOp {
     }
 }
 
-impl BinaryOpStyle<Expr> for BinaryOp {
-    fn indent(&self) -> Indent {
-        if matches!(self, Self::Match(_) | Self::MaybeMatch(_)) {
-            Indent::Offset(4)
-        } else {
-            Indent::inherit()
-        }
-    }
-}
+impl BinaryOpStyle<Expr> for BinaryOp {}

@@ -1,4 +1,4 @@
-use crate::format::{Format, Indent};
+use crate::format::Format;
 use crate::items::components::{BinaryOpStyle, Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -29,10 +29,6 @@ pub enum BinaryOp {
 }
 
 impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
-    fn indent(&self) -> Indent {
-        Indent::inherit()
-    }
-
     fn needs_spaces(&self) -> bool {
         !matches!(self, Self::Range(_))
     }

@@ -196,22 +196,6 @@ impl Formatter {
 }
 
 // TODO
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Indent {
-    CurrentColumn,
-    Offset(usize),
-    ParentOffset(usize),          // TODO: remove
-    CurrentColumnOrOffset(usize), // TODO: remove
-    Absolute(usize),
-}
-
-impl Indent {
-    pub const fn inherit() -> Self {
-        Self::Offset(0)
-    }
-}
-
-// TODO
 //     pub fn token_stream(&self) -> &TokenStream {
 //         &self.ts
 //     }

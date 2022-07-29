@@ -1,4 +1,4 @@
-use crate::format::{Format, Indent};
+use crate::format::Format;
 use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, RecordLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
@@ -98,11 +98,7 @@ struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFie
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct RecordFieldDelimiter(MatchSymbol);
 
-impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(4)
-    }
-}
+impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {}
 
 #[cfg(test)]
 mod tests {
