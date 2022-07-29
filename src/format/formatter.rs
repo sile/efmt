@@ -23,6 +23,7 @@ pub struct Formatter {
     last_comment_or_macro_position: Option<Position>,
     skipping: bool,
     pending_blank: Option<Blank>,
+    is_last_macro: bool,
 }
 
 impl Formatter {
@@ -37,6 +38,7 @@ impl Formatter {
             last_comment_or_macro_position: None,
             skipping: false,
             pending_blank: None,
+            is_last_macro: false,
         }
     }
 
@@ -115,6 +117,17 @@ impl Formatter {
         }
 
         let text = &self.ts.text()[start_position.offset()..span.end_position().offset()];
+
+        if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' ')) {
+            match text.chars().nth(0) {
+                Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') => {
+                    self.write_space();
+                }
+                _ => {}
+            }
+        }
+        self.is_last_macro = false;
+
         self.buf.push_str(text);
 
         // TODO: optimize
@@ -247,7 +260,7 @@ impl Formatter {
                 let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
-                // TODO: self.skip_whitespaces = true;
+                self.is_last_macro = true;
             }
         }
     }

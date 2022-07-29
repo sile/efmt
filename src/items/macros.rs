@@ -428,8 +428,7 @@ mod tests {
 
 
             main() ->
-                ?bar(?foo)
-                c].
+                ?bar(?foo) c].
             "},
             indoc::indoc! {"
             -define(foo, [],).
@@ -447,8 +446,8 @@ mod tests {
 
 
             main() ->
-                ?b(?a a)
-                , c].
+                ?b(?a a),
+                        c].
             "},
         ];
         for text in texts {
@@ -484,7 +483,7 @@ mod tests {
 
 
             foo() ->
-                1 ?a(?a(+1)).
+                1 ?a(?a( +1)).
             "},
         ];
         for text in texts {
@@ -497,8 +496,7 @@ mod tests {
         let texts = [
             indoc::indoc! {"
             -define(BAR,
-                    ?FOO
-                        1
+                    ?FOO 1
                     end).
 
             -define(FOO, begin).
@@ -527,7 +525,6 @@ mod tests {
     fn circular_macro_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?b).
             -define(b, ?a).
 
@@ -536,11 +533,9 @@ mod tests {
                 ?a == ?b.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?a).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?a + ?a).
             "},
         ];
@@ -552,7 +547,6 @@ mod tests {
     #[test]
     fn macro_and_binary_op() {
         let texts = [indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     case bar of
                         baz ->
