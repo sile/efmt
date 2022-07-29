@@ -330,7 +330,6 @@ mod tests {
     fn macro_with_args_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(), foo).
 
 
@@ -338,7 +337,6 @@ mod tests {
                 ?FOO().
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(Bar),
                     {Bar, Baz}).
 
@@ -347,7 +345,6 @@ mod tests {
                 ?FOO(quux).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(Bar,
                         Baz),
                     {Bar, Baz}).
@@ -392,7 +389,6 @@ mod tests {
                 ?Foo(10).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(), foo).
             -define(FOO,
                     foo foo).
@@ -402,7 +398,6 @@ mod tests {
                 ?FOO() + 10.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     begin
                         1,
@@ -414,7 +409,6 @@ mod tests {
                 ?FOO.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(X), X).
             -define(BAR(),
                     ?FOO(baz),).
@@ -466,7 +460,6 @@ mod tests {
     fn macro_and_comment_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(A), A).
 
 
@@ -476,7 +469,6 @@ mod tests {
                      \"ccc\").
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO, foo).
 
 
@@ -488,7 +480,6 @@ mod tests {
                 end.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a(X), X X).
 
 
@@ -505,7 +496,6 @@ mod tests {
     fn macro_lazy_expand_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(BAR,
                     ?FOO
                         1
@@ -518,7 +508,6 @@ mod tests {
                 ?BAR.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     ?BAR(1)).
 

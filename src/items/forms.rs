@@ -348,10 +348,13 @@ impl DefineDirective {
             self.macro_name.format(fmt);
             self.variables.format(fmt);
             self.comma.format(fmt);
-            fmt.write_space();
+            if fmt.has_newline_until(&self.replacement) {
+                fmt.write_newline();
+            } else {
+                let indent = replacement_indent.unwrap_or_else(|| fmt.column() + 1);
+                fmt.write_spaces(indent - fmt.column());
+            }
 
-            let indent = replacement_indent.unwrap_or_else(|| fmt.indent());
-            fmt.set_indent(indent);
             self.replacement.format(fmt);
         });
         self.close.format(fmt);

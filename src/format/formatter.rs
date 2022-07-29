@@ -1,5 +1,5 @@
+use crate::format::Format;
 use crate::items::tokens::{CommentToken, VisibleToken};
-
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
 
@@ -105,6 +105,13 @@ impl Formatter {
             None => {}
             Some(Blank::Space(n)) => self.write_spaces(n),
             Some(Blank::Newline(n)) => self.write_newlines(n),
+        }
+
+        if self.next_position.line() + 1 < span.start_position().line()
+            && self.is_single_blank_line()
+        {
+            self.cancel_last_spaces();
+            self.write_newline();
         }
 
         let text = &self.ts.text()[start_position.offset()..span.end_position().offset()];
@@ -237,11 +244,10 @@ impl Formatter {
                 self.last_comment_or_macro_position = Some(next_comment_start);
                 self.write_comment(&comment);
             } else {
-                todo!();
-                // let r#macro = self.ts.macros()[&next_macro_start].clone();
-                // self.last_comment_or_macro_position = Some(next_macro_start);
-                // r#macro.format(self);
-                // self.skip_whitespaces = true;
+                let r#macro = self.ts.macros()[&next_macro_start].clone();
+                self.last_comment_or_macro_position = Some(next_macro_start);
+                r#macro.format(self);
+                // TODO: self.skip_whitespaces = true;
             }
         }
     }
@@ -291,10 +297,27 @@ impl Formatter {
             .unwrap_or_else(|| Position::new(self.ts.text().len(), usize::MAX, usize::MAX))
     }
 
-    fn cancel_last_newline(&mut self) {
+    fn is_single_blank_line(&self) -> bool {
+        for (c0, c1) in self.buf.chars().rev().skip(1).zip(self.buf.chars().rev()) {
+            match (c0, c1) {
+                (' ', ' ') => {}
+                ('\n', ' ') => {}
+                ('\n', '\n') => return false,
+                (_, '\n') => return true,
+                _ => return false,
+            }
+        }
+        false
+    }
+
+    fn cancel_last_spaces(&mut self) {
         while self.buf.chars().last() == Some(' ') {
             self.buf.pop();
         }
+    }
+
+    fn cancel_last_newline(&mut self) {
+        self.cancel_last_spaces();
         if self.buf.chars().last() == Some('\n') {
             self.buf.pop();
         }

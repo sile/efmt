@@ -60,6 +60,7 @@ pub enum VisibleToken {
 }
 
 impl VisibleToken {
+    // TODO: delete
     pub fn needs_space(&self, other: &Self) -> bool {
         use erl_tokenize::values::Symbol::*;
 
