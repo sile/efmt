@@ -1,25 +1,20 @@
 use crate::items::tokens::VisibleToken;
-// TODO
-//use crate::format::writer::{Error, RegionConfig, Result, Writer};
-//use crate::format::Format;
-//use crate::items::tokens::{CommentToken, VisibleToken};
+
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
-//use std::num::NonZeroUsize;
+
+const EOF: Position = Position::new(usize::MAX, usize::MAX, usize::MAX);
+const EOF_MINUS_1: Position = Position::new(usize::MAX - 1, usize::MAX, usize::MAX);
 
 #[derive(Debug)]
 pub struct Formatter {
     ts: TokenStream,
     indent: usize,
     column: usize,
-    last_position: Position,
+    next_position: Position,
     buf: String,
-    single_line_mode: bool, // item: Item,
-                            // last_comment_or_macro_position: Option<Position>,
-                            // next_position: Position,
-                            // last_token: Option<VisibleToken>,
-                            // skip_whitespaces: bool,
-                            // last_skipped_whitespace: Option<Item>,
+    single_line_mode: bool,
+    last_comment_or_macro_position: Option<Position>,
 }
 
 impl Formatter {
@@ -28,19 +23,15 @@ impl Formatter {
             ts,
             indent: 0,
             column: 0,
-            last_position: Position::new(0, 0, 0),
+            next_position: Position::new(0, 0, 0),
             buf: String::new(),
             single_line_mode: false,
-            // item: Item::new(),
-            // last_comment_or_macro_position: None,
-            // next_position: Position::new(0, 0, 0),
-            // last_token: None,
-            // skip_whitespaces: false,
-            // last_skipped_whitespace: None,
+            last_comment_or_macro_position: None,
         }
     }
 
-    pub fn finish(self) -> String {
+    pub fn finish(mut self) -> String {
+        self.write_macros_and_comments(EOF_MINUS_1);
         self.buf
     }
 
@@ -48,24 +39,22 @@ impl Formatter {
         self.buf.chars().last()
     }
 
-    pub fn flush_non_preceding_comments(&mut self, _next: &impl Span) {
-        // todo!();
+    pub fn flush_non_preceding_comments(&mut self, next: &impl Span) {
+        for (i, comment_start) in self
+            .ts
+            .comments()
+            .range(self.next_position..next.start_position())
+            .map(|(k, _)| *k)
+            .rev()
+            .enumerate()
+        {
+            if comment_start.line() == next.start_position().line() - i - 1 {
+                continue;
+            }
 
-        // for (i, comment_start) in self
-        //     .ts
-        //     .comments()
-        //     .range(self.next_position..next.start_position())
-        //     .map(|(k, _)| *k)
-        //     .rev()
-        //     .enumerate()
-        // {
-        //     if comment_start.line() == next.start_position().line() - i - 1 {
-        //         continue;
-        //     }
-
-        //     self.add_macros_and_comments(comment_start);
-        //     break;
-        // }
+            self.write_macros_and_comments(comment_start);
+            break;
+        }
     }
 
     pub(crate) fn token_stream(&self) -> &TokenStream {
@@ -89,11 +78,14 @@ impl Formatter {
     }
 
     pub fn has_newline_until(&self, next: &impl Span) -> bool {
-        self.last_position.line() != next.start_position().line()
+        self.next_position.line() != next.start_position().line()
     }
 
     pub fn write_span(&mut self, span: &impl Span) {
-        let text = &self.ts.text()[span.start_position().offset()..span.end_position().offset()];
+        let start_position = span.start_position();
+        self.write_macros_and_comments(start_position);
+
+        let text = &self.ts.text()[start_position.offset()..span.end_position().offset()];
         self.buf.push_str(text);
 
         // TODO: optimize
@@ -105,7 +97,7 @@ impl Formatter {
             }
         }
 
-        self.last_position = span.end_position();
+        self.next_position = span.end_position();
     }
 
     pub fn write_newlines(&mut self, mut n: usize) {
@@ -140,6 +132,20 @@ impl Formatter {
         self.column += 1;
     }
 
+    pub fn write_spaces(&mut self, mut n: usize) {
+        for c in self.buf.chars().rev() {
+            if c == ' ' {
+                n = n.saturating_sub(1);
+            } else {
+                break;
+            }
+        }
+
+        for _ in 0..n {
+            self.write_space();
+        }
+    }
+
     pub fn write_token(&mut self, token: VisibleToken) {
         self.write_span(&token);
     }
@@ -171,40 +177,69 @@ impl Formatter {
         todo!()
     }
 
-    // TODO:
-    // pub fn subregion<F>(&mut self, indent: Indent, f: F)
-    // where
-    //     F: FnOnce(&mut Self),
-    // {
-    //     let old_indent = self.indent;
-    //     match indent {
-    //         Indent::CurrentColumn => {
-    //             self.indent = self.column;
-    //         }
-    //         Indent::Offset(n) => {
-    //             self.indent += n;
-    //         }
-    //         Indent::ParentOffset(_) => todo!(),
-    //         Indent::CurrentColumnOrOffset(_) => todo!(),
-    //         Indent::Absolute(n) => {
-    //             self.indent = n;
-    //         }
-    //     }
-    //     f(self);
-    //     self.indent = old_indent;
-    // }
+    fn write_macros_and_comments(&mut self, next_position: Position) {
+        if self.last_comment_or_macro_position == Some(next_position) {
+            return;
+        }
+
+        loop {
+            let next_comment_start = self.next_comment_start();
+            let next_macro_start = self.next_macro_start();
+            if next_position < next_comment_start && next_position < next_macro_start {
+                break;
+            }
+
+            if next_comment_start < next_macro_start {
+                let comment = self.ts.comments()[&next_comment_start].clone();
+                self.last_comment_or_macro_position = Some(next_comment_start);
+
+                if comment.is_trailing() {
+                    self.cancel_last_newline();
+                    self.write_spaces(2);
+                }
+                self.write_span(&comment);
+
+                let mode = self.single_line_mode; // TODO
+                self.single_line_mode = false;
+                self.write_newline();
+                self.single_line_mode = mode;
+            } else {
+                todo!();
+                // let r#macro = self.ts.macros()[&next_macro_start].clone();
+                // self.last_comment_or_macro_position = Some(next_macro_start);
+                // r#macro.format(self);
+                // self.skip_whitespaces = true;
+            }
+        }
+    }
+
+    fn cancel_last_newline(&mut self) {
+        while self.buf.chars().last() == Some(' ') {
+            self.buf.pop();
+        }
+        if self.buf.chars().last() == Some('\n') {
+            self.buf.pop();
+        }
+    }
+
+    fn next_comment_start(&self) -> Position {
+        self.ts
+            .comments()
+            .range(self.next_position..)
+            .next()
+            .map(|(k, _)| *k)
+            .unwrap_or(EOF)
+    }
+
+    fn next_macro_start(&self) -> Position {
+        self.ts
+            .macros()
+            .range(self.next_position..)
+            .next()
+            .map(|(k, _)| *k)
+            .unwrap_or(EOF)
+    }
 }
-
-// TODO
-//     pub fn token_stream(&self) -> &TokenStream {
-//         &self.ts
-//     }
-
-//     pub fn skip_formatting(&mut self) {
-//         let position = self.find_format_on_position(self.next_position);
-//         self.add_span(&(self.next_position, position));
-//         self.add_newline();
-//     }
 
 //     pub fn add_token(&mut self, token: VisibleToken) {
 //         let start_position = token.start_position();
@@ -254,48 +289,6 @@ impl Formatter {
 //         self.last_token = None;
 //         assert!(self.next_position <= span_end);
 //         self.next_position = span_end;
-//     }
-
-//     fn add_macros_and_comments(&mut self, next_position: Position) {
-//         if self.last_comment_or_macro_position == Some(next_position) {
-//             return;
-//         }
-//         loop {
-//             let next_comment_start = self.next_comment_start();
-//             let next_macro_start = self.next_macro_start();
-//             if next_position < next_comment_start && next_position < next_macro_start {
-//                 break;
-//             }
-
-//             if next_comment_start < next_macro_start {
-//                 let comment = self.ts.comments()[&next_comment_start].clone();
-//                 self.last_comment_or_macro_position = Some(next_comment_start);
-//                 self.add_comment(comment);
-//             } else {
-//                 let r#macro = self.ts.macros()[&next_macro_start].clone();
-//                 self.last_comment_or_macro_position = Some(next_macro_start);
-//                 r#macro.format(self);
-//                 self.skip_whitespaces = true;
-//             }
-//         }
-//     }
-
-//     fn next_comment_start(&self) -> Position {
-//         self.ts
-//             .comments()
-//             .range(self.next_position..)
-//             .next()
-//             .map(|(k, _)| *k)
-//             .unwrap_or_else(|| Position::new(usize::MAX, usize::MAX, usize::MAX))
-//     }
-
-//     fn next_macro_start(&self) -> Position {
-//         self.ts
-//             .macros()
-//             .range(self.next_position..)
-//             .next()
-//             .map(|(k, _)| *k)
-//             .unwrap_or_else(|| Position::new(usize::MAX, usize::MAX, usize::MAX))
 //     }
 
 //     pub fn add_space(&mut self) {
@@ -570,26 +563,51 @@ impl Formatter {
 //     }
 // }
 
-// #[derive(Debug)]
-// enum Directive {
-//     FormatOn,
-//     FormatOff,
-// }
+#[derive(Debug)]
+enum Directive {
+    FormatOn,
+    FormatOff,
+}
 
-// impl std::str::FromStr for Directive {
-//     type Err = ();
-//     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-//         match s.trim().trim_start_matches(&[' ', '%'][..]) {
-//             "@efmt:on" => Ok(Self::FormatOn),
-//             "@efmt:off" => Ok(Self::FormatOff),
-//             _ => Err(()),
-//         }
-//     }
-// }
+impl std::str::FromStr for Directive {
+    type Err = ();
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.trim().trim_start_matches(&[' ', '%'][..]) {
+            "@efmt:on" => Ok(Self::FormatOn),
+            "@efmt:off" => Ok(Self::FormatOff),
+            _ => Err(()),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use crate::items::Module;
+
+    #[test]
+    fn comments_works() {
+        let texts = [
+            indoc::indoc! {"
+            %% comment 1
+            -module(foo).
+
+
+            %% comment 2
+            foo() ->
+                foo.
+            "},
+            indoc::indoc! {"
+            -module(foo).  % comment 1
+
+
+            foo() ->  % comment 2
+                foo.  %comment 3
+            "},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
 
     #[test]
     fn directives_works() {
