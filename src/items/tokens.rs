@@ -45,67 +45,6 @@ impl Parse for LexicalToken {
     }
 }
 
-/// Token used in the format phase.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span)]
-pub enum VisibleToken {
-    Atom(AtomToken),
-    Char(CharToken),
-    Comment(CommentToken),
-    Float(FloatToken),
-    Integer(IntegerToken),
-    Keyword(KeywordToken),
-    String(StringToken),
-    Symbol(SymbolToken),
-    Variable(VariableToken),
-}
-
-impl VisibleToken {
-    // TODO: delete
-    pub fn needs_space(&self, other: &Self) -> bool {
-        use erl_tokenize::values::Symbol::*;
-
-        if let (Self::Symbol(a), Self::Symbol(b)) = (self, other) {
-            if matches!((a.value(), b.value()), (Hyphen, Hyphen) | (Plus, Plus)) {
-                return true;
-            }
-        }
-        if matches!((self, other), (Self::Comment(_), _) | (_, Self::Comment(_))) {
-            return false;
-        }
-        if let (Self::Integer(_), Self::Symbol(b)) = (self, other) {
-            if b.value() == Sharp {
-                return true;
-            }
-        }
-        if !matches!((self, other), (Self::Symbol(_), _) | (_, Self::Symbol(_))) {
-            return true;
-        }
-        false
-    }
-
-    pub fn value(&self) -> Option<&str> {
-        match self {
-            Self::Atom(x) => Some(x.value()),
-            Self::Variable(x) => Some(x.value()),
-            Self::Symbol(x) => Some(x.value().as_str()),
-            Self::Keyword(x) => Some(x.value().as_str()),
-            _ => None,
-        }
-    }
-
-    pub fn is_trailing_comment(&self) -> bool {
-        if let Self::Comment(x) = self {
-            x.is_trailing()
-        } else {
-            false
-        }
-    }
-
-    pub fn is_comment(&self) -> bool {
-        matches!(self, Self::Comment(_))
-    }
-}
-
 macro_rules! impl_traits {
     ($name:ident, $variant:ident) => {
         impl Span for $name {
@@ -129,17 +68,11 @@ macro_rules! impl_traits {
 
         impl Format for $name {
             fn format(&self, fmt: &mut Formatter) {
-                fmt.write_token(self.clone().into());
+                fmt.write_span(self);
             }
         }
 
         impl From<$name> for LexicalToken {
-            fn from(x: $name) -> Self {
-                Self::$variant(x)
-            }
-        }
-
-        impl From<$name> for VisibleToken {
             fn from(x: $name) -> Self {
                 Self::$variant(x)
             }

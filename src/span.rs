@@ -10,7 +10,6 @@ pub trait Span {
     }
 
     fn contains_newline(&self) -> bool {
-        // TODO: consider macro(?)
         self.start_position().line() != self.end_position().line()
     }
 }

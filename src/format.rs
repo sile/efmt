@@ -1,4 +1,4 @@
-use crate::items::tokens::{CommentToken, VisibleToken};
+use crate::items::tokens::CommentToken;
 use crate::parse::TokenStream;
 use crate::span::{Position, Span};
 
@@ -145,7 +145,6 @@ impl Formatter {
 
         self.buf.push_str(text);
 
-        // TODO: optimize
         for c in text.chars() {
             if c == '\n' {
                 self.column = 0;
@@ -226,10 +225,6 @@ impl Formatter {
         for _ in 0..n {
             self.write_space();
         }
-    }
-
-    pub fn write_token(&mut self, token: VisibleToken) {
-        self.write_span(&token);
     }
 
     pub fn write_subsequent_comments(&mut self) {
