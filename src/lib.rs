@@ -23,19 +23,10 @@ pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
 }
 
 /// Options to format an item.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
     include: IncludeOptions,
     default_off: bool,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            include: IncludeOptions::default(),
-            default_off: false,
-        }
-    }
 }
 
 impl Options {

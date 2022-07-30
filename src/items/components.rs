@@ -423,7 +423,7 @@ impl<T: Format> Format for RecordFieldsLike<T> {
         fmt.with_scoped_indent(|fmt| {
             let base_indent = fmt.indent();
             self.open.format(fmt);
-            if self.fields.items().len() > 0 {
+            if !self.fields.items().is_empty() {
                 if multiline {
                     fmt.set_indent(base_indent + 2);
                     fmt.write_newline();

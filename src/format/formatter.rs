@@ -122,11 +122,8 @@ impl Formatter {
         let text = &self.ts.text()[start..span.end_position().offset()];
 
         if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' ')) {
-            match text.chars().nth(0) {
-                Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') => {
-                    self.write_space();
-                }
-                _ => {}
+            if let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next() {
+                self.write_space();
             }
         }
         self.is_last_macro = false;
@@ -363,7 +360,7 @@ impl Formatter {
 
     fn cancel_last_spaces(&mut self) -> usize {
         let mut n = 0;
-        while self.buf.chars().last() == Some(' ') {
+        while self.buf.ends_with(' ') {
             self.buf.pop();
             n += 1;
         }
@@ -372,7 +369,7 @@ impl Formatter {
 
     fn cancel_last_newline(&mut self) {
         let n = self.cancel_last_spaces();
-        if self.buf.chars().last() == Some('\n') {
+        if self.buf.ends_with('\n') {
             self.buf.pop();
         } else {
             self.write_spaces(n);
