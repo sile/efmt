@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{BinaryOpStyle, Either, Guard, Maybe, NonEmptyItems, Params};
+use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
@@ -244,5 +244,3 @@ impl Parse for BinaryOp {
         }
     }
 }
-
-impl BinaryOpStyle<Expr> for BinaryOp {}

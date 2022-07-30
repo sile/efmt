@@ -6,7 +6,7 @@ use crate::items::symbols::{
     OpenParenSymbol, OpenSquareSymbol, SemicolonSymbol,
 };
 use crate::items::tokens::AtomToken;
-use crate::parse::{self, Parse, ResumeParse, TokenStream};
+use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 
 pub use efmt_derive::Element;
@@ -139,17 +139,6 @@ pub struct Args<T>(Parenthesized<Items<T>>);
 impl<T> Args<T> {
     pub fn get(&self) -> &[T] {
         self.0.get().items()
-    }
-}
-
-// TODO: delete
-#[derive(Debug, Clone, Span, Parse)]
-pub struct CommaDelimiter(CommaSymbol);
-
-impl Format for CommaDelimiter {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-        fmt.write_space();
     }
 }
 
@@ -443,68 +432,13 @@ impl<T: Format> Format for RecordFieldsLike<T> {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
 
-// TODO: delete
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpLike<O, T> {
-    op: O,
-    item: T,
-}
-
-// TODO: delete(?)
-pub trait BinaryOpStyle<RHS> {
-    fn needs_spaces(&self) -> bool {
-        true
-    }
-}
-
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpLike<L, O, R> {
-    pub left: L,
-    pub op: O,
-    pub right: R,
-}
-
-impl<L, O, R> Element for BinaryOpLike<L, O, R> {
-    fn is_packable(&self) -> bool {
-        false
-    }
-}
-
-impl<L: Parse, O: Parse, R: Parse> ResumeParse<L> for BinaryOpLike<L, O, R> {
-    fn resume_parse(ts: &mut parse::TokenStream, left: L) -> parse::Result<Self> {
-        Ok(Self {
-            left,
-            op: ts.parse()?,
-            right: ts.parse()?,
-        })
-    }
-}
-
-impl<L: Format, O: Format + BinaryOpStyle<R>, R: Format> Format for BinaryOpLike<L, O, R> {
-    fn format(&self, fmt: &mut Formatter) {
-        self.left.format(fmt);
-
-        if self.op.needs_spaces() {
-            fmt.write_space();
-            self.op.format(fmt);
-            fmt.write_space();
-        } else {
-            self.op.format(fmt);
-        }
-
-        // let indent = self.op.indent(); TODO
-        self.right.format(fmt);
-    }
-}
-
-// TODO: remove OFFSET
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Guard<T, D = GuardDelimiter, const OFFSET: usize = 2> {
+pub struct Guard<T, D = GuardDelimiter> {
     when: WhenKeyword,
     conditions: NonEmptyItems<T, D>,
 }
 
-impl<T: Format, D: Format, const OFFSET: usize> Format for Guard<T, D, OFFSET> {
+impl<T: Format, D: Format> Format for Guard<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         self.when.format(fmt);
         fmt.write_space();

@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{Args, BinaryOpLike, Maybe};
+use crate::items::components::{Args, Maybe};
 use crate::items::expressions::components::{BinaryOp, UnaryOp};
 use crate::items::expressions::BaseExpr;
 use crate::items::symbols::ColonSymbol;
@@ -70,32 +70,40 @@ impl UnaryOpCallExpr {
 
 /// [Expr] [BinaryOp] [Expr]
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpCallExpr(BinaryOpLike<Expr, BinaryOp, Expr>);
+pub struct BinaryOpCallExpr {
+    left: Expr,
+    op: BinaryOp,
+    right: Expr,
+}
 
 impl ResumeParse<Expr> for BinaryOpCallExpr {
     fn resume_parse(ts: &mut parse::TokenStream, left: Expr) -> parse::Result<Self> {
-        ts.resume_parse(left).map(Self)
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
     }
 }
 
 impl BinaryOpCallExpr {
     fn is_name_and_arity(&self) -> bool {
-        self.0.left.get().is_atom_token()
-            && matches!(self.0.op, BinaryOp::FloatDiv(_))
-            && self.0.right.get().is_integer_token()
+        self.left.get().is_atom_token()
+            && matches!(self.op, BinaryOp::FloatDiv(_))
+            && self.right.get().is_integer_token()
     }
 
     fn format_binary_op(&self, fmt: &mut Formatter, mut update_indent: bool) {
-        self.0.left.format(fmt);
+        self.left.format(fmt);
         fmt.write_space();
 
         update_indent |= matches!(
-            self.0.op,
+            self.op,
             BinaryOp::Match(_) | BinaryOp::MaybeMatch(_) | BinaryOp::Send(_)
         );
-        let multiline = fmt.has_newline_until(&self.0.right);
+        let multiline = fmt.has_newline_until(&self.right);
 
-        self.0.op.format(fmt);
+        self.op.format(fmt);
         if multiline {
             if update_indent {
                 fmt.set_indent(fmt.indent() + 4);
@@ -106,10 +114,10 @@ impl BinaryOpCallExpr {
             fmt.write_space();
         }
 
-        if let Some(right) = self.0.right.as_binary_op() {
+        if let Some(right) = self.right.as_binary_op() {
             right.format_binary_op(fmt, update_indent);
         } else {
-            self.0.right.format(fmt);
+            self.right.format(fmt);
         }
     }
 }
@@ -118,9 +126,9 @@ impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut Formatter) {
         if self.is_name_and_arity() {
             // A workaround for some attributes such as `-export` and `-import`.
-            self.0.left.format(fmt);
-            self.0.op.format(fmt);
-            self.0.right.format(fmt);
+            self.left.format(fmt);
+            self.op.format(fmt);
+            self.right.format(fmt);
         } else {
             fmt.with_scoped_indent(|fmt| {
                 self.format_binary_op(fmt, false);

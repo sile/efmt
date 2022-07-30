@@ -4,8 +4,8 @@
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter};
 use crate::items::components::{
-    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
-    NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike,
+    Args, BitstringLike, Either, Element, ListLike, MapLike, Maybe, NonEmptyItems, Params,
+    Parenthesized, RecordLike, TupleLike,
 };
 use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
@@ -85,12 +85,36 @@ impl Format for AnnotatedVariableType {
 }
 
 /// [Type] [BinaryOp] [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BinaryOpType(BinaryOpLike<BaseType, BinaryOp, Type>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpType {
+    left: BaseType,
+    op: BinaryOp,
+    right: Type,
+}
 
 impl ResumeParse<BaseType> for BinaryOpType {
     fn resume_parse(ts: &mut parse::TokenStream, left: BaseType) -> parse::Result<Self> {
-        ts.resume_parse(left).map(Self)
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
+}
+
+impl Format for BinaryOpType {
+    fn format(&self, fmt: &mut Formatter) {
+        let needs_space = !matches!(self.op, BinaryOp::Range(_));
+
+        self.left.format(fmt);
+        if needs_space {
+            fmt.write_space();
+        }
+        self.op.format(fmt);
+        if needs_space {
+            fmt.write_space();
+        }
+        self.right.format(fmt);
     }
 }
 
@@ -225,13 +249,22 @@ pub struct RecordType {
     record: RecordLike<(SharpSymbol, AtomToken), RecordItem>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Element)]
-struct RecordItem(BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>);
+#[derive(Debug, Clone, Span, Parse, Element)]
+struct RecordItem {
+    name: AtomToken,
+    colon: DoubleColonSymbol,
+    ty: Type,
+}
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct DoubleColonDelimiter(DoubleColonSymbol);
-
-impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {}
+impl Format for RecordItem {
+    fn format(&self, fmt: &mut Formatter) {
+        self.name.format(fmt);
+        fmt.write_space();
+        self.colon.format(fmt);
+        fmt.write_space();
+        self.ty.format(fmt);
+    }
+}
 
 /// `<<` `$BITS_SIZE`? `,`? `$UNIT_SIZE`? `>>`
 ///

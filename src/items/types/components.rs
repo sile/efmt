@@ -1,5 +1,5 @@
 use crate::format::Format;
-use crate::items::components::{BinaryOpStyle, Either, Element};
+use crate::items::components::{Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     RemKeyword,
@@ -26,12 +26,6 @@ pub enum BinaryOp {
     Bsl(BslKeyword),
     Bsr(BsrKeyword),
     Range(DoubleDotSymbol),
-}
-
-impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
-    fn needs_spaces(&self) -> bool {
-        !matches!(self, Self::Range(_))
-    }
 }
 
 /// `+` | `-` | `bnot`
