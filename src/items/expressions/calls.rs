@@ -84,6 +84,34 @@ impl BinaryOpCallExpr {
             && matches!(self.0.op, BinaryOp::FloatDiv(_))
             && self.0.right.get().is_integer_token()
     }
+
+    fn format_binary_op(&self, fmt: &mut Formatter, mut update_indent: bool) {
+        self.0.left.format(fmt);
+        fmt.write_space();
+
+        update_indent |= matches!(
+            self.0.op,
+            BinaryOp::Match(_) | BinaryOp::MaybeMatch(_) | BinaryOp::Send(_)
+        );
+        let multiline = fmt.has_newline_until(&self.0.right);
+
+        self.0.op.format(fmt);
+        if multiline {
+            if update_indent {
+                fmt.set_indent(fmt.indent() + 4);
+                update_indent = false;
+            }
+            fmt.write_newline();
+        } else {
+            fmt.write_space();
+        }
+
+        if let Some(right) = self.0.right.as_binary_op() {
+            right.format_binary_op(fmt, update_indent);
+        } else {
+            self.0.right.format(fmt);
+        }
+    }
 }
 
 impl Format for BinaryOpCallExpr {
@@ -95,29 +123,7 @@ impl Format for BinaryOpCallExpr {
             self.0.right.format(fmt);
         } else {
             fmt.with_scoped_indent(|fmt| {
-                self.0.left.format(fmt);
-                fmt.write_space();
-
-                let update_indent = matches!(
-                    self.0.op,
-                    BinaryOp::Match(_) | BinaryOp::MaybeMatch(_) | BinaryOp::Send(_)
-                );
-                let multiline = fmt.has_newline_until(&self.0.right);
-
-                self.0.op.format(fmt);
-                if multiline {
-                    if update_indent {
-                        fmt.set_indent(fmt.indent() + 4);
-                    }
-                    fmt.write_newline();
-                } else {
-                    fmt.write_space();
-                    if update_indent {
-                        fmt.set_indent(fmt.column());
-                    }
-                }
-
-                self.0.right.format(fmt);
+                self.format_binary_op(fmt, false);
             });
         }
     }
@@ -168,8 +174,8 @@ mod tests {
             {A, B, C} = {Foo,
                          bar,
                          baz} =
-                            qux() /
-                            quux() div 2"},
+                qux() /
+                quux() div 2"},
             indoc::indoc! {"
             [a,
              b ! fooooooooooooooo,
