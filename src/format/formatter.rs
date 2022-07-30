@@ -116,7 +116,8 @@ impl Formatter {
             self.write_newline();
         }
 
-        let text = &self.ts.text()[start_position.offset()..span.end_position().offset()];
+        let start = std::cmp::max(start_position.offset(), self.next_position.offset());
+        let text = &self.ts.text()[start..span.end_position().offset()];
 
         if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' ')) {
             match text.chars().nth(0) {
