@@ -202,6 +202,10 @@ impl TokenStream {
         }
     }
 
+    pub fn visited_tokens(&self) -> &[LexicalToken] {
+        &self.tokens
+    }
+
     fn read_token(&mut self) -> Result<Option<LexicalToken>> {
         if let Some(token) = self.tokens.get(self.current_token_index).cloned() {
             self.current_token_index += 1;

@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub(super) enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
@@ -35,6 +35,22 @@ pub(super) enum Form {
     RecordDecl(RecordDecl),
     Export(ExportAttr),
     Attr(Attr),
+}
+
+impl Format for Form {
+    fn format(&self, fmt: &mut Formatter) {
+        match self {
+            Form::Define(x) => x.format(fmt),
+            Form::Include(x) => x.format(fmt),
+            Form::FunSpec(x) => x.format(fmt),
+            Form::FunDecl(x) => x.format(fmt),
+            Form::TypeDecl(x) => x.format(fmt),
+            Form::RecordDecl(x) => x.format(fmt),
+            Form::Export(x) => x.format(fmt),
+            Form::Attr(x) => x.format(fmt),
+        }
+        fmt.write_trailing_comment();
+    }
 }
 
 /// `-` `record` `(` `$NAME` `,` `{` `$FIELD`* `}` `)` `.`

@@ -475,7 +475,7 @@ mod tests {
                 case A of
                     a ->
                         ?FOO
-                %% comment
+                        %% comment
                 end.
             "},
             indoc::indoc! {"
@@ -496,7 +496,8 @@ mod tests {
         let texts = [
             indoc::indoc! {"
             -define(BAR,
-                    ?FOO 1
+                    ?FOO
+                        1
                     end).
 
             -define(FOO, begin).

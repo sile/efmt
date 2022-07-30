@@ -103,18 +103,20 @@ impl Formatter {
         }
         self.skipping = false;
 
-        match self.pending_blank.take() {
-            None => {}
-            Some(Blank::Space(n)) => self.write_spaces(n),
-            Some(Blank::Newline(n)) => self.write_newlines(n),
-        }
+        self.with_multi_line_mode(|this| {
+            match this.pending_blank.take() {
+                None => {}
+                Some(Blank::Space(n)) => this.write_spaces(n),
+                Some(Blank::Newline(n)) => this.write_newlines(n),
+            }
 
-        if self.next_position.line() + 1 < span.start_position().line()
-            && self.is_single_blank_line()
-        {
-            self.cancel_last_spaces();
-            self.write_newline();
-        }
+            if this.next_position.line() + 1 < span.start_position().line()
+                && this.is_single_blank_line()
+            {
+                this.cancel_last_spaces();
+                this.write_newline();
+            }
+        });
 
         let start = std::cmp::max(start_position.offset(), self.next_position.offset());
         let text = &self.ts.text()[start..span.end_position().offset()];
@@ -218,8 +220,31 @@ impl Formatter {
         self.write_span(&token);
     }
 
-    pub fn write_subsequent_comment_lines(&mut self) {
-        todo!();
+    pub fn write_subsequent_comments(&mut self) {
+        let result = self
+            .ts
+            .visited_tokens()
+            .binary_search_by_key(&self.next_position, |x| x.start_position());
+        let position = match result {
+            Ok(_) => self.next_position,
+            Err(i) => self
+                .ts
+                .visited_tokens()
+                .get(i + 1)
+                .map(|x| x.start_position())
+                .unwrap_or(EOF_MINUS_1),
+        };
+        self.write_macros_and_comments(position);
+        self.cancel_last_newline();
+    }
+
+    pub fn write_trailing_comment(&mut self) {
+        let position = self.next_comment_start();
+
+        if position.line() == self.next_position.line() {
+            self.write_macros_and_comments(position);
+            self.cancel_last_newline();
+        }
     }
 
     pub fn with_scoped_indent<F>(&mut self, f: F)
@@ -237,6 +262,16 @@ impl Formatter {
     {
         let mode = self.single_line_mode;
         self.single_line_mode = true;
+        f(self);
+        self.single_line_mode = mode;
+    }
+
+    fn with_multi_line_mode<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let mode = self.single_line_mode;
+        self.single_line_mode = false;
         f(self);
         self.single_line_mode = mode;
     }
@@ -286,9 +321,11 @@ impl Formatter {
         if skip {
             self.skip_formatting();
         } else {
+            self.cancel_last_newline();
             if comment.is_trailing() {
-                self.cancel_last_newline();
                 self.write_spaces(2);
+            } else {
+                self.write_newline();
             }
             self.write_span(comment);
             self.write_newline();
@@ -324,16 +361,21 @@ impl Formatter {
         false
     }
 
-    fn cancel_last_spaces(&mut self) {
+    fn cancel_last_spaces(&mut self) -> usize {
+        let mut n = 0;
         while self.buf.chars().last() == Some(' ') {
             self.buf.pop();
+            n += 1;
         }
+        n
     }
 
     fn cancel_last_newline(&mut self) {
-        self.cancel_last_spaces();
+        let n = self.cancel_last_spaces();
         if self.buf.chars().last() == Some('\n') {
             self.buf.pop();
+        } else {
+            self.write_spaces(n);
         }
     }
 
