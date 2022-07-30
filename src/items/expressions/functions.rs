@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter};
 use crate::items::components::{Clauses, Maybe, Null};
 use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
@@ -22,13 +22,24 @@ pub enum FunctionExpr {
 /// - $MODULE: [Expr]
 /// - $NAME: [Expr]
 /// - $ARITY: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct DefinedFunctionExpr {
-    fun: Fun,
+    fun: FunKeyword,
     module: Maybe<(BaseExpr, ColonSymbol)>,
     name: BaseExpr,
     slash: SlashSymbol,
     arity: BaseExpr,
+}
+
+impl Format for DefinedFunctionExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        self.fun.format(fmt);
+        fmt.write_space();
+        self.module.format(fmt);
+        self.name.format(fmt);
+        self.slash.format(fmt);
+        self.arity.format(fmt);
+    }
 }
 
 /// `fun` (`$CLAUSE` `;`?)+ `end`
@@ -38,16 +49,35 @@ pub struct DefinedFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct AnonymousFunctionExpr {
-    fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<Null, 5>,
+    fun: FunKeyword,
+    clauses: Clauses<FunctionClause<Null, 5>>,
+    end: EndKeyword,
 }
 
 impl Format for AnonymousFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.fun.format(fmt);
-            self.clauses_and_end.format(fmt);
-        });
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'fun'
+                fmt.set_indent(fmt.column());
+                self.fun.format(fmt);
+
+                // 'Clauses'
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.column());
+                    self.clauses.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
     }
 }
 
@@ -58,52 +88,35 @@ impl Format for AnonymousFunctionExpr {
 /// - $BODY: ([Expr] `,`)+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct NamedFunctionExpr {
-    fun: Fun,
-    clauses_and_end: FunctionClausesAndEnd<VariableToken>,
+    fun: FunKeyword,
+    clauses: Clauses<FunctionClause<VariableToken>>,
+    end: EndKeyword,
 }
 
 impl Format for NamedFunctionExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.fun.format(fmt);
-            fmt.add_space();
-            self.clauses_and_end.format(fmt);
-        });
-    }
-}
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'fun'
+                fmt.set_indent(fmt.column());
+                self.fun.format(fmt);
 
-#[derive(Debug, Clone, Span, Parse)]
-struct Fun(FunKeyword);
+                // 'Clauses'
+                fmt.write_space();
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.column());
+                    self.clauses.format(fmt);
+                });
 
-impl Format for Fun {
-    fn format(&self, fmt: &mut Formatter) {
-        self.0.format(fmt);
-    }
-}
-
-#[derive(Debug, Clone, Span, Parse)]
-struct FunctionClausesAndEnd<Name, const OFFSET: usize = 4> {
-    clauses: Clauses<FunctionClause<Name, OFFSET>>,
-    end: EndKeyword,
-}
-
-impl<Name: Format, const OFFSET: usize> Format for FunctionClausesAndEnd<Name, OFFSET> {
-    fn format(&self, fmt: &mut Formatter) {
-        if self.clauses.items().len() == 1 && self.clauses.items()[0].body().exprs().len() == 1 {
-            let clause = &self.clauses.items()[0];
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                clause.format_maybe_one_line_body(fmt);
-                fmt.add_space();
-                fmt.subregion(
-                    Indent::ParentOffset(0),
-                    Newline::IfTooLongOrMultiLineParent,
-                    |fmt| self.end.format(fmt),
-                );
-            });
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
         } else {
-            self.clauses.format(fmt);
-            fmt.add_newline();
-            self.end.format(fmt);
+            fmt.with_single_line_mode(f);
         }
     }
 }
@@ -114,7 +127,7 @@ mod tests {
 
     #[test]
     fn defined_function_works() {
-        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun(foo()):Bar/(baz())"];
+        let texts = ["fun foo/1", "fun foo:bar/Arity", "fun (foo()):Bar/(baz())"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
@@ -125,30 +138,26 @@ mod tests {
         let texts = [
             "fun() -> hi end",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(a) ->
                     a;
                (A) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun({a, b}, C) ->
                     C;
                (A, B)
-                 when is_integer(A);
-                      is_atom(B) ->
+                  when is_integer(A);
+                       is_atom(B) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(A) ->
                     foo(),
                     bar,
                     baz(A)
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun(a) ->
                     foo(),
                     bar,
@@ -157,7 +166,6 @@ mod tests {
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun() -> foo() end"},
         ];
         for text in texts {
@@ -170,19 +178,16 @@ mod tests {
         let texts = [
             "fun Foo() -> hi end",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo() ->
                     hello
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo(a) ->
                     a;
                 Foo(A) ->
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun Foo({a, b},
                     C) ->
                     C;

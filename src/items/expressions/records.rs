@@ -1,5 +1,5 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{BinaryOpLike, BinaryOpStyle, Element, RecordLike};
+use crate::format::Format;
+use crate::items::components::{Element, RecordLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
@@ -92,19 +92,29 @@ impl ResumeParse<Expr> for RecordUpdateExpr {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Element)]
-struct RecordField(BinaryOpLike<Either<AtomToken, UnderscoreVariable>, RecordFieldDelimiter, Expr>);
+#[derive(Debug, Clone, Span, Parse, Element)]
+struct RecordField {
+    name: Either<AtomToken, UnderscoreVariable>,
+    delimiter: MatchSymbol,
+    value: Expr,
+}
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct RecordFieldDelimiter(MatchSymbol);
+impl Format for RecordField {
+    fn format(&self, fmt: &mut crate::format::Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            self.name.format(fmt);
 
-impl<RHS> BinaryOpStyle<RHS> for RecordFieldDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(4)
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
+            let newline = fmt.has_newline_until(&self.value);
+            fmt.write_space();
+            self.delimiter.format(fmt);
+            if newline {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            self.value.format(fmt);
+        });
     }
 }
 
@@ -122,14 +132,18 @@ mod tests {
               _ = '_'
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #a{b = 1, c = 2}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #foo{
               bar = 2,
               baz = {Bar, baz,
                      qux}
+             }"},
+            indoc::indoc! {"
+            #foo{
+              bar = 2,
+              baz =
+                  {Bar, baz, qux}
              }"},
         ];
         for text in texts {
@@ -151,7 +165,6 @@ mod tests {
             "X#foo.bar",
             "(foo())#foo.bar",
             "N2#nrec2.nrec1#nrec1.nrec0#nrec0.name",
-            "0 #foo.bar",
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -162,19 +175,15 @@ mod tests {
     fn record_update_works() {
         let texts = [
             "M#foo{}",
-            "88 #foo{}",
             indoc::indoc! {"
-            %---10---|%---20---|
             M#baz{
               qux = 1
              }#foo.bar"},
             indoc::indoc! {"
-            %---10---|%---20---|
             M#foo.bar#baz{
               qux = 1
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             (foo())#foo{
               bar = 2,
               baz = {Bar, baz}

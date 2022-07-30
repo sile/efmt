@@ -1,6 +1,5 @@
-use super::FullExpr;
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{Args, BinaryOpLike, BinaryOpStyle, Maybe, UnaryOpLike};
+use crate::format::{Format, Formatter};
+use crate::items::components::{Args, Maybe};
 use crate::items::expressions::components::{BinaryOp, UnaryOp};
 use crate::items::expressions::BaseExpr;
 use crate::items::symbols::ColonSymbol;
@@ -42,30 +41,84 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
 }
 
 /// [UnaryOp] [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpCallExpr(UnaryOpLike<UnaryOp, BaseExpr>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct UnaryOpCallExpr {
+    op: UnaryOp,
+    expr: BaseExpr,
+}
+
+impl Format for UnaryOpCallExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let last = fmt.last_char().unwrap_or('\n');
+        if !matches!(last, '\n' | ' ') {
+            fmt.write_space();
+        }
+
+        self.op.format(fmt);
+        if matches!(self.op, UnaryOp::Bnot(_) | UnaryOp::Not(_)) {
+            fmt.write_space();
+        }
+        self.expr.format(fmt);
+    }
+}
 
 impl UnaryOpCallExpr {
     pub(crate) fn item(&self) -> &BaseExpr {
-        self.0.item()
+        &self.expr
     }
 }
 
 /// [Expr] [BinaryOp] [Expr]
 #[derive(Debug, Clone, Span, Parse)]
-pub struct BinaryOpCallExpr(BinaryOpLike<Expr, BinaryOp, Expr>);
+pub struct BinaryOpCallExpr {
+    left: Expr,
+    op: BinaryOp,
+    right: Expr,
+}
 
 impl ResumeParse<Expr> for BinaryOpCallExpr {
     fn resume_parse(ts: &mut parse::TokenStream, left: Expr) -> parse::Result<Self> {
-        ts.resume_parse(left).map(Self)
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
     }
 }
 
 impl BinaryOpCallExpr {
     fn is_name_and_arity(&self) -> bool {
-        self.0.left.get().is_atom_token()
-            && matches!(self.0.op, BinaryOp::FloatDiv(_))
-            && self.0.right.get().is_integer_token()
+        self.left.get().is_atom_token()
+            && matches!(self.op, BinaryOp::FloatDiv(_))
+            && self.right.get().is_integer_token()
+    }
+
+    fn format_binary_op(&self, fmt: &mut Formatter, mut update_indent: bool) {
+        self.left.format(fmt);
+        fmt.write_space();
+
+        update_indent |= matches!(
+            self.op,
+            BinaryOp::Match(_) | BinaryOp::MaybeMatch(_) | BinaryOp::Send(_)
+        );
+        let multiline = fmt.has_newline_until(&self.right);
+
+        self.op.format(fmt);
+        if multiline {
+            if update_indent {
+                fmt.set_indent(fmt.indent() + 4);
+                update_indent = false;
+            }
+            fmt.write_newline();
+        } else {
+            fmt.write_space();
+        }
+
+        if let Some(right) = self.right.as_binary_op() {
+            right.format_binary_op(fmt, update_indent);
+        } else {
+            self.right.format(fmt);
+        }
     }
 }
 
@@ -73,53 +126,14 @@ impl Format for BinaryOpCallExpr {
     fn format(&self, fmt: &mut Formatter) {
         if self.is_name_and_arity() {
             // A workaround for some attributes such as `-export` and `-import`.
-            self.0.left.format(fmt);
-            self.0.op.format(fmt);
-            self.0.right.format(fmt);
+            self.left.format(fmt);
+            self.op.format(fmt);
+            self.right.format(fmt);
         } else {
-            fmt.subregion(Indent::inherit(), Newline::Never, |fmt| {
-                self.0.left.format(fmt);
-                let mut op = &self.0.op;
-                let mut right = &self.0.right;
-                while let Some(next_group) = format_op_and_right(op, right, fmt) {
-                    op = next_group.0;
-                    right = next_group.1;
-                }
+            fmt.with_scoped_indent(|fmt| {
+                self.format_binary_op(fmt, false);
             });
         }
-    }
-}
-
-fn format_op_and_right<'a>(
-    op: &'a BinaryOp,
-    right: &'a Expr,
-    fmt: &mut Formatter,
-) -> Option<(&'a BinaryOp, &'a Expr)> {
-    fmt.add_space();
-    op.format(fmt);
-    fmt.add_space();
-
-    let indent = op.indent();
-    let newline = op.newline(right, fmt);
-
-    if let FullExpr::BinaryOpCall(x) = &right.0 {
-        if indent != Indent::inherit() {
-            fmt.subregion(indent, newline, |fmt| right.format(fmt));
-            None
-        } else if matches!(x.0.op, BinaryOp::Andalso(_) | BinaryOp::Orelse(_)) {
-            fmt.subregion(indent, newline, |fmt| x.0.left.format(fmt));
-            Some((&x.0.op, &x.0.right))
-        } else {
-            let mut result = None;
-            fmt.subregion(indent, newline, |fmt| {
-                x.0.left.format(fmt);
-                result = format_op_and_right(&x.0.op, &x.0.right, fmt)
-            });
-            result
-        }
-    } else {
-        fmt.subregion(indent, newline, |fmt| right.format(fmt));
-        None
     }
 }
 
@@ -133,7 +147,6 @@ mod tests {
             "foo()",
             "Foo(1, 2, 3)",
             indoc::indoc! {"
-            %---10---|%---20---|
             (foo(Bar))(a,
                        b,
                        c())"},
@@ -141,7 +154,6 @@ mod tests {
             "[]:bar(baz)",
             "foo:[](baz)",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo(A * 10 * B /
                 1_0.0)"},
         ];
@@ -152,7 +164,7 @@ mod tests {
 
     #[test]
     fn unary_op_call_works() {
-        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ +-3"];
+        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ + -3"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
@@ -164,18 +176,15 @@ mod tests {
             "1 + 2",
             "1 - 2 * 3",
             indoc::indoc! {"
-            %---10---|%---20---|
             1 + 2 + 3 + 4 + 5 +
             6"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {A, B, C} = {Foo,
                          bar,
                          baz} =
-                    qux() /
-                    quux() div 2"},
+                qux() /
+                quux() div 2"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [a,
              b ! fooooooooooooooo,
              c +
@@ -184,7 +193,6 @@ mod tests {
              qux =
                  quuxxxxxxxxxxx]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo =
                 case bar of
                     baz ->

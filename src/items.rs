@@ -21,6 +21,7 @@ pub(crate) mod variables;
 mod module;
 
 pub use self::config::Config;
+use self::expressions::BinaryOpCallExpr;
 pub use self::macros::Macro;
 pub use self::module::Module;
 
@@ -64,12 +65,12 @@ impl Expr {
         &self.0
     }
 
-    pub(crate) fn is_block(&self) -> bool {
-        self.0.is_block()
-    }
-
-    pub(crate) fn is_parenthesized(&self) -> bool {
-        self.0.is_parenthesized()
+    pub(crate) fn as_binary_op(&self) -> Option<&BinaryOpCallExpr> {
+        if let FullExpr::BinaryOpCall(x) = self.get() {
+            Some(x)
+        } else {
+            None
+        }
     }
 
     pub(crate) fn as_atom(&self) -> Option<&str> {

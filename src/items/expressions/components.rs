@@ -1,57 +1,90 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{
-    BinaryOpStyle, Either, NonEmptyItems, Params, WithArrow, WithGuard,
-};
+use crate::format::{Format, Formatter};
+use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
+    RightArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
+use std::cmp::min;
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct FunctionClause<Name, const OFFSET: usize = 4> {
+#[derive(Debug, Clone, Span, Parse)]
+pub(crate) struct FunctionClause<Name, const BODY_INDENT: usize = 4> {
     name: Name,
-    params: WithArrow<WithGuard<Params<Expr>, Expr>>,
-    body: Body<OFFSET>,
+    params: Params<Expr>,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
+    body: Body,
 }
 
-impl<Name: Format, const OFFSET: usize> FunctionClause<Name, OFFSET> {
-    pub fn format_maybe_one_line_body(&self, fmt: &mut Formatter) {
-        self.name.format(fmt);
-        self.params.format(fmt);
-        fmt.subregion(
-            Indent::Offset(OFFSET),
-            Newline::IfTooLongOrMultiLineParent,
-            |fmt| self.body.exprs.format(fmt),
-        );
-    }
+impl<Name: Format, const BODY_INDENT: usize> Format for FunctionClause<Name, BODY_INDENT> {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                let base_indent = fmt.indent();
 
-    pub fn body(&self) -> &Body<OFFSET> {
-        &self.body
+                // 'Name'
+                self.name.format(fmt);
+
+                // 'Params'
+                self.params.format(fmt);
+
+                // 'Guard'
+                if let Some(guard) = self.guard.get() {
+                    let newline = fmt.has_newline_until(&guard.end_position());
+                    if newline {
+                        fmt.set_indent(base_indent + BODY_INDENT - 2);
+                        fmt.write_newline();
+                    } else {
+                        fmt.write_space();
+                    }
+                    guard.format(fmt);
+                }
+                fmt.write_space();
+
+                // '->'
+                let newline = fmt.has_newline_until(&self.body.end_position());
+                self.arrow.format(fmt);
+                if newline {
+                    fmt.set_indent(base_indent + BODY_INDENT);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+
+                // 'Body'
+                self.body.format(fmt);
+            });
+        };
+
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        };
     }
 }
 
 /// ([Expr], `,`?)+
 #[derive(Debug, Clone, Span, Parse)]
-pub struct Body<const OFFSET: usize = 4> {
+pub struct Body {
     exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
 
-impl<const OFFSET: usize> Body<OFFSET> {
+impl Body {
     pub(crate) fn exprs(&self) -> &[Expr] {
         self.exprs.items()
     }
 }
 
-impl<const OFFSET: usize> Format for Body<OFFSET> {
+impl Format for Body {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(OFFSET), Newline::Always, |fmt| {
-            self.exprs.format_multi_line(fmt)
-        });
+        self.exprs.format(fmt);
+        fmt.write_subsequent_comments();
     }
 }
 
@@ -70,17 +103,21 @@ struct Generator {
 
 impl Format for Generator {
     fn format(&self, fmt: &mut Formatter) {
-        self.pattern.format(fmt);
-        fmt.add_space();
-        fmt.subregion(
-            Indent::CurrentColumnOrOffset(4),
-            Newline::IfTooLong,
-            |fmt| {
-                self.delimiter.format(fmt);
-                fmt.add_space();
-                self.sequence.format(fmt);
-            },
-        );
+        fmt.with_scoped_indent(|fmt| {
+            self.pattern.format(fmt);
+
+            if fmt.has_newline_until(&self.sequence) {
+                fmt.set_indent(min(fmt.column(), fmt.indent() + 4));
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+
+            self.delimiter.format(fmt);
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
+            self.sequence.format(fmt);
+        });
     }
 }
 
@@ -98,23 +135,27 @@ pub(crate) struct ComprehensionExpr<Open, Close> {
 
 impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.open.format(fmt);
-            fmt.add_space();
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                self.value.format(fmt);
-                fmt.add_space();
-                fmt.subregion(Indent::inherit(), Newline::IfTooLongOrMultiLine, |fmt| {
-                    self.delimiter.format(fmt);
-                    fmt.add_space();
-                    fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-                        self.qualifiers.format(fmt);
-                    });
-                });
-            });
-            fmt.add_space();
-            self.close.format(fmt);
+        self.open.format(fmt);
+        fmt.with_scoped_indent(|fmt| {
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
+
+            self.value.format(fmt);
+
+            if fmt.has_newline_until(&self.qualifiers) {
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+
+            self.delimiter.format(fmt);
+            fmt.write_space();
+            fmt.set_indent(fmt.column());
+
+            self.qualifiers.format(fmt);
         });
+        fmt.write_space();
+        self.close.format(fmt);
     }
 }
 
@@ -200,50 +241,6 @@ impl Parse for BinaryOp {
             },
             Some(token) => Err(parse::Error::unexpected_token(ts, token)),
             None => Err(parse::Error::unexpected_eof(ts)),
-        }
-    }
-}
-
-impl BinaryOpStyle<Expr> for BinaryOp {
-    fn indent(&self) -> Indent {
-        if matches!(self, Self::Match(_) | Self::MaybeMatch(_)) {
-            Indent::Offset(4)
-        } else {
-            Indent::inherit()
-        }
-    }
-
-    fn newline(&self, rhs: &Expr, fmt: &Formatter) -> Newline {
-        let is_macro_expanded = || {
-            fmt.token_stream()
-                .macros()
-                .contains_key(&rhs.start_position())
-        };
-
-        if rhs.is_block() && !is_macro_expanded() {
-            Newline::Always
-        } else if matches!(
-            self,
-            Self::Send(_)
-                | Self::ExactEq(_)
-                | Self::Eq(_)
-                | Self::ExactNotEq(_)
-                | Self::NotEq(_)
-                | Self::Less(_)
-                | Self::LessEq(_)
-                | Self::Greater(_)
-                | Self::GreaterEq(_)
-        ) {
-            Newline::Never
-        } else if matches!(self, Self::Andalso(_) | Self::Orelse(_)) {
-            Newline::IfTooLongOrMultiLineParent
-        } else if (rhs.is_parenthesized()
-            || matches!(self, Self::PlusPlus(_) | Self::MinusMinus(_)))
-            && !is_macro_expanded()
-        {
-            Newline::IfTooLongOrMultiLine
-        } else {
-            Newline::IfTooLong
         }
     }
 }

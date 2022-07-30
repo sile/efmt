@@ -14,13 +14,6 @@ const DEFAULT_CACHE_DIR: &str = ".efmt/cache";
 #[derive(Debug, Parser)]
 #[clap(about, version)]
 struct Opt {
-    /// Maximum line length.
-    ///
-    /// Note that this is a soft limit. That is, some lines could exceed the limit after formatting.
-    /// Besides, this limit doesn't apply to comments.
-    #[clap(long, default_value_t = 120)]
-    print_width: usize,
-
     /// Checks if input is formatted correctly.
     ///
     /// If so, exits with 0. Otherwise, exits with 1 and shows a diff.
@@ -116,9 +109,7 @@ impl Opt {
     }
 
     fn to_format_options(&self) -> efmt::Options {
-        let mut format_options = efmt::Options::new()
-            .max_columns(self.print_width)
-            .include_dirs(self.include_dirs.clone());
+        let mut format_options = efmt::Options::new().include_dirs(self.include_dirs.clone());
 
         if !self.disable_include_cache {
             format_options = format_options.include_cache_dir(
@@ -231,16 +222,6 @@ impl Opt {
                 }
             } else if let Some((k, v)) = item.as_kv_tuple() {
                 match k {
-                    "print_width" => {
-                        if let RebarConfigValue::Integer(v) = v {
-                            if matches.occurrences_of("print-width") == 0 {
-                                self.print_width = *v as usize;
-                            } else {
-                                log::debug!("ignored {k:?} option in rebar.config in favor of command line arg");
-                            }
-                            continue;
-                        }
-                    }
                     "I" | "include_search_dir" => {
                         if let RebarConfigValue::String(v) = v {
                             self.include_dirs.push(rebar_config_dir.join(v));

@@ -1,5 +1,5 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{BinaryOpStyle, Either, Element};
+use crate::format::Format;
+use crate::items::components::{Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
     RemKeyword,
@@ -26,20 +26,6 @@ pub enum BinaryOp {
     Bsl(BslKeyword),
     Bsr(BsrKeyword),
     Range(DoubleDotSymbol),
-}
-
-impl<RHS> BinaryOpStyle<RHS> for BinaryOp {
-    fn indent(&self) -> Indent {
-        Indent::inherit()
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
-    }
-
-    fn needs_spaces(&self) -> bool {
-        !matches!(self, Self::Range(_))
-    }
 }
 
 /// `+` | `-` | `bnot`

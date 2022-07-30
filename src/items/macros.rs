@@ -155,7 +155,7 @@ impl Format for MacroReplacement {
             }
         }
 
-        fmt.add_span(self);
+        fmt.write_span(self);
     }
 }
 
@@ -257,7 +257,7 @@ impl Format for MacroArg {
             }
         }
 
-        fmt.add_span(self);
+        fmt.write_span(self);
     }
 }
 
@@ -330,7 +330,6 @@ mod tests {
     fn macro_with_args_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(), foo).
 
 
@@ -338,7 +337,6 @@ mod tests {
                 ?FOO().
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(Bar),
                     {Bar, Baz}).
 
@@ -347,7 +345,6 @@ mod tests {
                 ?FOO(quux).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(Bar,
                         Baz),
                     {Bar, Baz}).
@@ -392,7 +389,6 @@ mod tests {
                 ?Foo(10).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(), foo).
             -define(FOO,
                     foo foo).
@@ -402,7 +398,6 @@ mod tests {
                 ?FOO() + 10.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     begin
                         1,
@@ -414,7 +409,6 @@ mod tests {
                 ?FOO.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(X), X).
             -define(BAR(),
                     ?FOO(baz),).
@@ -434,8 +428,7 @@ mod tests {
 
 
             main() ->
-                ?bar(?foo)
-                c].
+                ?bar(?foo) c].
             "},
             indoc::indoc! {"
             -define(foo, [],).
@@ -453,8 +446,8 @@ mod tests {
 
 
             main() ->
-                ?b(?a a)
-                , c].
+                ?b(?a a),
+                        c].
             "},
         ];
         for text in texts {
@@ -466,7 +459,6 @@ mod tests {
     fn macro_and_comment_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO(A), A).
 
 
@@ -476,7 +468,6 @@ mod tests {
                      \"ccc\").
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO, foo).
 
 
@@ -484,16 +475,15 @@ mod tests {
                 case A of
                     a ->
                         ?FOO
-                %% comment
+                        %% comment
                 end.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a(X), X X).
 
 
             foo() ->
-                1 ?a(?a(+1)).
+                1 ?a(?a( +1)).
             "},
         ];
         for text in texts {
@@ -505,7 +495,6 @@ mod tests {
     fn macro_lazy_expand_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(BAR,
                     ?FOO
                         1
@@ -518,7 +507,6 @@ mod tests {
                 ?BAR.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     ?BAR(1)).
 
@@ -538,7 +526,6 @@ mod tests {
     fn circular_macro_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?b).
             -define(b, ?a).
 
@@ -547,11 +534,9 @@ mod tests {
                 ?a == ?b.
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?a).
             "},
             indoc::indoc! {"
-            %---10---|%---20---|
             -define(a, ?a + ?a).
             "},
         ];
@@ -563,7 +548,6 @@ mod tests {
     #[test]
     fn macro_and_binary_op() {
         let texts = [indoc::indoc! {"
-            %---10---|%---20---|
             -define(FOO,
                     case bar of
                         baz ->

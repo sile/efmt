@@ -23,35 +23,16 @@ pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
 }
 
 /// Options to format an item.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
-    max_columns: usize,
     include: IncludeOptions,
     default_off: bool,
 }
 
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            max_columns: Self::DEFAULT_MAX_COLUMNS,
-            include: IncludeOptions::default(),
-            default_off: false,
-        }
-    }
-}
-
 impl Options {
-    /// The default max column number.
-    pub const DEFAULT_MAX_COLUMNS: usize = 120;
-
     /// Makes an [Options] instance with the default settings.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn max_columns(mut self, n: usize) -> Self {
-        self.max_columns = n;
-        self
     }
 
     pub fn disable_include(mut self) -> Self {
@@ -99,7 +80,7 @@ impl Options {
             formatter.skip_formatting();
         }
         item.format(&mut formatter);
-        let formatted_text = formatter.format(self.max_columns);
+        let formatted_text = formatter.finish();
         Ok(formatted_text)
     }
 }
@@ -109,7 +90,6 @@ impl Options {
 macro_rules! assert_format {
     ($text:expr, $item_type:ident) => {{
         let formatted = crate::Options::new()
-            .max_columns(20)
             .format_text::<$item_type>(&$text)
             .unwrap();
         let expected = $text;
@@ -118,7 +98,6 @@ macro_rules! assert_format {
 
     ($text:expr, $expected:expr, $item_type:ident) => {{
         let formatted = crate::Options::new()
-            .max_columns(20)
             .format_text::<$item_type>(&$text)
             .unwrap();
         similar_asserts::assert_str_eq!(formatted, $expected);

@@ -2,10 +2,10 @@
 //!
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter};
 use crate::items::components::{
-    Args, BinaryOpLike, BinaryOpStyle, BitstringLike, Either, Element, ListLike, MapLike, Maybe,
-    NonEmptyItems, Params, Parenthesized, RecordLike, TupleLike, UnaryOpLike,
+    Args, BitstringLike, Either, Element, ListLike, MapLike, Maybe, NonEmptyItems, Params,
+    Parenthesized, RecordLike, TupleLike,
 };
 use crate::items::keywords::FunKeyword;
 use crate::items::symbols::{
@@ -28,9 +28,8 @@ struct UnionDelimiter(VerticalBarSymbol);
 
 impl Format for UnionDelimiter {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.add_space();
+        fmt.write_space();
         self.0.format(fmt);
-        fmt.add_space();
     }
 }
 
@@ -78,26 +77,68 @@ pub struct AnnotatedVariableType {
 impl Format for AnnotatedVariableType {
     fn format(&self, fmt: &mut Formatter) {
         self.variable.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
         self.colon.format(fmt);
-        fmt.add_space();
+        fmt.write_space();
         self.ty.format(fmt);
     }
 }
 
 /// [Type] [BinaryOp] [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct BinaryOpType(BinaryOpLike<BaseType, BinaryOp, Type>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct BinaryOpType {
+    left: BaseType,
+    op: BinaryOp,
+    right: Type,
+}
 
 impl ResumeParse<BaseType> for BinaryOpType {
     fn resume_parse(ts: &mut parse::TokenStream, left: BaseType) -> parse::Result<Self> {
-        ts.resume_parse(left).map(Self)
+        Ok(Self {
+            left,
+            op: ts.parse()?,
+            right: ts.parse()?,
+        })
+    }
+}
+
+impl Format for BinaryOpType {
+    fn format(&self, fmt: &mut Formatter) {
+        let needs_space = !matches!(self.op, BinaryOp::Range(_));
+
+        self.left.format(fmt);
+        if needs_space {
+            fmt.write_space();
+        }
+        self.op.format(fmt);
+        if needs_space {
+            fmt.write_space();
+        }
+        self.right.format(fmt);
     }
 }
 
 /// [UnaryOp] [Type]
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct UnaryOpType(UnaryOpLike<UnaryOp, BaseType>);
+#[derive(Debug, Clone, Span, Parse)]
+pub struct UnaryOpType {
+    op: UnaryOp,
+    ty: BaseType,
+}
+
+impl Format for UnaryOpType {
+    fn format(&self, fmt: &mut Formatter) {
+        let last = fmt.last_char().unwrap_or('\n');
+        if !matches!(last, '\n' | ' ' | '.') {
+            fmt.write_space();
+        }
+
+        self.op.format(fmt);
+        if matches!(self.op, UnaryOp::Bnot(_)) {
+            fmt.write_space();
+        }
+        self.ty.format(fmt);
+    }
+}
 
 /// `fun` `(` (`$PARAMS` `->` `$RETURN`)? `)`
 ///
@@ -116,18 +157,33 @@ impl Format for FunctionType {
     }
 }
 
-type FunctionParamsAndReturn = BinaryOpLike<FunctionParams, RightArrowDelimiter, Type>;
+#[derive(Debug, Clone, Span, Parse)]
+struct FunctionParamsAndReturn {
+    params: FunctionParams,
+    arrow: RightArrowSymbol,
+    ty: Type,
+}
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct RightArrowDelimiter(RightArrowSymbol);
+impl Format for FunctionParamsAndReturn {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            // 'Params'
+            self.params.format(fmt);
+            fmt.write_space();
 
-impl<RHS> BinaryOpStyle<RHS> for RightArrowDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(8)
-    }
+            // '->'
+            let multiline = fmt.has_newline_until(&self.ty);
+            self.arrow.format(fmt);
+            if multiline {
+                fmt.set_indent(fmt.indent() + 8);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
 
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLongOrMultiLine
+            // 'Type'
+            self.ty.format(fmt);
+        });
     }
 }
 
@@ -193,19 +249,20 @@ pub struct RecordType {
     record: RecordLike<(SharpSymbol, AtomToken), RecordItem>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format, Element)]
-struct RecordItem(BinaryOpLike<AtomToken, DoubleColonDelimiter, Type>);
+#[derive(Debug, Clone, Span, Parse, Element)]
+struct RecordItem {
+    name: AtomToken,
+    colon: DoubleColonSymbol,
+    ty: Type,
+}
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct DoubleColonDelimiter(DoubleColonSymbol);
-
-impl<RHS> BinaryOpStyle<RHS> for DoubleColonDelimiter {
-    fn indent(&self) -> Indent {
-        Indent::Offset(4)
-    }
-
-    fn newline(&self, _rhs: &RHS, _fmt: &Formatter) -> Newline {
-        Newline::IfTooLong
+impl Format for RecordItem {
+    fn format(&self, fmt: &mut Formatter) {
+        self.name.format(fmt);
+        fmt.write_space();
+        self.colon.format(fmt);
+        fmt.write_space();
+        self.ty.format(fmt);
     }
 }
 
@@ -226,12 +283,10 @@ mod tests {
             "foo()",
             "foo:bar(A, 1)",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo:bar(A,
                     BB,
                     baz())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo:bar(A,
                     B,
                     baz(12, 34),
@@ -249,7 +304,6 @@ mod tests {
             "[foo()]",
             "[10, ...]",
             indoc::indoc! {"
-            %---10---|%---20---|
             [fooooooooooo(),
              ...]"},
         ];
@@ -265,17 +319,14 @@ mod tests {
             "{foo()}",
             "{atom, 1}",
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo(),
              bar(),
              [baz()]}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo(),
              bar(),
              [baz(A, B)]}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {foo, bar,
                   [baz(A, B)]}"},
         ];
@@ -290,25 +341,24 @@ mod tests {
             "#{}",
             "#{a => b, 1 := 2}",
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               atom() :=
                   integer()
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               atom() := {Aaa,
                          bbb,
                          ccc}
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #{
               a => b,
               1 := 2,
               atom() := atom()
              }"},
+            indoc::indoc! {"
+            #{a => b, 1 := 2, atom() := atom()}"},
         ];
         for text in expected {
             crate::assert_format!(text, Type);
@@ -320,18 +370,17 @@ mod tests {
         let texts = [
             "#foo{}",
             indoc::indoc! {"
-            %---10---|%---20---|
             #foo{
               bar :: integer()
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
             #foo{
               bar :: b,
               baz :: 2
              }"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            #foo{bar :: b, baz :: 2}"},
+            indoc::indoc! {"
             #foo{
               bar :: b,
               baz :: bb()
@@ -348,14 +397,11 @@ mod tests {
             "fun()",
             "fun(() -> integer())",
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((...) -> atom())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((A, b, $c) ->
                         tuple())"},
             indoc::indoc! {"
-            %---10---|%---20---|
             fun((A,
                  b,
                  $c,
@@ -369,7 +415,7 @@ mod tests {
 
     #[test]
     fn unary_op_works() {
-        let texts = ["-10", "+10", "bnot 100", "- -+ +3"];
+        let texts = ["-10", "+10", "bnot 100", "- - + +3"];
         for text in texts {
             crate::assert_format!(text, Type);
         }
@@ -380,7 +426,6 @@ mod tests {
         let texts = [
             "-10 + 20 rem 3",
             indoc::indoc! {"
-            %---10---|%---20---|
             foo |
             (3 + 10) |
             -1..+20"},
@@ -398,7 +443,6 @@ mod tests {
             "<<_:_*8>>",
             "<<_:8, _:_*4>>",
             indoc::indoc! {"
-            %---10---|%---20---|
             <<_:(1 + 3 + 4),
               _:_*4>>"},
         ];
@@ -412,10 +456,8 @@ mod tests {
         let texts = [
             "Foo :: atom()",
             indoc::indoc! {"
-            %---10---|%---20---|
             Foo :: [bar:baz(qux)]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             Foo :: atom() |
                    integer() |
                    bar"},

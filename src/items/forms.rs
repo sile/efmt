@@ -1,12 +1,12 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
     RecordAtom, SpecAtom, TypeAtom,
 };
 use crate::items::components::{
-    Clauses, CommaDelimiter, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params,
-    Parenthesized, RecordFieldsLike, WithArrow, WithGuard,
+    Clauses, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params, Parenthesized,
+    RecordFieldsLike,
 };
 use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::{ElseKeyword, IfKeyword};
@@ -22,7 +22,10 @@ use crate::parse::Parse;
 use crate::span::Span;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+use super::components::Guard;
+use super::symbols::RightArrowSymbol;
+
+#[derive(Debug, Clone, Span, Parse)]
 pub(super) enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
@@ -32,6 +35,22 @@ pub(super) enum Form {
     RecordDecl(RecordDecl),
     Export(ExportAttr),
     Attr(Attr),
+}
+
+impl Format for Form {
+    fn format(&self, fmt: &mut Formatter) {
+        match self {
+            Form::Define(x) => x.format(fmt),
+            Form::Include(x) => x.format(fmt),
+            Form::FunSpec(x) => x.format(fmt),
+            Form::FunDecl(x) => x.format(fmt),
+            Form::TypeDecl(x) => x.format(fmt),
+            Form::RecordDecl(x) => x.format(fmt),
+            Form::Export(x) => x.format(fmt),
+            Form::Attr(x) => x.format(fmt),
+        }
+        fmt.write_trailing_comment();
+    }
 }
 
 /// `-` `record` `(` `$NAME` `,` `{` `$FIELD`* `}` `)` `.`
@@ -50,10 +69,11 @@ struct RecordDeclValue {
 
 impl Format for RecordDeclValue {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.name.format(fmt);
             self.comma.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             self.fields.format(fmt);
         });
     }
@@ -68,18 +88,17 @@ struct RecordField {
 
 impl Format for RecordField {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.add_newline();
         self.name.format(fmt);
         if let Some((x, y)) = self.default.get() {
-            fmt.add_space();
+            fmt.write_space();
             x.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             y.format(fmt);
         }
         if let Some((x, y)) = self.r#type.get() {
-            fmt.add_space();
+            fmt.write_space();
             x.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             y.format(fmt);
         }
     }
@@ -107,14 +126,20 @@ struct TypeDeclItem {
 
 impl Format for TypeDeclItem {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            let base_indent = fmt.column();
             self.name.format(fmt);
             self.params.format(fmt);
-            fmt.add_space();
+            fmt.write_space();
             self.delimiter.format(fmt);
-            fmt.add_space();
-            fmt.subregion(Indent::Offset(2), Newline::IfTooLong, |fmt| {
-                self.r#type.format(fmt)
+            fmt.with_scoped_indent(|fmt| {
+                if fmt.has_newline_until(&self.r#type) {
+                    fmt.set_indent(base_indent + 2);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                self.r#type.format(fmt);
             });
         });
     }
@@ -128,20 +153,21 @@ impl Format for TypeDeclItem {
 ///
 /// Note that the parenthesized notation like `-spec(foo() -> bar()).` is also acceptable
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct FunSpec(AttrLike<FunSpecName, FunSpecItem>);
-
-type FunSpecName = Either<SpecAtom, CallbackAtom>;
+pub struct FunSpec(
+    Either<AttrLike<SpecAtom, FunSpecItem<6>>, AttrLike<CallbackAtom, FunSpecItem<10>>>,
+);
 
 #[derive(Debug, Clone, Span, Parse)]
-struct FunSpecItem {
+struct FunSpecItem<const INDENT: usize> {
     module_name: Maybe<(AtomToken, ColonSymbol)>,
     function_name: AtomToken,
-    clauses: Clauses<SpecClause>,
+    clauses: Clauses<SpecClause<INDENT>>,
 }
 
-impl Format for FunSpecItem {
+impl<const INDENT: usize> Format for FunSpecItem<INDENT> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             self.module_name.format(fmt);
             self.function_name.format(fmt);
             self.clauses.format(fmt);
@@ -150,19 +176,44 @@ impl Format for FunSpecItem {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct SpecClause {
-    params: WithArrow<Params<Type>>,
-    r#return: WithGuard<Type, Type, CommaDelimiter, 4>,
+struct SpecClause<const INDENT: usize> {
+    params: Params<Type>,
+    arrow: RightArrowSymbol,
+    r#return: Type,
+    guard: Maybe<Guard<Type, CommaSymbol>>,
 }
 
-impl Format for SpecClause {
+impl<const INDENT: usize> Format for SpecClause<INDENT> {
     fn format(&self, fmt: &mut Formatter) {
-        self.params.format(fmt);
-        fmt.subregion(
-            Indent::ParentOffset(4),
-            Newline::IfTooLongOrMultiLine,
-            |fmt| self.r#return.format(fmt),
-        );
+        fmt.with_scoped_indent(|fmt| {
+            // 'Params'
+            self.params.format(fmt);
+            fmt.write_space();
+
+            // '->'
+            let multiline = fmt.has_newline_until(&self.r#return);
+            self.arrow.format(fmt);
+
+            // 'Return'
+            if multiline {
+                fmt.set_indent(INDENT + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            self.r#return.format(fmt);
+
+            // 'Guard'
+            if let Some(guard) = self.guard.get() {
+                if fmt.has_newline_until(guard) {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                guard.format(fmt);
+            }
+        });
     }
 }
 
@@ -188,7 +239,7 @@ pub struct ExportAttr(AttrLike<Either<ExportAtom, ExportTypeAtom>, ExportItems>)
 #[derive(Debug, Clone, Span, Parse)]
 struct ExportItems {
     open: OpenSquareSymbol,
-    items: Items<ExportItem, CommaDelimiter>,
+    items: Items<ExportItem, CommaSymbol>,
     close: CloseSquareSymbol,
 }
 
@@ -199,7 +250,8 @@ impl Format for ExportItems {
         let items = self.items.items();
         let delimiters = self.items.delimiters();
         if !items.is_empty() {
-            fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.column());
                 items.first().expect("unreachable").format(fmt);
 
                 for (prev_item, (item, delimiter)) in items
@@ -211,11 +263,10 @@ impl Format for ExportItems {
                     let is_same_group = prev_item.name.value() == item.name.value()
                         && prev_item.start_position().line() + 1 >= item.end_position().line();
                     if is_same_group {
-                        fmt.subregion(Indent::inherit(), Newline::IfTooLong, |fmt| {
-                            item.format(fmt)
-                        });
+                        fmt.write_space();
+                        item.format(fmt);
                     } else {
-                        fmt.add_newline();
+                        fmt.write_newline();
                         item.format(fmt);
                     }
                 }
@@ -254,13 +305,21 @@ struct AttrLike<Name, Value, Empty = Never> {
 
 impl<Name: Format, Value: Format, Empty: Format> Format for AttrLike<Name, Value, Empty> {
     fn format(&self, fmt: &mut Formatter) {
-        self.hyphen.format(fmt);
-        self.name.format(fmt);
-        if matches!(self.value, Either::B(Either::A(_))) {
-            fmt.add_space();
+        let f = |fmt: &mut Formatter| {
+            self.hyphen.format(fmt);
+            self.name.format(fmt);
+            if matches!(self.value, Either::B(Either::A(_))) {
+                fmt.write_space();
+            }
+            self.value.format(fmt);
+            self.dot.format(fmt);
+        };
+
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
         }
-        self.value.format(fmt);
-        self.dot.format(fmt);
     }
 }
 
@@ -299,18 +358,20 @@ impl DefineDirective {
         self.hyphen.format(fmt);
         self.define.format(fmt);
         self.open.format(fmt);
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+
             self.macro_name.format(fmt);
             self.variables.format(fmt);
             self.comma.format(fmt);
-            fmt.add_space();
+            if fmt.has_newline_until(&self.replacement) {
+                fmt.write_newline();
+            } else {
+                let indent = replacement_indent.unwrap_or_else(|| fmt.column() + 1);
+                fmt.write_spaces(indent - fmt.column());
+            }
 
-            let indent = replacement_indent
-                .map(Indent::Absolute)
-                .unwrap_or(Indent::inherit());
-            fmt.subregion(indent, Newline::IfTooLongOrMultiLine, |fmt| {
-                self.replacement.format(fmt)
-            });
+            self.replacement.format(fmt);
         });
         self.close.format(fmt);
         self.dot.format(fmt);
@@ -501,6 +562,8 @@ mod tests {
                       field2,
                       field3 = 421
                      })."},
+            indoc::indoc! {"
+            -record(rec, {field1 = [] :: Type1, field2, field3 = 421})."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
@@ -519,7 +582,6 @@ mod tests {
             foo(_, _) ->
                 baz."},
             indoc::indoc! {"
-            %---10---|%---20---|
             foo(A)
               when a,
                    b;
@@ -545,7 +607,6 @@ mod tests {
             -spec foo(X) -> X;
                      (Y) -> Y."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -spec foo(A, B) ->
                       C;
                      (T0, T1) ->
@@ -565,7 +626,6 @@ mod tests {
                           {atom(),
                            atom()}."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -spec foobar(A) ->
                       {atom(),
                        atom()}
@@ -590,11 +650,9 @@ mod tests {
             "-type foo() :: a.",
             "-type(foo() :: a).",
             indoc::indoc! {"
-            %---10---|%---20---|
             -type foo() :: bar |
                            baz."},
             indoc::indoc! {"
-            %---10---|%---20---|
             -type foo() ::
                     barr | bazz."},
             indoc::indoc! {"

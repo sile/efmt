@@ -1,4 +1,4 @@
-use crate::format::{Format, Formatter, Indent, Newline};
+use crate::format::{Format, Formatter};
 use crate::items::components::Element;
 use crate::items::tokens::StringToken;
 use crate::parse::{self, Parse};
@@ -36,11 +36,12 @@ impl Parse for StringExpr {
 
 impl Format for StringExpr {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
             for (i, item) in self.0.iter().enumerate() {
                 item.format(fmt);
                 if i + 1 < self.0.len() {
-                    fmt.add_newline();
+                    fmt.write_newline();
                 }
             }
         });
@@ -66,7 +67,6 @@ mod tests {
             "bar"
             "baz""#},
             indoc::indoc! {r#"
-            %---10---|%---20---|
             foo("bar"
                 "baz",
                 qux)"#},

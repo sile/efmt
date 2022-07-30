@@ -36,12 +36,10 @@ impl Format for ListItemDelimiter {
         match self {
             Self::Comma(x) => {
                 x.format(fmt);
-                fmt.add_space();
             }
             Self::VerticalBar(x) => {
-                fmt.add_space();
+                fmt.write_space();
                 x.format(fmt);
-                fmt.add_space();
             }
         }
     }
@@ -62,15 +60,12 @@ mod tests {
             "[1]",
             "[foo, bar, baz]",
             indoc::indoc! {"
-            %---10---|%---20---|
             [1, 2, 3, 4, 5, 6,
              7]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [1, 2, 3, 4, 5, 6,
              7, 8, 9]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [1,
              [2, 3, 4, 5, 6],
              7,
@@ -92,7 +87,6 @@ mod tests {
             "[1 | 2]",
             "[1, 2 | 3]",
             indoc::indoc! {"
-            %---10---|%---20---|
             [1,
              [[2] | 3] |
              [4, 5]]"},
@@ -106,15 +100,12 @@ mod tests {
     fn list_comprehension_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             [ X || X <- [1, 2] ]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [ X
               || X <- [1, 2,
                        3] ]"},
             indoc::indoc! {"
-            %---10---|%---20---|
             [ [X, Y]
               || X <- [1, 2, 3,
                        4, 5],

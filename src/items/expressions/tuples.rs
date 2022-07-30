@@ -26,11 +26,9 @@ mod tests {
             "{1}",
             "{foo, bar, baz}",
             indoc::indoc! {"
-            %---10---|%---20---|
             {1, 2, 3, 4, 5, 6,
              7, 8, 9}"},
             indoc::indoc! {"
-            %---10---|%---20---|
             {1,
              2,
              {3, 4, 5},
@@ -45,7 +43,6 @@ mod tests {
     #[test]
     fn tagged_tuple_works() {
         let texts = [indoc::indoc! {"
-            %---10---|%---20---|
             {error, {Foo, Bar,
                      Baz},
                     qux}"}];

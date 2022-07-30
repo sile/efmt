@@ -1,11 +1,11 @@
-use crate::format::{Format, Formatter, Indent, Newline};
-use crate::items::components::{Clauses, Either, Maybe, NonEmptyItems, WithArrow, WithGuard};
+use crate::format::{Format, Formatter};
+use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
     AfterKeyword, BeginKeyword, CaseKeyword, CatchKeyword, ElseKeyword, EndKeyword, IfKeyword,
     MaybeKeyword, OfKeyword, ReceiveKeyword, TryKeyword,
 };
-use crate::items::symbols::{ColonSymbol, CommaSymbol, SemicolonSymbol};
+use crate::items::symbols::{ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
 use crate::items::Expr;
 use crate::parse::Parse;
@@ -32,52 +32,163 @@ pub struct CaseExpr {
     case: CaseKeyword,
     value: Expr,
     of: OfKeyword,
-    clauses: Block<Clauses<CaseClause>>,
-    end: End,
+    clauses: Clauses<CaseClause>,
+    end: EndKeyword,
 }
 
 impl Format for CaseExpr {
     fn format(&self, fmt: &mut Formatter) {
-        self.case.format(fmt);
-        fmt.add_space();
-        self.value.format(fmt);
-        fmt.add_space();
-        self.of.format(fmt);
-        self.clauses.format(fmt);
-        self.end.format(fmt);
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'case'
+                fmt.set_indent(fmt.column());
+                self.case.format(fmt);
+
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.write_space();
+                    fmt.set_indent(fmt.column());
+
+                    // 'Expr'
+                    self.value.format(fmt);
+                    fmt.write_space();
+                });
+
+                // 'of'
+                self.of.format(fmt);
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+
+                    // 'Clauses'
+                    self.clauses.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
     }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct End(EndKeyword);
-
-impl Format for End {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| self.0.format(fmt));
-    }
+struct CaseClause {
+    pattern: Expr,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
+    body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct CaseClause {
-    pattern: WithArrow<WithGuard<Expr, Expr>>,
-    body: Body,
+impl Format for CaseClause {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            let base_ident = fmt.indent();
+
+            // 'Pattern'
+            self.pattern.format(fmt);
+
+            // 'when'
+            if let Some(guard) = self.guard.get() {
+                if fmt.has_newline_until(guard) {
+                    fmt.set_indent(base_ident + 2);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                guard.format(fmt);
+            }
+
+            // '->'
+            let multiline = fmt.has_newline_until(&self.body.end_position());
+            fmt.write_space();
+            self.arrow.format(fmt);
+
+            // 'Body'
+            if multiline {
+                fmt.set_indent(base_ident + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            self.body.format(fmt);
+        });
+    }
 }
 
 /// `if` (`$CLAUSE` `;`?)+ `end`
 ///
 /// - $CLAUSE: `$GUARD` `->` [Body]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct IfExpr {
     r#if: IfKeyword,
-    clauses: Block<Clauses<IfClause>>,
-    end: End,
+    clauses: Clauses<IfClause>,
+    end: EndKeyword,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format for IfExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'if'
+                fmt.set_indent(fmt.column());
+                self.r#if.format(fmt);
+
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+
+                    // 'Clauses'
+                    self.clauses.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct IfClause {
-    condigion: WithArrow<GuardCondition>,
+    condition: GuardCondition,
+    arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl Format for IfClause {
+    fn format(&self, fmt: &mut Formatter) {
+        // 'Condition'
+        self.condition.format(fmt);
+        fmt.write_space();
+
+        // '->'
+        let multiline = fmt.has_newline_until(&self.body.end_position());
+        self.arrow.format(fmt);
+
+        // 'Body'
+        if multiline {
+            fmt.with_scoped_indent(|fmt| {
+                fmt.set_indent(fmt.indent() + 4);
+                fmt.write_newline();
+                self.body.format(fmt);
+            });
+        } else {
+            fmt.write_space();
+            self.body.format(fmt);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -85,11 +196,40 @@ struct GuardCondition(NonEmptyItems<Expr, Either<CommaSymbol, SemicolonSymbol>>)
 
 /// `begin` [Body] `end`
 ///
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Body,
-    end: End,
+    end: EndKeyword,
+}
+
+impl Format for BeginExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'begin'
+                fmt.set_indent(fmt.column());
+                self.begin.format(fmt);
+
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+
+                    // 'Body'
+                    self.exprs.format(fmt);
+                });
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
 }
 
 /// `receive` (`$CLAUSE` `;`?)* `$TIMEOUT`? `end`
@@ -98,33 +238,78 @@ pub struct BeginExpr {
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
 /// - $TIMEOUT: `after` [Expr] `->` [Body]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ReceiveExpr {
     receive: ReceiveKeyword,
-    clauses: Block<Maybe<Clauses<CaseClause>>>,
+    clauses: Maybe<Clauses<CaseClause>>,
     timeout: Maybe<ReceiveTimeout>,
-    end: End,
+    end: EndKeyword,
+}
+
+impl Format for ReceiveExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'receive'
+                fmt.set_indent(fmt.column());
+                self.receive.format(fmt);
+
+                if self.clauses.get().is_some() {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+
+                        // 'Clauses'
+                        self.clauses.format(fmt);
+                    });
+                }
+
+                // 'after'
+                if self.timeout.get().is_some() {
+                    fmt.write_newline();
+                    self.timeout.format(fmt);
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
 struct ReceiveTimeout {
     after: AfterKeyword,
-    clause: Block<ReceiveTimeoutClause>,
+    timeout: Expr,
+    arrow: RightArrowSymbol,
+    body: Body,
 }
 
 impl Format for ReceiveTimeout {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
+        fmt.with_scoped_indent(|fmt| {
+            // 'after'
             self.after.format(fmt);
-            self.clause.format(fmt);
+
+            // 'Timeout' '->'
+            fmt.set_indent(fmt.indent() + 4);
+            fmt.write_newline();
+            self.timeout.format(fmt);
+            fmt.write_space();
+            self.arrow.format(fmt);
+
+            // 'Body'
+            fmt.set_indent(fmt.indent() + 4);
+            fmt.write_newline();
+            self.body.format(fmt);
         });
     }
-}
-
-#[derive(Debug, Clone, Span, Parse, Format)]
-struct ReceiveTimeoutClause {
-    timeout: WithArrow<Expr>,
-    body: Body,
 }
 
 /// `try` [Body] `$BRANCHES`? `$CATCH`? `$AFTER`? `end`
@@ -142,53 +327,149 @@ struct ReceiveTimeoutClause {
 pub struct TryExpr {
     r#try: TryKeyword,
     body: Body,
-    clauses: Maybe<(OfKeyword, Block<Clauses<CaseClause>>)>,
+    clauses: Maybe<(OfKeyword, Clauses<CaseClause>)>,
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
-    end: End,
+    end: EndKeyword,
 }
 
 impl Format for TryExpr {
     fn format(&self, fmt: &mut Formatter) {
-        self.r#try.format(fmt);
-        if self.clauses.get().is_some() && self.body.exprs().len() == 1 {
-            self.body.exprs()[0].format(fmt);
-            fmt.add_space();
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'try'
+                fmt.set_indent(fmt.column());
+                self.r#try.format(fmt);
+
+                // 'Body'
+                if self.clauses.get().is_some()
+                    && (self.body.exprs().len() == 1 || !fmt.has_newline_until(&self.clauses))
+                {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.write_space();
+                        fmt.set_indent(fmt.column());
+                        self.body.format(fmt);
+                        fmt.write_space();
+                    });
+                } else {
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        self.body.format(fmt);
+                    });
+                    if self.clauses.get().is_some() {
+                        fmt.write_newline();
+                    }
+                }
+
+                if let Some((of, clauses)) = self.clauses.get() {
+                    // 'of'
+                    of.format(fmt);
+
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+
+                        // 'Clauses'
+                        clauses.format(fmt);
+                    });
+                }
+
+                // 'catch'
+                if let Some(catch) = self.catch.get() {
+                    fmt.write_newline();
+                    catch.catch.format(fmt);
+
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        catch.clauses.format(fmt);
+                    });
+                }
+
+                // 'after'
+                if let Some(after) = self.after.get() {
+                    fmt.write_newline();
+                    after.after.format(fmt);
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        after.body.format(fmt);
+                    });
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
         } else {
-            self.body.format(fmt);
-            fmt.add_newline();
+            fmt.with_single_line_mode(f);
         }
-        self.clauses.format(fmt);
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
-            self.catch.format(fmt)
-        });
-        fmt.subregion(Indent::inherit(), Newline::Always, |fmt| {
-            self.after.format(fmt)
-        });
-        self.end.format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct TryCatch {
     catch: CatchKeyword,
-    clauses: Block<Clauses<CatchClause>>,
+    clauses: Clauses<CatchClause>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct CatchClause {
-    pattern: WithArrow<WithGuard<CatchPattern, Expr>>,
+    pattern: CatchPattern,
+    guard: Maybe<Guard<Expr>>,
+    arrow: RightArrowSymbol,
     body: Body,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+impl Format for CatchClause {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            let base_indent = fmt.indent();
+
+            // 'Class:Patter:Stacktrace'
+            self.pattern.class.format(fmt);
+            self.pattern.pattern.format(fmt);
+            self.pattern.stacktrace.format(fmt);
+
+            // 'when'
+            if let Some(guard) = self.guard.get() {
+                if fmt.has_newline_until(guard) {
+                    fmt.set_indent(fmt.indent() + 2);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                guard.format(fmt);
+            }
+
+            // '->'
+            fmt.write_space();
+            self.arrow.format(fmt);
+
+            // 'Body'
+            if fmt.has_newline_until(&self.body) {
+                fmt.set_indent(base_indent + 4);
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            self.body.format(fmt);
+        });
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct CatchPattern {
     class: Maybe<(Either<AtomToken, VariableToken>, ColonSymbol)>,
     pattern: Expr,
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
@@ -203,52 +484,77 @@ pub struct CatchExpr {
 
 impl Format for CatchExpr {
     fn format(&self, fmt: &mut Formatter) {
+        // 'catch'
         self.catch.format(fmt);
-        fmt.add_space();
-        fmt.subregion(Indent::CurrentColumn, Newline::Never, |fmt| {
-            self.expr.format(fmt)
+
+        // 'Expr'
+        fmt.write_space();
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.expr.format(fmt);
         });
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-struct Block<T>(T);
-
-impl<T: Format> Format for Block<T> {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.subregion(Indent::Offset(4), Newline::Always, |fmt| {
-            self.0.format(fmt);
-            fmt.add_newline();
-        });
-    }
-}
-
-/// `maybe` [Body] `$ELSE`? `end`
+/// `Maybe` [Body] `$ELSE`? `end`
 ///
 /// - $ELSE: `else` (`$CLAUSE` `;`?)+
 /// - $CLAUSE: `$PATTERN` (`when` `$GUARD`)? `->` [Body]
 /// - $PATTERN: [Expr]
 /// - $GUARD: ([Expr] (`,` | `;`)?)+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct MaybeExpr {
     maybe: MaybeKeyword,
     body: Body,
     else_block: Maybe<ElseBlock>,
-    end: End,
+    end: EndKeyword,
+}
+
+impl Format for MaybeExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            fmt.with_scoped_indent(|fmt| {
+                // 'maybe'
+                fmt.set_indent(fmt.column());
+                self.maybe.format(fmt);
+
+                // 'Body'
+                fmt.with_scoped_indent(|fmt| {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+                    self.body.format(fmt);
+                });
+
+                // 'else'
+                if let Some(else_block) = self.else_block.get() {
+                    fmt.write_newline();
+                    else_block.else_keyword.format(fmt);
+
+                    // 'Clauses'
+                    fmt.with_scoped_indent(|fmt| {
+                        fmt.set_indent(fmt.indent() + 4);
+                        fmt.write_newline();
+                        else_block.clauses.format(fmt);
+                    });
+                }
+
+                // 'end'
+                fmt.write_newline();
+                self.end.format(fmt);
+            })
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
 struct ElseBlock {
     else_keyword: ElseKeyword,
-    clauses: Block<Clauses<CaseClause>>,
-}
-
-impl Format for ElseBlock {
-    fn format(&self, fmt: &mut Formatter) {
-        fmt.add_newline();
-        self.else_keyword.format(fmt);
-        self.clauses.format(fmt);
-    }
+    clauses: Clauses<CaseClause>,
 }
 
 #[cfg(test)]
@@ -264,7 +570,8 @@ mod tests {
                     2
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            case Foo of 1 -> 2 end"},
+            indoc::indoc! {"
             case foo() of
                 {1, 2} ->
                     3;
@@ -282,18 +589,20 @@ mod tests {
     fn if_works() {
         let texts = [
             indoc::indoc! {"
-                if
-                    true ->
-                        2
-                end"},
+            if
+                true ->
+                    2
+            end"},
             indoc::indoc! {"
-                if
-                    A =:= {1, 2} ->
-                        3;
-                    is_integer(A),
-                    A > 100 ->
-                        A / 10
-                end"},
+            if true -> 2 end"},
+            indoc::indoc! {"
+            if
+                A =:= {1, 2} ->
+                    3;
+                is_integer(A),
+                A > 100 ->
+                    A / 10
+            end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -304,7 +613,6 @@ mod tests {
     fn receive_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
                 {A, B} ->
                     [A, B];
@@ -313,7 +621,6 @@ mod tests {
                     A
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
                 A ->
                     A
@@ -322,14 +629,14 @@ mod tests {
                     timeout
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            receive A -> A after 1000 -> timeout end"},
+            indoc::indoc! {"
             receive
             after
                 N ->
                     timeout
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             receive
             after
                 infinity ->
@@ -349,11 +656,12 @@ mod tests {
                 1
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             begin
                 foo(bar, Baz),
                 {[#{}]}
             end"},
+            indoc::indoc! {"
+            begin foo(bar, Baz), {[#{}]} end"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -364,14 +672,12 @@ mod tests {
     fn try_works() {
         let texts = [
             indoc::indoc! {"
-            %---10---|%---20---|
             try
                 1
             after
                 2
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             try
                 1,
                 2,
@@ -381,7 +687,8 @@ mod tests {
                     E
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
+            try 1, 2, 3 catch E -> E end"},
+            indoc::indoc! {"
             try X of
                 {_, _} ->
                     1;
@@ -395,16 +702,17 @@ mod tests {
                 bar
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             try foo() of
                 1 ->
                     2
             catch
+                C:_ when is_integer(C);
+                         is_atom(C) ->
+                    bar;
                 _:_ ->
                     foo
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             try
                 X,
                 Y
@@ -421,7 +729,6 @@ mod tests {
                 bar
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             try
                 foo()
             catch
@@ -429,7 +736,6 @@ mod tests {
                     E
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             try
                 foo()
             catch
@@ -449,11 +755,9 @@ mod tests {
         let texts = [
             "catch 1",
             indoc::indoc! {"
-            %---10---|%---20---|
             catch foo(bar,
                       Baz,
-                      qux) + 3 +
-                  4"},
+                      qux) + 3 + 4"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
@@ -468,7 +772,6 @@ mod tests {
                 1
             end"},
             indoc::indoc! {"
-            %---10---|%---20---|
             maybe
                 ok ?= foo(bar,
                           Baz),
