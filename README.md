@@ -242,7 +242,7 @@ hello(
 
 #### `efmt` formatted code
 
-`$ efmt foo.erl --print-width 30`
+`$ efmt foo.erl`
 ```erlang
 -module(foo).
 
@@ -270,6 +270,10 @@ hello(#record{
       World) ->
     World.
 ```
+
+### No line width limit
+
+Unlike `erlfmt`, `efmt` doesn't provide a feature to ensure each line of the formatted code is within a specified line width (columns).
 
 ### Error handling
 
