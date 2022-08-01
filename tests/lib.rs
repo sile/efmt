@@ -1,4 +1,4 @@
-use efmt::items::Module;
+use efmt::items::ModuleOrConfig;
 
 #[test]
 fn format_works() -> anyhow::Result<()> {
@@ -8,7 +8,7 @@ fn format_works() -> anyhow::Result<()> {
         if path.extension().map_or(true, |ext| ext != "erl") {
             continue;
         }
-        let formatted = efmt::Options::new().format_file::<Module, _>(&path)?;
+        let formatted = efmt::Options::new().format_file::<ModuleOrConfig, _>(&path)?;
         let expected = std::fs::read_to_string(&path)?;
         similar_asserts::assert_str_eq!(formatted, expected, "target={:?}", path);
     }

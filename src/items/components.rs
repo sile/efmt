@@ -302,9 +302,36 @@ pub struct TupleLike<T: Element> {
     close: CloseBraceSymbol,
 }
 
-impl<T: Element> TupleLike<T> {
+impl<T: Element + Format> TupleLike<T> {
     pub(crate) fn items(&self) -> (Option<&AtomToken>, &[T]) {
         (self.tag.get().map(|(x, _)| x), self.items.items())
+    }
+
+    pub(crate) fn try_format_app_file(&self, fmt: &mut Formatter) -> bool {
+        if fmt.indent() != 0 {
+            return false;
+        }
+
+        match self.items() {
+            (Some(tag), items) if tag.value() == "application" && items.len() == 2 => {
+                fmt.with_scoped_indent(|fmt| {
+                    self.open.format(fmt);
+                    self.tag.format(fmt);
+                    fmt.write_space();
+
+                    items[0].format(fmt);
+                    self.items.0.delimiters()[0].format(fmt);
+                    fmt.set_indent(1);
+                    fmt.write_newline();
+
+                    items[1].format(fmt);
+                    self.close.format(fmt);
+                });
+                return true;
+            }
+            _ => {}
+        }
+        false
     }
 }
 

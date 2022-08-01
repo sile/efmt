@@ -16,6 +16,14 @@ impl Config {
     pub(crate) fn exprs(&self) -> impl Iterator<Item = &Expr> {
         self.terms.iter().map(|t| &t.expr)
     }
+
+    fn try_format_app_file(&self, fmt: &mut Formatter) -> bool {
+        if self.terms.len() != 1 {
+            return false;
+        }
+
+        self.terms[0].expr.try_format_app_file(fmt)
+    }
 }
 
 impl Parse for Config {
@@ -32,6 +40,10 @@ impl Parse for Config {
 
 impl Format for Config {
     fn format(&self, fmt: &mut Formatter) {
+        if self.try_format_app_file(fmt) {
+            return;
+        }
+
         for term in &self.terms {
             term.format(fmt);
             fmt.write_newline();
