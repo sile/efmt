@@ -14,7 +14,9 @@ An Erlang code formatter.
 Features
 --------
 
-- Opinionated: only maximum line length is configurable by users
+- An opinionated formatter
+  - No configuration options
+  - If items (e.g., `case` blocks, lists, records) contain newlines in the original code, those are processed in multi-line mode
 - [Emacs Erlang Mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation with some exceptions
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
@@ -32,7 +34,10 @@ An Formatting Example
   [fac/1]
 ).
 
-fac(1) -> 1; fac(N) -> N*fac(N-1).
+fac(1)->
+1;fac(N   )
+-> N*fac(
+N-1).
 ```
 
 ### After
@@ -64,7 +69,7 @@ Then, you can run the `$ rebar3 efmt` command.
 If you want to provide the default options via `rebar.config`,
 please specify an entry that has `efmt` as the key and `efmt`'s options as the value.
 ```erlang
-{efmt, [{print_width, 100}]}.  % Sets the maximum line length hint to 100.
+{efmt, [{exclude_file, "rebar.config"}]}.
 ```
 
 Note that `rebar3_efmt` tries to automatically download a pre-built binary (see the next section) for your environment.
