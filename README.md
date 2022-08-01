@@ -111,15 +111,18 @@ Checks diff between the original text and the formatted one:
 $ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
 --- a/example.erl
 +++ b/example.erl
-@@ -1,6 +1,8 @@
+@@ -1,9 +1,8 @@
  -module(example).
 --export(
 -  [fac/1]
 -).
 +-export([fac/1]).
-+
 
--fac(1) -> 1; fac(N) -> N*fac(N-1).
+-fac(1)->
+-1;fac(N   )
+--> N*fac(
+-N-1).
++
 +fac(1) ->
 +    1;
 +fac(N) ->
@@ -168,14 +171,13 @@ Editor Integrations
 -------------------
 
 - Emacs: [emacs-format-all-the-code](https://github.com/lassik/emacs-format-all-the-code)
-- Erlang Language Server (forked version): [shiguredo/erlang_ls](https://github.com/shiguredo/erlang_ls)
 
 Differences with other Erlang formatters
 -----------------------------------------
 
 Since I'm not familiar with other Erlang formatters, and [the README.md of `erlfmt`](https://github.com/WhatsApp/erlfmt/blob/main/README.md) already provides a good comparison table among various formatters, I only describe the differences between `efmt` and `erlfmt` here.
 
-Note that in the following examples, I used `efmt-v0.1.0` and `erlfmt-v1.0.0`.
+Note that in the following examples, I used `efmt-v0.6.0` and `erlfmt-v1.0.0`.
 
 ### Formatting style
 
@@ -192,36 +194,50 @@ So I just give you some formatted code examples and hope they give you a sense.
 ```erlang
 -module(foo).
 
--spec hello(term(), integer()) -> {ok, integer()} | {error, Reason :: term()}.
-hello({_, _, A, _, [B, _, C]}, D) ->
-    {ok, A + B + C + D};
-hello(Error, X) when not is_integer(X) ->
-    {error, Error}.
+-spec hello(term(), integer()) ->
+ {ok, integer()} | {error, Reason :: term()} |
+          timeout.
+hello({_, _, A, _,
+ [B, _, C]}, D) -> {ok,
+A + B +
+C + D};
+hello(Error, X) when not is_integer(X);
+                     is_atom(X) ->
+    {error, Error};
+hello(#record{foo=[_,_],
+bar=#{qux := 10}}, World) ->
+    World.
 ```
 
-Let's set `--print-width` (the maximum line length) to `30`,
-and see how `erlfmt` and `efmt` format the above code if line-wrapping is inevitable.
+Let's see how `erlfmt` and `efmt` format the above code.
 
 #### `erlfmt` formatted code
 
-`$ erlfmt foo.erl --print-width 30`
+`$ erlfmt foo.erl`
 ```erlang
 -module(foo).
 
--spec hello(
-    term(), integer()
-) ->
+-spec hello(term(), integer()) ->
     {ok, integer()}
-    | {error,
-        Reason :: term()}.
-hello(
-    {_, _, A, _, [B, _, C]}, D
-) ->
-    {ok, A + B + C + D};
+    | {error, Reason :: term()}
+    | timeout.
+hello({_, _, A, _, [B, _, C]}, D) ->
+    {ok,
+        A + B +
+            C + D};
 hello(Error, X) when
-    not is_integer(X)
+    not is_integer(X);
+    is_atom(X)
 ->
-    {error, Error}.
+    {error, Error};
+hello(
+    #record{
+        foo = [_, _],
+        bar = #{qux := 10}
+    },
+    World
+) ->
+    World.
 ```
 
 #### `efmt` formatted code
@@ -231,16 +247,28 @@ hello(Error, X) when
 -module(foo).
 
 
--spec hello(term(),
-            integer()) ->
+-spec hello(term(), integer()) ->
           {ok, integer()} |
-          {error, Reason :: term()}.
-hello({_, _, A, _, [B, _, C]},
+          {error, Reason :: term()} |
+          timeout.
+hello({_,
+       _,
+       A,
+       _,
+       [B, _, C]},
       D) ->
-    {ok, A + B + C + D};
+    {ok, A + B +
+         C + D};
 hello(Error, X)
-  when not is_integer(X) ->
-    {error, Error}.
+  when not is_integer(X);
+       is_atom(X) ->
+    {error, Error};
+hello(#record{
+        foo = [_, _],
+        bar = #{qux := 10}
+       },
+      World) ->
+    World.
 ```
 
 ### Error handling
