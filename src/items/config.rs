@@ -22,7 +22,12 @@ impl Config {
             return false;
         }
 
-        self.terms[0].expr.try_format_app_file(fmt)
+        if self.terms[0].expr.try_format_app_file(fmt) {
+            self.terms[0].dot.format(fmt);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -41,6 +46,7 @@ impl Parse for Config {
 impl Format for Config {
     fn format(&self, fmt: &mut Formatter) {
         if self.try_format_app_file(fmt) {
+            fmt.write_newline();
             return;
         }
 
