@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{Format, Formatter};
 use crate::items::components::{Either, Element};
 use crate::items::expressions::{BaseExpr, FullExpr, ListExpr, LiteralExpr};
 use crate::items::tokens::AtomToken;
@@ -113,5 +113,13 @@ impl Expr {
             return Some(x.items());
         }
         None
+    }
+
+    fn try_format_app_file(&self, fmt: &mut Formatter) -> bool {
+        if let FullExpr::Base(BaseExpr::Tuple(x)) = &self.0 {
+            x.try_format_app_file(fmt)
+        } else {
+            false
+        }
     }
 }

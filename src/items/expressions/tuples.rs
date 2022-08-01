@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{Format, Formatter};
 use crate::items::components::TupleLike;
 use crate::items::tokens::AtomToken;
 use crate::items::Expr;
@@ -12,6 +12,10 @@ pub struct TupleExpr(TupleLike<Expr>);
 impl TupleExpr {
     pub(crate) fn items(&self) -> (Option<&AtomToken>, &[Expr]) {
         self.0.items()
+    }
+
+    pub(crate) fn try_format_app_file(&self, fmt: &mut Formatter) -> bool {
+        self.0.try_format_app_file(fmt)
     }
 }
 
