@@ -1,0 +1,3 @@
+{application, test,
+ [{foo, bar},
+  {baz, "qux"}]}.
