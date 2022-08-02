@@ -14,7 +14,7 @@ use std::collections::HashMap;
 ///
 /// - $NAME: [AtomToken] | [VariableToken]
 /// - $ARG: [LexicalToken]+
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Macro {
     question: QuestionSymbol,
     name: MacroName,
@@ -39,6 +39,17 @@ impl ResumeParse<(QuestionSymbol, MacroName, bool)> for Macro {
                 args: Maybe::parse_none(ts)?,
             })
         }
+    }
+}
+
+impl Format for Macro {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.question.format(fmt);
+            self.name.format(fmt);
+            self.args.format(fmt);
+        });
     }
 }
 
@@ -412,6 +423,24 @@ mod tests {
             -define(FOO(X), X).
             -define(BAR(),
                     ?FOO(baz),).
+            "},
+            indoc::indoc! {"
+            foo() ->
+                ?FOO(
+                  a, b, c).
+            "},
+            indoc::indoc! {"
+            foo() ->
+                ?FOO(
+                  a,
+                  b,
+                  c).
+            "},
+            indoc::indoc! {"
+            foo() ->
+                ?FOO(a,
+                     b,
+                     c).
             "},
         ];
         for text in texts {

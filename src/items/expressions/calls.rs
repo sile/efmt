@@ -12,7 +12,7 @@ use crate::span::Span;
 /// - $MODULE: [Expr] `:`
 /// - $NAME: [Expr]
 /// - $ARG: [Expr]
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct FunctionCallExpr {
     module: Maybe<(BaseExpr, ColonSymbol)>,
     function: BaseExpr,
@@ -37,6 +37,17 @@ impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
                 args: ts.parse()?,
             })
         }
+    }
+}
+
+impl Format for FunctionCallExpr {
+    fn format(&self, fmt: &mut Formatter) {
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.module.format(fmt);
+            self.function.format(fmt);
+            self.args.format(fmt);
+        });
     }
 }
 
@@ -156,6 +167,18 @@ mod tests {
             indoc::indoc! {"
             foo(A * 10 * B /
                 1_0.0)"},
+            indoc::indoc! {"
+            foo(a,
+                b,
+                c)"},
+            indoc::indoc! {"
+            foo(
+              a, b, c)"},
+            indoc::indoc! {"
+            foo(
+              a,
+              b,
+              c)"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
