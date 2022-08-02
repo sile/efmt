@@ -238,7 +238,13 @@ impl Formatter {
                 .map(|x| x.start_position())
                 .unwrap_or(EOF_MINUS_1),
         };
+
+        let old = self.next_position;
         self.write_macros_and_comments(position, false);
+        if old != self.next_position {
+            self.cancel_last_newline();
+            self.pending_blank = Some(Blank::Newline(1));
+        }
     }
 
     pub fn write_trailing_comment(&mut self) {
