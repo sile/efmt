@@ -70,7 +70,7 @@ impl<Name: Format, const BODY_INDENT: usize> Format for FunctionClause<Name, BOD
 }
 
 /// ([Expr], `,`?)+
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Body {
     exprs: NonEmptyItems<Expr, CommaSymbol>,
 }
@@ -78,13 +78,6 @@ pub struct Body {
 impl Body {
     pub(crate) fn exprs(&self) -> &[Expr] {
         self.exprs.items()
-    }
-}
-
-impl Format for Body {
-    fn format(&self, fmt: &mut Formatter) {
-        self.exprs.format(fmt);
-        fmt.write_subsequent_comments();
     }
 }
 

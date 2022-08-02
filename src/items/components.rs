@@ -191,6 +191,7 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
                     self.format_items(fmt);
                 });
             }
+            fmt.write_subsequent_comments();
         });
     }
 }
@@ -270,6 +271,7 @@ impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
             fmt.with_scoped_indent(|fmt| {
                 fmt.set_indent(fmt.column());
                 self.packed_format(fmt);
+                fmt.write_subsequent_comments();
             });
         } else {
             self.0.format(fmt);
