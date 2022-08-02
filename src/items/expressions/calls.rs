@@ -50,7 +50,7 @@ pub struct UnaryOpCallExpr {
 impl Format for UnaryOpCallExpr {
     fn format(&self, fmt: &mut Formatter) {
         let last = fmt.last_char().unwrap_or('\n');
-        if !matches!(last, '\n' | ' ') {
+        if !matches!(last, '\n' | ' ' | '(' | '[' | '{') {
             fmt.write_space();
         }
 
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn unary_op_call_works() {
-        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ + -3"];
+        let texts = ["-1", "bnot Foo(1, +2, 3)", "- -7", "+ + -3", "foo(-1)"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
