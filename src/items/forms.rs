@@ -205,8 +205,8 @@ impl<const INDENT: usize> Format for SpecClause<INDENT> {
 
             // 'Guard'
             if let Some(guard) = self.guard.get() {
-                if fmt.has_newline_until(guard) {
-                    fmt.set_indent(fmt.indent() + 4);
+                if fmt.has_newline_until(guard.conditions()) {
+                    fmt.set_indent(INDENT + 8);
                     fmt.write_newline();
                 } else {
                     fmt.write_space();
@@ -632,6 +632,9 @@ mod tests {
                           when A :: atom();
                         (a) ->
                       b."},
+            indoc::indoc! {"
+            -spec foobar(A) -> {atom(), atom()}
+                          when A :: atom()."},
             indoc::indoc! {"
             -spec foo:bar() ->
                       baz()."},

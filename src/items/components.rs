@@ -507,6 +507,12 @@ pub struct Guard<T, D = GuardDelimiter> {
     conditions: NonEmptyItems<T, D>,
 }
 
+impl<T, D> Guard<T, D> {
+    pub fn conditions(&self) -> &NonEmptyItems<T, D> {
+        &self.conditions
+    }
+}
+
 impl<T: Format, D: Format> Format for Guard<T, D> {
     fn format(&self, fmt: &mut Formatter) {
         self.when.format(fmt);
