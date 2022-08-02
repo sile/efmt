@@ -58,7 +58,7 @@ impl Formatter {
     }
 
     pub fn finish(mut self) -> String {
-        self.write_macros_and_comments(EOF_MINUS_1);
+        self.write_macros_and_comments(EOF_MINUS_1, true);
         self.buf
     }
 
@@ -79,7 +79,7 @@ impl Formatter {
                 continue;
             }
 
-            self.write_macros_and_comments(comment_start);
+            self.write_macros_and_comments(comment_start, true);
             break;
         }
     }
@@ -110,7 +110,7 @@ impl Formatter {
 
     pub fn write_span(&mut self, span: &impl Span) {
         let start_position = span.start_position();
-        self.write_macros_and_comments(start_position);
+        self.write_macros_and_comments(start_position, true);
         if span.end_position() <= self.next_position {
             self.skipping = true;
             self.pending_blank = None;
@@ -238,14 +238,14 @@ impl Formatter {
                 .map(|x| x.start_position())
                 .unwrap_or(EOF_MINUS_1),
         };
-        self.write_macros_and_comments(position);
+        self.write_macros_and_comments(position, false);
     }
 
     pub fn write_trailing_comment(&mut self) {
         let position = self.next_comment_start();
 
         if position.line() == self.next_position.line() {
-            self.write_macros_and_comments(position);
+            self.write_macros_and_comments(position, true);
         }
     }
 
@@ -278,7 +278,7 @@ impl Formatter {
         self.single_line_mode = mode;
     }
 
-    fn write_macros_and_comments(&mut self, next_position: Position) {
+    fn write_macros_and_comments(&mut self, next_position: Position, process_macro: bool) {
         if self.last_comment_or_macro_position == Some(next_position) {
             return;
         }
@@ -295,6 +295,9 @@ impl Formatter {
                 self.last_comment_or_macro_position = Some(next_comment_start);
                 self.write_comment(&comment);
             } else {
+                if !process_macro {
+                    break;
+                }
                 let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
