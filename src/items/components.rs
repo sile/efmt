@@ -119,6 +119,7 @@ impl<T: Format> Format for Parenthesized<T> {
         fmt.with_scoped_indent(|fmt| {
             fmt.set_indent(fmt.column());
             self.item.format(fmt);
+            fmt.set_next_comment_indent(fmt.indent());
         });
         self.close.format(fmt);
     }
@@ -191,7 +192,6 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
                     self.format_items(fmt);
                 });
             }
-            fmt.write_subsequent_comments();
         });
     }
 }
@@ -271,7 +271,6 @@ impl<T: Format + Element, D: Format> Format for MaybePackedItems<T, D> {
             fmt.with_scoped_indent(|fmt| {
                 fmt.set_indent(fmt.column());
                 self.packed_format(fmt);
-                fmt.write_subsequent_comments();
             });
         } else {
             self.0.format(fmt);
@@ -283,7 +282,7 @@ pub trait Element {
     fn is_packable(&self) -> bool;
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct ListLike<T: Element, D = CommaSymbol> {
     open: OpenSquareSymbol,
     items: MaybePackedItems<T, D>,
@@ -293,6 +292,15 @@ pub struct ListLike<T: Element, D = CommaSymbol> {
 impl<T: Element, D> ListLike<T, D> {
     pub(crate) fn items(&self) -> &[T] {
         self.items.items()
+    }
+}
+
+impl<T: Element + Format, D: Format> Format for ListLike<T, D> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
+        self.items.format(fmt);
+        fmt.set_next_comment_indent(fmt.indent() + 1);
+        self.close.format(fmt);
     }
 }
 
@@ -344,16 +352,29 @@ impl<T: Element + Format> Format for TupleLike<T> {
             tag.format(fmt);
             fmt.write_space();
         }
+
+        let items_indent = fmt.column();
         self.items.format(fmt);
+
+        fmt.set_next_comment_indent(items_indent);
         self.close.format(fmt);
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct BitstringLike<T: Element> {
     open: DoubleLeftAngleSymbol,
     items: MaybePackedItems<T>,
     close: DoubleRightAngleSymbol,
+}
+
+impl<T: Element + Format> Format for BitstringLike<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.open.format(fmt);
+        self.items.format(fmt);
+        fmt.set_next_comment_indent(fmt.indent() + 1);
+        self.close.format(fmt);
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -453,6 +474,8 @@ impl<T: Format> Format for RecordFieldsLike<T> {
                 fmt.set_indent(base_indent + 1);
                 fmt.write_newline();
             }
+
+            fmt.set_next_comment_indent(base_indent + 2);
             self.close.format(fmt);
         });
     }

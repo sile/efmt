@@ -31,6 +31,7 @@ const EOF_MINUS_1: Position = Position::new(usize::MAX - 1, usize::MAX, usize::M
 pub struct Formatter {
     ts: TokenStream,
     indent: usize,
+    next_comment_indent: Option<usize>,
     column: usize,
     next_position: Position,
     buf: String,
@@ -46,6 +47,7 @@ impl Formatter {
         Self {
             ts,
             indent: 0,
+            next_comment_indent: None,
             column: 0,
             next_position: Position::new(0, 0, 0),
             buf: String::new(),
@@ -58,7 +60,7 @@ impl Formatter {
     }
 
     pub fn finish(mut self) -> String {
-        self.write_macros_and_comments(EOF_MINUS_1, true);
+        self.write_macros_and_comments(EOF_MINUS_1);
         self.buf
     }
 
@@ -79,7 +81,7 @@ impl Formatter {
                 continue;
             }
 
-            self.write_macros_and_comments(comment_start, true);
+            self.write_macros_and_comments(comment_start);
             break;
         }
     }
@@ -110,7 +112,7 @@ impl Formatter {
 
     pub fn write_span(&mut self, span: &impl Span) {
         let start_position = span.start_position();
-        self.write_macros_and_comments(start_position, true);
+        self.write_macros_and_comments(start_position);
         if span.end_position() <= self.next_position {
             self.skipping = true;
             self.pending_blank = None;
@@ -135,6 +137,9 @@ impl Formatter {
 
         let start = std::cmp::max(start_position.offset(), self.next_position.offset());
         let text = &self.ts.text()[start..span.end_position().offset()];
+        if !text.starts_with('%') && !text.is_empty() {
+            self.next_comment_indent = None;
+        }
 
         if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' ')) {
             if let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next() {
@@ -158,6 +163,10 @@ impl Formatter {
     }
 
     pub fn write_newlines(&mut self, mut n: usize) {
+        if n == 0 {
+            return;
+        }
+
         if self.buf.is_empty() {
             return;
         }
@@ -166,6 +175,7 @@ impl Formatter {
             self.pending_blank = Some(Blank::Newline(n));
             return;
         }
+        self.pending_blank = None;
 
         if self.single_line_mode {
             self.write_space();
@@ -184,11 +194,9 @@ impl Formatter {
         for _ in 0..n {
             self.buf.push('\n');
         }
-        self.column = 0;
 
-        for _ in 0..self.indent {
-            self.write_space();
-        }
+        self.column = 0;
+        self.write_spaces(self.indent);
     }
 
     pub fn write_newline(&mut self) {
@@ -196,13 +204,7 @@ impl Formatter {
     }
 
     pub fn write_space(&mut self) {
-        if self.skipping {
-            self.pending_blank = Some(Blank::Space(1));
-            return;
-        }
-
-        self.buf.push(' ');
-        self.column += 1;
+        self.write_spaces(1);
     }
 
     pub fn write_spaces(&mut self, mut n: usize) {
@@ -210,6 +212,7 @@ impl Formatter {
             self.pending_blank = Some(Blank::Space(n));
             return;
         }
+        self.pending_blank = None;
 
         for c in self.buf.chars().rev() {
             if c == ' ' {
@@ -220,30 +223,8 @@ impl Formatter {
         }
 
         for _ in 0..n {
-            self.write_space();
-        }
-    }
-
-    pub fn write_subsequent_comments(&mut self) {
-        let result = self
-            .ts
-            .visited_tokens()
-            .binary_search_by_key(&self.next_position, |x| x.start_position());
-        let position = match result {
-            Ok(_) => self.next_position,
-            Err(i) => self
-                .ts
-                .visited_tokens()
-                .get(i + 1)
-                .map(|x| x.start_position())
-                .unwrap_or(EOF_MINUS_1),
-        };
-
-        let old = self.next_position;
-        self.write_macros_and_comments(position, false);
-        if old != self.next_position {
-            self.cancel_last_newline();
-            self.pending_blank = Some(Blank::Newline(1));
+            self.buf.push(' ');
+            self.column += 1;
         }
     }
 
@@ -251,14 +232,20 @@ impl Formatter {
         let position = self.next_comment_start();
 
         if position.line() == self.next_position.line() {
-            self.write_macros_and_comments(position, true);
+            self.write_macros_and_comments(position);
         }
+    }
+
+    pub fn set_next_comment_indent(&mut self, n: usize) {
+        self.next_comment_indent = Some(n);
     }
 
     pub fn with_scoped_indent<F>(&mut self, f: F)
     where
         F: FnOnce(&mut Self),
     {
+        self.next_comment_indent = None;
+
         let indent = self.indent;
         f(self);
         self.indent = indent;
@@ -284,7 +271,7 @@ impl Formatter {
         self.single_line_mode = mode;
     }
 
-    fn write_macros_and_comments(&mut self, next_position: Position, process_macro: bool) {
+    fn write_macros_and_comments(&mut self, next_position: Position) {
         if self.last_comment_or_macro_position == Some(next_position) {
             return;
         }
@@ -301,9 +288,6 @@ impl Formatter {
                 self.last_comment_or_macro_position = Some(next_comment_start);
                 self.write_comment(&comment);
             } else {
-                if !process_macro {
-                    break;
-                }
                 let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
@@ -313,6 +297,8 @@ impl Formatter {
     }
 
     fn write_comment(&mut self, comment: &CommentToken) {
+        self.skipping = false;
+
         let mode = self.single_line_mode;
         self.single_line_mode = false;
 
@@ -335,9 +321,15 @@ impl Formatter {
             if comment.is_trailing() {
                 self.cancel_last_newline();
                 self.write_spaces(2);
+            } else if let Some(comment_indent) = self.next_comment_indent {
+                let indent = self.indent;
+                self.indent = comment_indent;
+                self.write_newline();
+                self.indent = indent;
             } else {
                 self.write_newline();
             }
+
             self.write_span(comment);
             self.write_newline();
         }
@@ -447,6 +439,20 @@ mod tests {
             %% comment 2
             foo() ->
                 foo.
+            "},
+            indoc::indoc! {"
+            -record(foo, {
+                      foo :: bar
+                      %% baz
+                     }).
+            "},
+            indoc::indoc! {"
+            foo() ->
+                case A of
+                    a ->
+                        ok
+                        %% comment
+                end.
             "},
             indoc::indoc! {"
             -module(foo).  % comment 1
