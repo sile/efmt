@@ -58,7 +58,7 @@ impl Formatter {
     }
 
     pub fn finish(mut self) -> String {
-        self.write_macros_and_comments(EOF_MINUS_1);
+        self.write_macros_and_comments(EOF_MINUS_1, true);
         self.buf
     }
 
@@ -79,7 +79,7 @@ impl Formatter {
                 continue;
             }
 
-            self.write_macros_and_comments(comment_start);
+            self.write_macros_and_comments(comment_start, true);
             break;
         }
     }
@@ -110,7 +110,7 @@ impl Formatter {
 
     pub fn write_span(&mut self, span: &impl Span) {
         let start_position = span.start_position();
-        self.write_macros_and_comments(start_position);
+        self.write_macros_and_comments(start_position, true);
         if span.end_position() <= self.next_position {
             self.skipping = true;
             self.pending_blank = None;
@@ -129,7 +129,7 @@ impl Formatter {
                 && this.is_single_blank_line()
             {
                 this.cancel_last_spaces();
-                this.write_newline();
+                this.write_newlines(2);
             }
         });
 
@@ -158,30 +158,12 @@ impl Formatter {
     }
 
     pub fn write_newlines(&mut self, mut n: usize) {
+        if self.buf.is_empty() {
+            return;
+        }
+
         if self.skipping {
             self.pending_blank = Some(Blank::Newline(n));
-            return;
-        }
-
-        for c in self.buf.chars().rev() {
-            if c == '\n' {
-                n = n.saturating_sub(1);
-            } else {
-                break;
-            }
-        }
-        for _ in 0..n {
-            self.write_newline();
-        }
-    }
-
-    pub fn write_newline(&mut self) {
-        if self.skipping {
-            self.pending_blank = Some(Blank::Newline(1));
-            return;
-        }
-
-        if self.buf.is_empty() {
             return;
         }
 
@@ -190,12 +172,27 @@ impl Formatter {
             return;
         }
 
-        self.buf.push('\n');
+        self.cancel_last_spaces();
+        for c in self.buf.chars().rev() {
+            if c == '\n' {
+                n = n.saturating_sub(1);
+            } else {
+                break;
+            }
+        }
+
+        for _ in 0..n {
+            self.buf.push('\n');
+        }
         self.column = 0;
 
         for _ in 0..self.indent {
             self.write_space();
         }
+    }
+
+    pub fn write_newline(&mut self) {
+        self.write_newlines(1);
     }
 
     pub fn write_space(&mut self) {
@@ -241,16 +238,14 @@ impl Formatter {
                 .map(|x| x.start_position())
                 .unwrap_or(EOF_MINUS_1),
         };
-        self.write_macros_and_comments(position);
-        self.cancel_last_newline();
+        self.write_macros_and_comments(position, false);
     }
 
     pub fn write_trailing_comment(&mut self) {
         let position = self.next_comment_start();
 
         if position.line() == self.next_position.line() {
-            self.write_macros_and_comments(position);
-            self.cancel_last_newline();
+            self.write_macros_and_comments(position, true);
         }
     }
 
@@ -283,7 +278,7 @@ impl Formatter {
         self.single_line_mode = mode;
     }
 
-    fn write_macros_and_comments(&mut self, next_position: Position) {
+    fn write_macros_and_comments(&mut self, next_position: Position, process_macro: bool) {
         if self.last_comment_or_macro_position == Some(next_position) {
             return;
         }
@@ -300,6 +295,9 @@ impl Formatter {
                 self.last_comment_or_macro_position = Some(next_comment_start);
                 self.write_comment(&comment);
             } else {
+                if !process_macro {
+                    break;
+                }
                 let r#macro = self.ts.macros()[&next_macro_start].clone();
                 self.last_comment_or_macro_position = Some(next_macro_start);
                 r#macro.format(self);
@@ -328,8 +326,8 @@ impl Formatter {
         if skip {
             self.skip_formatting();
         } else {
-            self.cancel_last_newline();
             if comment.is_trailing() {
+                self.cancel_last_newline();
                 self.write_spaces(2);
             } else {
                 self.write_newline();

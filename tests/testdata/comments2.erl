@@ -13,4 +13,8 @@ foo(B) ->
             ok
             %% comment2
     end,
+    [a,
+     b
+     %% c
+     ],
     world.
