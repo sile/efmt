@@ -134,12 +134,28 @@ impl<T> Params<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse, Format)]
+#[derive(Debug, Clone, Span, Parse)]
 pub struct Args<T>(Parenthesized<Items<T>>);
 
 impl<T> Args<T> {
     pub fn get(&self) -> &[T] {
         self.0.get().items()
+    }
+}
+
+impl<T: Format> Format for Args<T> {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.open.format(fmt);
+        if !self.get().is_empty() && fmt.has_newline_until(&self.0.item) {
+            fmt.set_indent(fmt.indent() + 2);
+            fmt.write_newline();
+        }
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+            self.0.item.format(fmt);
+            fmt.set_next_comment_indent(fmt.indent());
+        });
+        self.0.close.format(fmt);
     }
 }
 
@@ -183,28 +199,29 @@ impl<T: Parse, D: Parse> Parse for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
     fn format(&self, fmt: &mut Formatter) {
-        fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.column());
-            if self.contains_newline() {
+        if self.contains_newline() {
+            self.format_items(fmt);
+        } else {
+            fmt.with_single_line_mode(|fmt| {
                 self.format_items(fmt);
-            } else {
-                fmt.with_single_line_mode(|fmt| {
-                    self.format_items(fmt);
-                });
-            }
-        });
+            });
+        }
     }
 }
 
 impl<T: Format, D: Format> NonEmptyItems<T, D> {
     fn format_items(&self, fmt: &mut Formatter) {
-        let item = self.items().first().expect("unreachable");
-        item.format(fmt);
-        for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-            delimiter.format(fmt);
-            fmt.write_newline();
+        fmt.with_scoped_indent(|fmt| {
+            fmt.set_indent(fmt.column());
+
+            let item = self.items().first().expect("unreachable");
             item.format(fmt);
-        }
+            for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
+                delimiter.format(fmt);
+                fmt.write_newline();
+                item.format(fmt);
+            }
+        });
     }
 }
 
