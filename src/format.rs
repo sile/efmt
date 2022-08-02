@@ -455,6 +455,24 @@ mod tests {
             foo() ->  % comment 2
                 foo.  %comment 3
             "},
+            indoc::indoc! {"
+            -include_lib(\"kernel/include/logger.hrl\").
+
+
+            foo() ->
+                ?LOG_INFO(\"hello\"),
+                %% comment
+                ok.
+            "},
+            indoc::indoc! {"
+            -include_lib(\"kernel/include/logger.hrl\").
+
+
+            foo() ->
+                ?LOG_INFO(\"hello ~p\", [?MODULE]),
+                %% comment
+                ok.
+            "},
         ];
         for text in texts {
             crate::assert_format!(text, Module);
