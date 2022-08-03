@@ -247,7 +247,7 @@ impl<T, D> Items<T, D> {
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
+pub struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
 
 impl<T, D> MaybePackedItems<T, D> {
     pub(crate) fn items(&self) -> &[T] {
