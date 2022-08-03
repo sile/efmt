@@ -592,7 +592,8 @@ mod tests {
               when is_atom(A) ->
                 bar,
                 baz;
-            foo(_) ->
+            foo(B) when is_integer(B);
+                        is_float(B) ->
                 qux."},
         ];
         for text in texts {

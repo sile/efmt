@@ -35,7 +35,7 @@ impl<Name: Format, const BODY_INDENT: usize> Format for FunctionClause<Name, BOD
 
                 // 'Guard'
                 if let Some(guard) = self.guard.get() {
-                    let newline = fmt.has_newline_until(&guard.end_position());
+                    let newline = fmt.has_newline_until(guard.conditions());
                     if newline {
                         fmt.set_indent(base_indent + BODY_INDENT - 2);
                         fmt.write_newline();
