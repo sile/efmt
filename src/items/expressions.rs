@@ -32,7 +32,7 @@ pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
 pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
 pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
-pub use self::lists::{ListComprehensionExpr, ListConstructExpr};
+pub use self::lists::{ImproperListConstructExpr, ListComprehensionExpr, ListConstructExpr};
 pub use self::maps::{MapConstructExpr, MapUpdateExpr};
 pub use self::records::{RecordAccessExpr, RecordConstructExpr, RecordIndexExpr, RecordUpdateExpr};
 pub use self::strings::StringExpr;
