@@ -49,7 +49,7 @@ impl Format for Form {
             Form::Export(x) => x.format(fmt),
             Form::Attr(x) => x.format(fmt),
         }
-        fmt.write_trailing_comment();
+        fmt.write_subsequent_comments();
     }
 }
 
