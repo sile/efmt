@@ -93,13 +93,13 @@ macro_rules! assert_format {
             .format_text::<$item_type>(&$text)
             .unwrap();
         let expected = $text;
-        similar_asserts::assert_str_eq!(formatted, expected);
+        similar_asserts::assert_eq!(formatted, expected);
     }};
 
     ($text:expr, $expected:expr, $item_type:ident) => {{
         let formatted = crate::Options::new()
             .format_text::<$item_type>(&$text)
             .unwrap();
-        similar_asserts::assert_str_eq!(formatted, $expected);
+        similar_asserts::assert_eq!(formatted, $expected);
     }};
 }

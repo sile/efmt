@@ -13,7 +13,7 @@ fn format_works() -> anyhow::Result<()> {
         }
         let formatted = efmt::Options::new().format_file::<ModuleOrConfig, _>(&path)?;
         let expected = std::fs::read_to_string(&path)?;
-        similar_asserts::assert_str_eq!(formatted, expected, "target={:?}", path);
+        similar_asserts::assert_eq!(formatted, expected, "target={:?}", path);
     }
     Ok(())
 }
