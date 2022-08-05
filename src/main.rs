@@ -155,13 +155,15 @@ impl Opt {
         }
 
         // ERL_LIBS
-        let libs_path = rebar_config_dir.join("_build/default/lib/");
+        let libs_paths = std::iter::once(rebar_config_dir.join("_build/default/lib/"))
+            .chain(std::iter::once(rebar_config_dir.join("_build/test/lib/")));
         if let Some(paths) = std::env::var_os("ERL_LIBS") {
-            let paths = std::env::split_paths(&paths).chain(std::iter::once(libs_path));
+            let paths = std::env::split_paths(&paths).chain(libs_paths);
             let paths = std::env::join_paths(paths)?;
             std::env::set_var("ERL_LIBS", paths);
         } else {
-            std::env::set_var("ERL_LIBS", libs_path);
+            let paths = std::env::join_paths(libs_paths)?;
+            std::env::set_var("ERL_LIBS", paths);
         }
         if let Some(paths) = std::env::var_os("ERL_LIBS") {
             log::debug!("set 'ERL_LIBS' envvar to {paths:?}");
