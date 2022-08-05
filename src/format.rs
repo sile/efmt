@@ -231,7 +231,7 @@ impl Formatter {
     pub fn write_subsequent_comments(&mut self) {
         loop {
             let position = self.next_comment_start();
-            if self.next_macro_start() <= position
+            if self.next_lexical_token_start() <= position
                 || position.line() > self.next_position.line() + 1
             {
                 break;
@@ -404,6 +404,15 @@ impl Formatter {
             .map(|(k, _)| *k)
             .unwrap_or(EOF)
     }
+
+    fn next_lexical_token_start(&self) -> Position {
+        let tokens = self.ts.visited_tokens();
+        let i = tokens
+            .binary_search_by_key(&self.next_position, |t| t.start_position())
+            .map(|i| i + 1)
+            .unwrap_or_else(|i| i);
+        tokens.get(i).map(|t| t.start_position()).unwrap_or(EOF)
+    }
 }
 
 #[derive(Debug)]
@@ -492,6 +501,10 @@ mod tests {
 
             bar() ->
                 bar.
+            "},
+            indoc::indoc! {"
+            -type foo() :: integer().
+            -type bar() :: integer().  %% bar
             "},
         ];
         for text in texts {
