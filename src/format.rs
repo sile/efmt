@@ -228,10 +228,15 @@ impl Formatter {
         }
     }
 
-    pub fn write_trailing_comment(&mut self) {
-        let position = self.next_comment_start();
+    pub fn write_subsequent_comments(&mut self) {
+        loop {
+            let position = self.next_comment_start();
+            if self.next_macro_start() <= position
+                || position.line() > self.next_position.line() + 1
+            {
+                break;
+            }
 
-        if position.line() == self.next_position.line() {
             self.write_macros_and_comments(position);
         }
     }
