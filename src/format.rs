@@ -479,6 +479,15 @@ mod tests {
                 %% comment
                 ok.
             "},
+            indoc::indoc! {"
+            foo() ->
+                foo.
+            %% foo
+
+
+            bar() ->
+                bar.
+            "},
         ];
         for text in texts {
             crate::assert_format!(text, Module);
