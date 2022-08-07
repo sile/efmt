@@ -81,7 +81,7 @@ Pre-built binaries for Linux and MacOS are available in [the releases page](http
 
 ```console
 // An example to download the binary for Linux.
-$ VERSION=0.8.0
+$ VERSION=0.9.0
 $ curl -L https://github.com/sile/efmt/releases/download/${VERSION}/efmt-${VERSION}.x86_64-unknown-linux-musl -o efmt
 $ chmod +x efmt
 $ ./efmt
@@ -177,7 +177,7 @@ Differences with other Erlang formatters
 
 Since I'm not familiar with other Erlang formatters, and [the README.md of `erlfmt`](https://github.com/WhatsApp/erlfmt/blob/main/README.md) already provides a good comparison table among various formatters, I only describe the differences between `efmt` and `erlfmt` here.
 
-Note that in the following examples, I used `efmt-v0.8.0` and `erlfmt-v1.0.0`.
+Note that in the following examples, I used `efmt-v0.9.0` and `erlfmt-v1.0.0`.
 
 ### Formatting style
 
