@@ -75,9 +75,9 @@ struct Opt {
     #[clap(long)]
     default_off: bool,
 
-    /// Disables mimicking the behavior of `rebar3 efmt`.
+    /// Don't assume that the target project is built using rebar3.
     #[clap(long)]
-    disable_rebar3_efmt_mode: bool,
+    disable_rebar3_mode: bool,
 }
 
 impl Opt {
@@ -128,7 +128,7 @@ impl Opt {
         format_options
     }
 
-    fn enable_rebar3_efmt_mode(&mut self, rebar_config_dir: PathBuf) -> anyhow::Result<()> {
+    fn enable_rebar3_mode(&mut self, rebar_config_dir: PathBuf) -> anyhow::Result<()> {
         // rebar.config
         let rebar_config_path = rebar_config_dir.join("rebar.config");
         for value in efmt::files::load_rebar_config(&rebar_config_path)
@@ -254,10 +254,10 @@ fn main() -> anyhow::Result<()> {
     let loglevel = if opt.verbose { "debug" } else { "info" };
     env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
 
-    if !opt.disable_rebar3_efmt_mode {
+    if !opt.disable_rebar3_mode {
         if let Some(rebar_config_dir) = efmt::files::find_rebar_config_dir() {
             log::debug!("rebar.config file found: dir={rebar_config_dir:?}");
-            opt.enable_rebar3_efmt_mode(rebar_config_dir)?;
+            opt.enable_rebar3_mode(rebar_config_dir)?;
         } else {
             log::debug!("rebar.config file not found");
         }
