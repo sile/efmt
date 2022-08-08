@@ -34,15 +34,8 @@ do(State) ->
         false ->
             ok
     end,
-    Args0 = rebar_state:command_args(State) ++ ["--disable-rebar3-efmt-mode"],
-    Args1 = [case Entry of
-                 {K, V} ->
-                     atom_to_arg_key(K) ++ "=" ++ term_to_arg_value(V);
-                 Flag ->
-                     atom_to_arg_key(Flag)
-             end || Entry <- rebar_state:get(State, efmt, [])] ++ Args0,
-    Args2 = ["-I=" ++ Dir || {i, Dir} <- rebar_state:get(State, erl_opts, [])] ++ Args1,
-    ok = rebar3_efmt_command:execute(Args2 -- ["--disable-update-check"]),
+    Args = rebar_state:command_args(State),
+    ok = rebar3_efmt_command:execute(Args -- ["--disable-update-check"]),
     {ok, State}.
 
 -spec format_error(any()) ->  iolist().
