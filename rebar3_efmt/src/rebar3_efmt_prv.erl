@@ -117,19 +117,6 @@ ensure_efmt_installed() ->
             end
     end.
 
--spec term_to_arg_value(term()) -> string().
-term_to_arg_value(X) ->
-    lists:flatten(io_lib:format("~p", [X])).
-
--spec atom_to_arg_key(atom()) -> string().
-atom_to_arg_key(X) ->
-    case atom_to_list(X) of
-        [C] ->
-            [$-, C];
-        S ->
-            "--" ++ string:replace(S, "_", "-")
-    end.
-
 -spec update_check() -> ok.
 update_check() ->
     Url = "https://github.com/sile/efmt/releases/latest",
