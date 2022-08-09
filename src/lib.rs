@@ -10,8 +10,6 @@ pub mod items;
 pub mod parse;
 pub mod span;
 
-pub(crate) mod erl;
-
 /// Formats an Erlang file with the default options.
 pub fn format_file<T: Parse + Format, P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     Options::new().format_file::<T, P>(path)
