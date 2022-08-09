@@ -68,7 +68,10 @@ g     {default_off, undefined, "default-off", string,
       "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
       "(note that files spcified by `.gitignore` will be ignored)"},
      {disable_update_check, undefined, "disable-update-check", undefined,
-      "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"}
+      "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"},
+     {allow_partial_failure, "allow-partial-failure", undefined,
+      "Don't raise an error even if the input contains wrong Erlang code."
+      "`efmt` tries to continue formatting the remaining part of the code as much as possible"}
     ].
 
 -spec ensure_efmt_installed() -> ok.

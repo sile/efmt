@@ -68,7 +68,7 @@ impl Options {
 #[cfg(test)]
 #[macro_export]
 macro_rules! assert_format {
-    ($text:expr, $item_type:ident) => {{
+    ($text:expr, $item_type:ty) => {{
         let formatted = crate::Options::new()
             .format_text::<$item_type>(&$text)
             .unwrap();
@@ -76,7 +76,7 @@ macro_rules! assert_format {
         similar_asserts::assert_eq!(formatted, expected);
     }};
 
-    ($text:expr, $expected:expr, $item_type:ident) => {{
+    ($text:expr, $expected:expr, $item_type:ty) => {{
         let formatted = crate::Options::new()
             .format_text::<$item_type>(&$text)
             .unwrap();

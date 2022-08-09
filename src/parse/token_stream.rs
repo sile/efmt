@@ -373,7 +373,7 @@ impl TokenStream {
             Ok(())
         } else {
             if !self.missing_macros.contains(macro_name.value()) {
-                log::warn!(
+                log::debug!(
                     "The macro {:?} is not defined. 'EFMT_DUMMY' atom is used instead.",
                     macro_name.value()
                 );
@@ -397,7 +397,7 @@ impl TokenStream {
                 .known_replacement
                 .insert((start_index, replacement.clone()))
         {
-            log::warn!(
+            log::debug!(
                 "A circular macro {:?} was detected. It was replaced with a dummy atom 'EFMT_DUMMY'.",
                   key.to_string(),
             );

@@ -553,4 +553,25 @@ mod tests {
             crate::assert_format!(text, expected, Module);
         }
     }
+
+    #[test]
+    fn allow_partial_failure_works() {
+        let text = indoc::indoc! {"
+            foo()->foo.
+
+            bar->bar.
+
+            baz()->baz.
+            "};
+        let formatted = indoc::indoc! {"
+            foo() -> foo.
+
+
+            bar->bar.
+
+
+            baz() -> baz.
+            "};
+        crate::assert_format!(text, formatted, Module<true>);
+    }
 }
