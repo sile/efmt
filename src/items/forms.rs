@@ -1,4 +1,6 @@
 //! Erlang top-level components such as attributes, directives or declarations.
+use super::components::Guard;
+use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
@@ -20,10 +22,6 @@ use crate::items::Expr;
 use crate::items::Type;
 use crate::parse::Parse;
 use crate::span::Span;
-use std::path::{Path, PathBuf};
-
-use super::components::Guard;
-use super::symbols::RightArrowSymbol;
 
 #[derive(Debug, Clone, Span, Parse)]
 pub(super) enum Form {
@@ -395,70 +393,6 @@ pub struct IncludeDirective {
     file: StringToken,
     close: CloseParenSymbol,
     dot: DotSymbol,
-}
-
-impl IncludeDirective {
-    pub fn path(&self) -> &str {
-        self.file.value()
-    }
-
-    pub fn var_substituted_path(&self) -> PathBuf {
-        let path_str = self.file.value();
-        let path: &Path = path_str.as_ref();
-        if !path_str.starts_with('$') {
-            return path.to_path_buf();
-        }
-
-        let mut expanded_path = PathBuf::new();
-        for (i, c) in path.components().enumerate() {
-            if i == 0 {
-                if let Some(expanded) = c
-                    .as_os_str()
-                    .to_str()
-                    .and_then(|name| std::env::var(name.split_at(1).1).ok())
-                {
-                    expanded_path.push(expanded);
-                    continue;
-                }
-            }
-            expanded_path.push(c);
-        }
-        expanded_path
-    }
-
-    pub fn resolved_path(&self, include_dirs: &[PathBuf]) -> Option<PathBuf> {
-        let path = self.var_substituted_path();
-        if matches!(self.include, Either::B(_)) && path.components().count() > 1 {
-            let app_name = if let std::path::Component::Normal(name) = path.components().next()? {
-                name.to_str()?
-            } else {
-                return None;
-            };
-            match crate::erl::code_lib_dir(app_name) {
-                Err(e) => {
-                    log::warn!("{}", e);
-                    None
-                }
-                Ok(mut resolved_path) => {
-                    resolved_path.extend(path.components().skip(1));
-                    log::debug!("Resolved include path: {:?}", resolved_path);
-                    Some(resolved_path)
-                }
-            }
-        } else if path.exists() {
-            log::debug!("Resolved include path: {:?}", path);
-            Some(path)
-        } else {
-            for dir in include_dirs {
-                let candidate_path = dir.join(&path);
-                if candidate_path.exists() {
-                    log::debug!("Resolved include path: {:?}", candidate_path);
-                    return Some(candidate_path);
-                }
-            }
-            None
-        }
-    }
 }
 
 #[cfg(test)]

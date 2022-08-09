@@ -1,5 +1,5 @@
 use crate::items::{Config, Expr};
-use crate::parse::{IncludeOptions, TokenStream};
+use crate::parse::TokenStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -15,7 +15,7 @@ pub fn load_rebar_config<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<RebarCon
     let text = std::fs::read_to_string(&path)?;
     let mut tokenizer = erl_tokenize::Tokenizer::new(text);
     tokenizer.set_filepath(path);
-    let mut ts = TokenStream::new(tokenizer, IncludeOptions::new().disable_include());
+    let mut ts = TokenStream::new(tokenizer);
     let config: Config = ts.parse()?;
 
     let mut values = Vec::new();

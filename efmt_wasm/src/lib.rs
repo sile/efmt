@@ -4,9 +4,7 @@
 pub fn check(text: *const u8, text_len: i32) -> *mut Vec<u8> {
     let text = unsafe { std::slice::from_raw_parts(text, text_len as usize) };
     let text = std::str::from_utf8(text).unwrap_or_else(|e| panic!("{e}"));
-    let result = efmt::Options::default()
-        .disable_include()
-        .format_text::<efmt::items::ModuleOrConfig>(text);
+    let result = efmt::Options::default().format_text::<efmt::items::ModuleOrConfig>(text);
     if let Err(e) = result {
         Box::into_raw(Box::new(e.to_string().into_bytes()))
     } else {
@@ -19,7 +17,6 @@ pub fn format(text: *const u8, text_len: i32) -> *mut Vec<u8> {
     let text = unsafe { std::slice::from_raw_parts(text, text_len as usize) };
     let text = std::str::from_utf8(text).unwrap_or_else(|e| panic!("{e}"));
     let formatted = efmt::Options::default()
-        .disable_include()
         .format_text::<efmt::items::ModuleOrConfig>(text)
         .unwrap_or_else(|e| panic!("{e}"));
     Box::into_raw(Box::new(formatted.into_bytes()))
