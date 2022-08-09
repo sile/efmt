@@ -6,8 +6,7 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, LexicalToken,
     StringToken, SymbolToken, VariableToken,
 };
-use crate::parse::include::IncludeHandler;
-use crate::parse::{Error, IncludeOptions, Parse, Result, ResumeParse};
+use crate::parse::{Error, Parse, Result, ResumeParse};
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
@@ -31,11 +30,10 @@ pub struct TokenStream {
     text: Arc<String>,
     path: Option<Arc<PathBuf>>,
     last_parse_error: Option<Error>,
-    include: IncludeHandler,
 }
 
 impl TokenStream {
-    pub fn new(tokenizer: Tokenizer<String>, options: IncludeOptions) -> Self {
+    pub fn new(tokenizer: Tokenizer<String>) -> Self {
         let text = Arc::new(tokenizer.text().to_owned());
         let path = tokenizer
             .next_position()
@@ -56,26 +54,7 @@ impl TokenStream {
             text,
             path,
             last_parse_error: None,
-            include: IncludeHandler::new(options),
         }
-    }
-
-    pub(crate) fn set_known_macro_defines(&mut self, macro_defines: MacroDefines) {
-        assert!(self.macro_defines.is_empty());
-        self.macro_defines = macro_defines;
-    }
-
-    pub(crate) fn new_macro_defines(self) -> MacroDefines {
-        self.macro_defines
-            .iter()
-            .filter_map(|(k, v)| {
-                if self.new_macro_defines.contains(k) {
-                    Some((k.clone(), v.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 
     pub fn parse_tokens<T: Parse>(&mut self, tokens: Vec<LexicalToken>) -> Result<T> {
@@ -448,23 +427,10 @@ impl TokenStream {
                 self.new_macro_defines.insert(key.clone());
                 self.macro_defines.insert(key, define);
             }
-            Ok(Either::B(x)) => {
-                self.handle_include(x);
-            }
+            Ok(Either::B(_)) => {}
             Err(_) => {}
         }
         Ok(())
-    }
-
-    fn handle_include(&mut self, include: IncludeDirective) {
-        let new_macro_defines = self.include.include_macro_defines(
-            self.filepath().as_deref(),
-            &include,
-            &self.macro_defines,
-        );
-        self.new_macro_defines
-            .extend(new_macro_defines.keys().cloned());
-        self.macro_defines.extend(new_macro_defines);
     }
 }
 
@@ -509,10 +475,6 @@ pub(crate) struct MacroDefineKey {
 impl MacroDefineKey {
     pub(crate) fn new(name: String, arity: Option<usize>) -> Self {
         Self { name, arity }
-    }
-
-    pub(crate) fn name(&self) -> &str {
-        &self.name
     }
 }
 

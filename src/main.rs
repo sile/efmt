@@ -8,8 +8,6 @@ use std::io::Read as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-const DEFAULT_CACHE_DIR: &str = ".efmt/cache";
-
 /// Erlang Code Formatter.
 #[derive(Debug, Parser)]
 #[clap(about, version)]
@@ -38,12 +36,6 @@ struct Opt {
     #[clap(long)]
     verbose: bool,
 
-    /// Where to search for include files to process Erlang `-include` directives.
-    ///
-    /// If omitted, "../", "../include/", "../src/" and "../test/" of the target file will be added as the include directories.
-    #[clap(short = 'I', long = "include-search-dir")]
-    include_dirs: Vec<PathBuf>,
-
     /// Format target files.
     ///
     /// `-` means the standard input.
@@ -55,20 +47,6 @@ struct Opt {
     /// Executes formatting in parallel.
     #[clap(long)]
     parallel: bool,
-
-    /// Disables `-include` and `-include_lib` processing.
-    /// This could improve formatting speed. All unknown macros will be replaced with `EFMT_DUMMY` atom.
-    #[clap(long)]
-    disable_include: bool,
-
-    /// Where to save the caches for the macro definitions collected during processing `-include` or `-include_lib` directives
-    /// [default: .efmt/cache]
-    #[clap(long)]
-    include_cache_dir: Option<PathBuf>,
-
-    /// Disables include cache.
-    #[clap(long)]
-    disable_include_cache: bool,
 
     /// Disables formatting by default.
     /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
@@ -109,22 +87,10 @@ impl Opt {
     }
 
     fn to_format_options(&self) -> efmt::Options {
-        let mut format_options = efmt::Options::new().include_dirs(self.include_dirs.clone());
-
-        if !self.disable_include_cache {
-            format_options = format_options.include_cache_dir(
-                self.include_cache_dir
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from(DEFAULT_CACHE_DIR)),
-            );
-        }
-        if self.disable_include {
-            format_options = format_options.disable_include();
-        }
+        let mut format_options = efmt::Options::new();
         if self.default_off {
             format_options = format_options.default_off();
         }
-
         format_options
     }
 
@@ -140,66 +106,19 @@ impl Opt {
                 }
                 match (&item[0], &item[1]) {
                     (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
-                        if key == "erl_opts" =>
-                    {
-                        self.handle_rebar_config_erl_opts(items, &rebar_config_dir);
-                    }
-                    (RebarConfigValue::Atom(key), RebarConfigValue::List(items))
                         if key == "efmt" =>
                     {
-                        self.handle_rebar_config_efmt(items, &rebar_config_dir);
+                        self.handle_rebar_config_efmt(items);
                     }
                     _ => {}
                 }
             }
-        }
-
-        // ERL_LIBS
-        let libs_paths = std::iter::once(rebar_config_dir.join("_build/default/lib/"))
-            .chain(std::iter::once(rebar_config_dir.join("_build/test/lib/")));
-        if let Some(paths) = std::env::var_os("ERL_LIBS") {
-            let paths = std::env::split_paths(&paths).chain(libs_paths);
-            let paths = std::env::join_paths(paths)?;
-            std::env::set_var("ERL_LIBS", paths);
-        } else {
-            let paths = std::env::join_paths(libs_paths)?;
-            std::env::set_var("ERL_LIBS", paths);
-        }
-        if let Some(paths) = std::env::var_os("ERL_LIBS") {
-            log::debug!("set 'ERL_LIBS' envvar to {paths:?}");
-        }
-
-        // include cache dir
-        if self.include_cache_dir.is_none() {
-            self.include_cache_dir = Some(rebar_config_dir.join(DEFAULT_CACHE_DIR));
         }
 
         Ok(())
     }
 
-    fn handle_rebar_config_erl_opts(
-        &mut self,
-        items: &[RebarConfigValue],
-        rebar_config_dir: &Path,
-    ) {
-        for item in items {
-            if let RebarConfigValue::Tuple(kv) = item {
-                if kv.len() != 2 {
-                    continue;
-                }
-                match (&kv[0], &kv[1]) {
-                    (RebarConfigValue::Atom(k), RebarConfigValue::String(v)) if k == "i" => {
-                        log::debug!("found `{{i, {v:?}}}` in rebar.config");
-                        self.include_dirs.push(rebar_config_dir.join(v));
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    fn handle_rebar_config_efmt(&mut self, items: &[RebarConfigValue], rebar_config_dir: &Path) {
-        let matches = Self::command().get_matches();
+    fn handle_rebar_config_efmt(&mut self, items: &[RebarConfigValue]) {
         for item in items {
             log::debug!("found an efmt option in rebar.config: {item:?}");
             if let RebarConfigValue::Atom(k) = item {
@@ -208,37 +127,9 @@ impl Opt {
                         self.parallel = true;
                         continue;
                     }
-                    "disable_include" => {
-                        self.disable_include = true;
-                        continue;
-                    }
-                    "disable_include_cache" => {
-                        self.disable_include_cache = true;
-                        continue;
-                    }
                     "default_off" => {
                         self.default_off = true;
                         continue;
-                    }
-                    _ => {}
-                }
-            } else if let Some((k, v)) = item.as_kv_tuple() {
-                match k {
-                    "I" | "include_search_dir" => {
-                        if let RebarConfigValue::String(v) = v {
-                            self.include_dirs.push(rebar_config_dir.join(v));
-                            continue;
-                        }
-                    }
-                    "include_cache_dir" => {
-                        if let RebarConfigValue::String(v) = v {
-                            if matches.occurrences_of("include-cache-dir") == 0 {
-                                self.include_cache_dir = Some(rebar_config_dir.join(v));
-                            } else {
-                                log::debug!("ignored {k:?} option in rebar.config in favor of command line arg");
-                            }
-                            continue;
-                        }
                     }
                     _ => {}
                 }

@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::parse::{IncludeOptions, Parse, TokenStream};
+use crate::parse::{Parse, TokenStream};
 use std::path::Path;
 
 pub mod diff;
@@ -25,7 +25,6 @@ pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
 /// Options to format an item.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    include: IncludeOptions,
     default_off: bool,
 }
 
@@ -33,23 +32,6 @@ impl Options {
     /// Makes an [Options] instance with the default settings.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn disable_include(mut self) -> Self {
-        self.include = self.include.disable_include();
-        self
-    }
-
-    pub fn include_dirs<P: AsRef<Path>>(mut self, dirs: Vec<P>) -> Self {
-        self.include = self
-            .include
-            .include_dirs(dirs.into_iter().map(|x| x.as_ref().to_path_buf()).collect());
-        self
-    }
-
-    pub fn include_cache_dir<P: AsRef<Path>>(mut self, dir: P) -> Self {
-        self.include = self.include.include_cache_dir(dir.as_ref().to_path_buf());
-        self
     }
 
     pub fn default_off(mut self) -> Self {
@@ -73,7 +55,7 @@ impl Options {
         self,
         tokenizer: erl_tokenize::Tokenizer<String>,
     ) -> anyhow::Result<String> {
-        let mut ts = TokenStream::new(tokenizer, self.include);
+        let mut ts = TokenStream::new(tokenizer);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(ts);
         if self.default_off {

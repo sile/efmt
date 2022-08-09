@@ -3,13 +3,11 @@ use crate::span::{Position, Span as _};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-pub use self::include::IncludeOptions;
 pub use self::token_stream::TokenStream;
 
 /// A procedural macro to derive [Parse].
 pub use efmt_derive::Parse;
 
-pub(crate) mod include;
 pub(crate) mod token_stream;
 
 /// Possible errors.
