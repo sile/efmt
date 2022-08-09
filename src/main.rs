@@ -4,6 +4,7 @@ use efmt::files::RebarConfigValue;
 use efmt::items::ModuleOrConfig;
 use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
+use regex::Regex;
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -135,6 +136,27 @@ impl Opt {
                     "default_off" => {
                         self.default_off = true;
                         continue;
+                    }
+                    "allow_partial_failure" => {
+                        self.allow_partial_failure = true;
+                        continue;
+                    }
+                    _ => {}
+                }
+            } else if let Some((k, v)) = item.as_kv_tuple() {
+                match k {
+                    "exclude_file" => {
+                        if let RebarConfigValue::String(v) = v {
+                            match Regex::new(v) {
+                                Ok(regex) => {
+                                    self.exclude_files.push(regex);
+                                }
+                                Err(e) => {
+                                    log::warn!("{v:?} is not a valid regex: {e}");
+                                }
+                            }
+                            continue;
+                        }
                     }
                     _ => {}
                 }
