@@ -26,7 +26,9 @@ pub use self::macros::Macro;
 pub use self::module::Module;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ModuleOrConfig(Either<Module, Config>);
+pub struct ModuleOrConfig<const ALLOW_PARTIAL_FAILURE: bool = false>(
+    Either<Module<ALLOW_PARTIAL_FAILURE>, Config>,
+);
 
 /// One of [forms].
 #[derive(Debug, Clone, Span, Parse, Format)]

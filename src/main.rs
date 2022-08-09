@@ -56,6 +56,11 @@ struct Opt {
     /// Don't assume that the target project is built using rebar3.
     #[clap(long)]
     disable_rebar3_mode: bool,
+
+    /// Don't raise an error even if the input contains wrong Erlang code.
+    /// `efmt` tries to continue formatting the remaining part of the code as much as possible.
+    #[clap(long)]
+    allow_partial_failure: bool,
 }
 
 impl Opt {
@@ -178,31 +183,42 @@ fn main() -> anyhow::Result<()> {
 fn format_file<P: AsRef<Path>>(
     format_options: &efmt::Options,
     path: P,
+    allow_partial_failure: bool,
 ) -> anyhow::Result<(String, String)> {
     let original = std::fs::read_to_string(&path)?;
-    let formatted = format_options
-        .clone()
-        .format_file::<ModuleOrConfig, _>(path)?;
+    let opt = format_options.clone();
+    let formatted = if allow_partial_failure {
+        opt.format_file::<ModuleOrConfig<true>, _>(path)?
+    } else {
+        opt.format_file::<ModuleOrConfig<false>, _>(path)?
+    };
     Ok((original, formatted))
 }
 
-fn format_stdin(format_options: &efmt::Options) -> anyhow::Result<(String, String)> {
+fn format_stdin(
+    format_options: &efmt::Options,
+    allow_partial_failure: bool,
+) -> anyhow::Result<(String, String)> {
     let mut original = String::new();
     std::io::stdin().lock().read_to_string(&mut original)?;
-    let formatted = format_options
-        .clone()
-        .format_text::<ModuleOrConfig>(&original)?;
+    let opt = format_options.clone();
+    let formatted = if allow_partial_failure {
+        opt.format_text::<ModuleOrConfig<true>>(&original)?
+    } else {
+        opt.format_text::<ModuleOrConfig<false>>(&original)?
+    };
     Ok((original, formatted))
 }
 
 fn format_file_or_stdin<P: AsRef<Path>>(
     format_options: &efmt::Options,
     path: P,
+    allow_partial_failure: bool,
 ) -> anyhow::Result<(String, String)> {
     let (original, formatted) = if path.as_ref().to_str() == Some("-") {
-        format_stdin(format_options)
+        format_stdin(format_options, allow_partial_failure)
     } else {
-        format_file(format_options, &path)
+        format_file(format_options, &path, allow_partial_failure)
     }?;
     validate_formatted_text(path, &original, &formatted).context(concat!(
         "Found a token mismatch between the original text ",
@@ -215,7 +231,7 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
     fn do_format(opt: &Opt, format_options: &efmt::Options, file: &Path) -> anyhow::Result<()> {
-        match format_file_or_stdin(format_options, file) {
+        match format_file_or_stdin(format_options, file, opt.allow_partial_failure) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
                 Err(e)
@@ -275,8 +291,8 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
-    fn do_check(format_options: &efmt::Options, file: &Path) -> bool {
-        match format_file_or_stdin(format_options, file) {
+    fn do_check(format_options: &efmt::Options, file: &Path, allow_partial_failure: bool) -> bool {
+        match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
                 false
@@ -299,12 +315,12 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         opt.files
             .clone()
             .into_par_iter()
-            .filter(|file| !do_check(&format_options, file))
+            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure))
             .collect::<Vec<_>>()
     } else {
         opt.files
             .iter()
-            .filter(|file| !do_check(&format_options, file))
+            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure))
             .cloned()
             .collect::<Vec<_>>()
     };

@@ -1,30 +1,62 @@
+use super::components::Either;
+use super::tokens::LexicalToken;
 use crate::format::{Format, Formatter};
 use crate::items::forms::DefineDirective;
 use crate::items::{forms, Form};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
+use erl_tokenize::values::Symbol;
 
 /// [Form]*
 #[derive(Debug, Clone, Span)]
-pub struct Module {
+pub struct Module<const ALLOW_PARTIAL_FAILURE: bool = false> {
     sof: Position,
-    forms: Vec<Form>,
+    forms: Vec<Either<Form, Skipped>>,
     eof: Position,
 }
 
-impl Parse for Module {
+impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let sof = ts.prev_token_end_position();
         let mut forms = Vec::new();
         while !ts.is_eof()? {
-            forms.push(ts.parse()?);
+            let start = ts.next_token_start_position()?;
+            let result = ts.parse();
+            match result {
+                Ok(form) => {
+                    forms.push(Either::A(form));
+                }
+                Err(e) if !ALLOW_PARTIAL_FAILURE => {
+                    return Err(e);
+                }
+                Err(e) => loop {
+                    if let Some(Ok(token)) = ts.next() {
+                        if let LexicalToken::Symbol(token) = token {
+                            if token.value() == Symbol::Dot {
+                                log::warn!(
+                                    concat!(
+                                        "Skipped formatting a form due to ",
+                                        "the following error.\n{}"
+                                    ),
+                                    e
+                                );
+                                let end = token.end_position();
+                                forms.push(Either::B(Skipped { start, end }));
+                                break;
+                            }
+                        }
+                    } else {
+                        return Err(e);
+                    }
+                },
+            }
         }
         let eof = ts.next_token_start_position()?;
         Ok(Self { sof, forms, eof })
     }
 }
 
-impl Format for Module {
+impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE> {
     fn format(&self, fmt: &mut Formatter) {
         let mut state = FormatState {
             is_last_spec: false,
@@ -37,6 +69,15 @@ impl Format for Module {
                 fmt.write_newlines(3);
                 is_last_fun_decl = false;
             }
+
+            let form = match form {
+                Either::A(form) => form,
+                Either::B(skipped) => {
+                    fmt.write_span(&skipped);
+                    fmt.write_newline();
+                    continue;
+                }
+            };
 
             if state.pend_if_need(fmt, form) {
                 continue;
@@ -125,4 +166,10 @@ impl<'a> FormatState<'a> {
             fmt.write_newlines(3);
         }
     }
+}
+
+#[derive(Debug, Clone, Span)]
+struct Skipped {
+    start: Position,
+    end: Position,
 }
