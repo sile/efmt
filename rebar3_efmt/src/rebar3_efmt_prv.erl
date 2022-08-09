@@ -59,18 +59,7 @@ opts() ->
       "Excludes files that matches the specified regexs from the default target file list."},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},
      {parallel, undefined, "parallel", undefined, "Executes formatting in parallel"},
-     {include_dirs, $I, "include-search-dir", string,
-      "Where to search for include files to process Erlang `-include` directives. "
-      "If omitted, '../', '../include/', '../src/' and '../test/' of the target file will be added as the include directories"},
-     {disable_include, undefined, "disable-include", undefined,
-      "Disables `-include` and `-include_lib` processing. This could improve formatting speed. "
-      "All unknown macros will be replaced with `EFMT_DUMMY` atom"},
-     {disable_include_cache, undefined, "disable-include-cache", undefined,
-      "Disables include cache"},
-     {include_cache_dirs, undefined, "include-cache-dir", string,
-      "Where to save the caches for the macro definitions collected during processing "
-      "`-include` or `-include_lib` directives [default: .efmt/cache]"},
-     {default_off, undefined, "default-off", string,
+g     {default_off, undefined, "default-off", string,
       "Disables formatting by default. "
       "efmt behaves as if there is a \"% @efmt:off\" comment at the head of the each target file."},
      {files, undefined, undefined, string,
