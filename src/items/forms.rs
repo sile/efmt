@@ -480,15 +480,22 @@ mod tests {
     #[test]
     fn record_decl_works() {
         let texts = [
-            "-record(foo, {}).",
-            indoc::indoc! {"
-            -record(foo, {
-                      foo
-                     })."},
+            // "-record(foo, {}).",
+            // indoc::indoc! {"
+            // -record(foo, {
+            //           foo
+            //          })."},
+            // indoc::indoc! {"
+            // -record(foo, {
+            //           foo,
+            //           bar
+            //          })."},
             indoc::indoc! {"
             -record(foo, {
                       foo,
                       bar
+
+                      %% baz
                      })."},
             indoc::indoc! {"
             -record(rec, {
