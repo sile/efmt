@@ -130,7 +130,6 @@ impl Formatter {
             if this.next_position.line() + 1 < span.start_position().line()
                 && this.is_single_blank_line()
             {
-                this.cancel_last_spaces();
                 this.write_newlines(2);
             }
         });
@@ -182,7 +181,7 @@ impl Formatter {
             return;
         }
 
-        self.cancel_last_spaces();
+        let indent = self.cancel_last_spaces();
         for c in self.buf.chars().rev() {
             if c == '\n' {
                 n = n.saturating_sub(1);
@@ -196,7 +195,7 @@ impl Formatter {
         }
 
         self.column = 0;
-        self.write_spaces(self.indent);
+        self.write_spaces(std::cmp::max(self.indent, indent));
     }
 
     pub fn write_newline(&mut self) {
