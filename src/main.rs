@@ -290,7 +290,7 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
             .collect::<Vec<_>>()
     };
 
-    if !error_files.is_empty() {
+    if opt.files.len() > 1 && !error_files.is_empty() {
         eprintln!();
         anyhow::bail!(
             "Failed to format the following files:\n{}",
