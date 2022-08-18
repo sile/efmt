@@ -58,3 +58,7 @@ impl_parse!(ExportAtom, "export");
 #[derive(Debug, Clone, Span, Format, Element)]
 pub struct ExportTypeAtom(AtomToken);
 impl_parse!(ExportTypeAtom, "export_type");
+
+#[derive(Debug, Clone, Span, Format, Element)]
+pub struct ModuleAtom(AtomToken);
+impl_parse!(ModuleAtom, "module");
