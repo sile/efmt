@@ -11,7 +11,7 @@ use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
 use erl_tokenize::{PositionRange as _, Tokenizer};
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -128,6 +128,11 @@ impl TokenStream {
 
     pub fn filepath(&self) -> Option<Arc<PathBuf>> {
         self.path.clone()
+    }
+
+    pub fn set_filepath<P: AsRef<Path>>(&mut self, path: P) {
+        self.tokenizer.set_filepath(&path);
+        self.path = Some(Arc::new(path.as_ref().to_path_buf()));
     }
 
     pub fn contains_comment(&self, span: &impl Span) -> bool {

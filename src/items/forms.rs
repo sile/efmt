@@ -3,8 +3,8 @@ use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
 use crate::items::atoms::{
-    CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, OpaqueAtom,
-    RecordAtom, SpecAtom, TypeAtom,
+    CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, ModuleAtom,
+    OpaqueAtom, RecordAtom, SpecAtom, TypeAtom,
 };
 use crate::items::components::{
     Clauses, Either, Element, Items, Maybe, Never, NonEmptyItems, Null, Params, Parenthesized,
@@ -20,7 +20,7 @@ use crate::items::symbols::{
 use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
 use crate::items::Expr;
 use crate::items::Type;
-use crate::parse::Parse;
+use crate::parse::{Parse, TokenStream};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -32,6 +32,7 @@ pub(super) enum Form {
     TypeDecl(TypeDecl),
     RecordDecl(RecordDecl),
     Export(ExportAttr),
+    Module(ModuleAttr),
     Attr(Attr),
 }
 
@@ -45,6 +46,7 @@ impl Format for Form {
             Form::TypeDecl(x) => x.format(fmt),
             Form::RecordDecl(x) => x.format(fmt),
             Form::Export(x) => x.format(fmt),
+            Form::Module(x) => x.format(fmt),
             Form::Attr(x) => x.format(fmt),
         }
         fmt.write_subsequent_comments();
@@ -227,7 +229,22 @@ pub struct FunDecl {
     dot: DotSymbol,
 }
 
-/// `-` `export|export_type` `$EXPORTS`
+/// `-` `module` `(` [AtomToken] `)` `.`
+#[derive(Debug, Clone, Span, Format)]
+pub struct ModuleAttr(AttrLike<ModuleAtom, AtomToken>);
+
+impl Parse for ModuleAttr {
+    fn parse(ts: &mut TokenStream) -> crate::parse::Result<Self> {
+        let attr = AttrLike::<ModuleAtom, AtomToken>::parse(ts)?;
+        if ts.filepath().is_none() {
+            let module_name = attr.value().value();
+            ts.set_filepath(format!("{module_name}.erl"));
+        }
+        Ok(ModuleAttr(attr))
+    }
+}
+
+/// `-` `export|export_type` `$EXPORTS` `.`
 ///
 /// - $EXPORTS: `(` (`$EXPORT`,`?)* `)`
 /// - $EXPORT: [AtomToken] `/` [IntegerToken]
@@ -299,6 +316,21 @@ struct AttrLike<Name, Value, Empty = Never> {
     name: Name,
     value: Either<Parenthesized<Value>, Either<Value, Empty>>,
     dot: DotSymbol,
+}
+
+impl<Name, Value> AttrLike<Name, Value> {
+    fn value(&self) -> &Value {
+        match &self.value {
+            Either::A(x) => x.get(),
+            Either::B(x) => {
+                if let Either::A(x) = x {
+                    x
+                } else {
+                    unreachable!();
+                }
+            }
+        }
+    }
 }
 
 impl<Name: Format, Value: Format, Empty: Format> Format for AttrLike<Name, Value, Empty> {
