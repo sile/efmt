@@ -290,16 +290,20 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
             .collect::<Vec<_>>()
     };
 
-    if opt.files.len() > 1 && !error_files.is_empty() {
-        eprintln!();
-        anyhow::bail!(
-            "Failed to format the following files:\n{}",
-            error_files
-                .iter()
-                .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
+    if !error_files.is_empty() {
+        if opt.files.len() > 1 {
+            eprintln!();
+            anyhow::bail!(
+                "Failed to format the following files:\n{}",
+                error_files
+                    .iter()
+                    .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+        } else {
+            std::process::exit(1);
+        }
     } else if opt.write {
         log::info!("All files were formatted correctly!");
     }
