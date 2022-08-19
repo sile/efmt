@@ -88,19 +88,27 @@ struct RecordField {
 
 impl Format for RecordField {
     fn format(&self, fmt: &mut Formatter) {
-        self.name.format(fmt);
-        if let Some((x, y)) = self.default.get() {
-            fmt.write_space();
-            x.format(fmt);
-            fmt.write_space();
-            y.format(fmt);
-        }
-        if let Some((x, y)) = self.r#type.get() {
-            fmt.write_space();
-            x.format(fmt);
-            fmt.write_space();
-            y.format(fmt);
-        }
+        fmt.with_scoped_indent(|fmt| {
+            self.name.format(fmt);
+            if let Some((x, y)) = self.default.get() {
+                let newline = fmt.has_newline_until(&self.default.end_position());
+                fmt.write_space();
+                x.format(fmt);
+                if newline {
+                    fmt.set_indent(fmt.indent() + 4);
+                    fmt.write_newline();
+                } else {
+                    fmt.write_space();
+                }
+                y.format(fmt);
+            }
+            if let Some((x, y)) = self.r#type.get() {
+                fmt.write_space();
+                x.format(fmt);
+                fmt.write_space();
+                y.format(fmt);
+            }
+        });
     }
 }
 
@@ -512,16 +520,16 @@ mod tests {
     #[test]
     fn record_decl_works() {
         let texts = [
-            // "-record(foo, {}).",
-            // indoc::indoc! {"
-            // -record(foo, {
-            //           foo
-            //          })."},
-            // indoc::indoc! {"
-            // -record(foo, {
-            //           foo,
-            //           bar
-            //          })."},
+            "-record(foo, {}).",
+            indoc::indoc! {"
+            -record(foo, {
+                      foo
+                     })."},
+            indoc::indoc! {"
+            -record(foo, {
+                      foo,
+                      bar
+                     })."},
             indoc::indoc! {"
             -record(foo, {
                       foo,
@@ -534,6 +542,12 @@ mod tests {
                       field1 = [] :: Type1,
                       field2,
                       field3 = 421
+                     })."},
+            indoc::indoc! {"
+            -record(rec, {
+                      field1 =
+                          [] :: Type1,
+                      field2
                      })."},
             indoc::indoc! {"
             -record(rec, {field1 = [] :: Type1, field2, field3 = 421})."},
