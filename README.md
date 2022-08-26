@@ -432,25 +432,13 @@ Executed in   17.30 secs
    usr time   97.73 secs
    sys time   10.20 secs
 
-// efmt (w/o include cache): 15.10s
-$ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
-________________________________________________________
-Executed in   15.10 secs
-   usr time   98.83 secs
-   sys time    9.67 secs
-
-// efmt (w/ include cache): 5.84s
+// efmt: 5.84s
 $ time efmt --parallel $(find . -name '*.erl') > /dev/null 2> /dev/null
 ________________________________________________________
 Executed in    5.84 secs
    usr time   43.88 secs
    sys time    1.28 secs
 ```
-
-Note that `efmt` needs to process `--include` and `--include_lib` to collect macro definitions in the included files.
-Once an include file is processed, `efmt` stores the result into a cache file under `.efmt/cache/` dir.
-The `efmt` second execution in the above benchmark just reused the cached results instead of processing hole include files.
-So the execution time was much faster than the first execution.
 
 ### Development phase
 
@@ -464,3 +452,5 @@ There are some limitations that are not planned to be addressed in the future:
 - Only supports UTF-8 files
 - Doesn't process parse transforms
   - That is, if a parse transform has introduced custom syntaxes in your Erlang code, `efmt` could fail
+- Doesn't process `-include().` and `-include_lib().` directives
+  - Macros defined in those include files are expanded to (dummy) atoms.

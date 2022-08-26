@@ -63,27 +63,7 @@ When it visits tree nodes expanded from a macro, the formatted text of the origi
 `-include` and `-include_lib` Directives
 ----------------------------------------
 
-To collect macro definitions needed to parse an input file, `efmt` try to process `-include` and `-include_lib` directives in the file as much as possible as the Erlang preprocessor does.
-If `efmt` fails to find the include target file, it just ignores the directive.
-Note that when `efmt` encounters an unknown macro, that might be defined in the ignored file, during the parse phase, the macro is replaced with the `'EFMT_DUMMY'` atom token.
-
-Resolving the file path specified by `-include_lib` is more complicated than `-include` as the first path component can be the name of an Erlang application rather than a plain directory name.
-So, `efmt` invokes `erl -noshell -eval 'io:format("~s", [code:lib_dir($APP_NAME)]), halt().'` command to try to resolve the application directory path.
-
-### Include cache
-
-The macro definitions collected during processing a `-include` or `-include_lib` directive is cached as a JSON file under `$PWD/.efmt/cache/v0/` directory (`v0` is the current cache format version).
-The cache file is used when processing the same include target file next time to reduce the overhead of parsing the whole file from scratch.
-
-### `efmt` options
-
-Note that `efmt` provides some options to control how to handle those directives as follows:
-- `--include-search-dir` (`-I` in short)
-- `--include-cache-dir`
-- `--disable-include`
-- `--disable-include-cache`
-
-Please run `$ efmt --help` to see the descriptions of those options.
+`efmt` doesn't process `-include` and `-include_lib` directives. The macros defined in those include files are expanded to an atom.
 
 
 Flow Control Directives
