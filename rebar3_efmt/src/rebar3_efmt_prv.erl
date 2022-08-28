@@ -59,7 +59,7 @@ opts() ->
       "Excludes files that matches the specified regexs from the default target file list."},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},
      {parallel, undefined, "parallel", undefined, "Executes formatting in parallel"},
-g     {default_off, undefined, "default-off", string,
+     {default_off, undefined, "default-off", string,
       "Disables formatting by default. "
       "efmt behaves as if there is a \"% @efmt:off\" comment at the head of the each target file."},
      {files, undefined, undefined, string,
