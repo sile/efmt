@@ -81,7 +81,7 @@ Pre-built binaries for Linux and MacOS are available in [the releases page](http
 
 ```console
 // An example to download the binary for Linux.
-$ VERSION=0.11.0
+$ VERSION=0.11.1
 $ curl -L https://github.com/sile/efmt/releases/download/${VERSION}/efmt-${VERSION}.x86_64-unknown-linux-musl -o efmt
 $ chmod +x efmt
 $ ./efmt
