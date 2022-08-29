@@ -91,7 +91,9 @@ impl Format for RecordField {
         fmt.with_scoped_indent(|fmt| {
             self.name.format(fmt);
             if let Some((x, y)) = self.default.get() {
-                let newline = fmt.has_newline_until(&self.default.end_position());
+                let newline = self.default.get().map_or(false, |(_, default_value)| {
+                    fmt.has_newline_until(default_value)
+                });
                 fmt.write_space();
                 x.format(fmt);
                 if newline {
