@@ -10,10 +10,15 @@
 
     <h3>Original Text</h3>
     <textarea id="before" cols="120" rows="20" style="font-family:monospace, serif;">
-%% Functions from https://www.erlang.org/doc/programming_examples/list_comprehensions.html
-
-sort([Pivot|T]) -> sort([ X || X <- T, X < Pivot]) ++ [Pivot] ++ sort([ X || X <- T, X >= Pivot]); sort([]) -> [].
-perms([]) -> [[]]; perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
+%% https://www.erlang.org/doc/programming_examples/list_comprehensions.html#pythagorean-triplets
+pyth(N) ->
+    [ {A,B,C} ||
+        A <- lists:seq(1,N),
+        B <- lists:seq(1,N),
+        C <- lists:seq(1,N),
+        A+B+C =< N,
+        A*A+B*B == C*C
+    ].
     </textarea>
     <br />
     <input type="button" value="Format" onclick="format()" />
