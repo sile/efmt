@@ -10,7 +10,6 @@ use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};
-use std::cmp::min;
 
 #[derive(Debug, Clone, Span, Parse)]
 pub(crate) struct FunctionClause<Name, const BODY_INDENT: usize = 4> {
@@ -105,14 +104,7 @@ impl Format for Generator {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
             self.pattern.format(fmt);
-
-            if fmt.has_newline_until(&self.sequence) {
-                fmt.set_indent(min(fmt.column(), fmt.indent() + 4));
-                fmt.write_newline();
-            } else {
-                fmt.write_space();
-            }
-
+            fmt.write_space();
             self.delimiter.format(fmt);
             fmt.write_space();
             fmt.set_indent(fmt.column());
