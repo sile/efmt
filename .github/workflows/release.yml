@@ -25,7 +25,6 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           release_name: v${{ steps.get_version.outputs.VERSION }}
           draft: true
-          prerelease: true
 
   linux-binary:
     name: 'Uplaod Binary for Linux'
