@@ -444,7 +444,11 @@ fn validate_formatted_text<P: AsRef<Path>>(
 }
 
 fn overwrite<P: AsRef<Path>>(path: P, text: &str) -> anyhow::Result<()> {
-    let mut temp = tempfile::NamedTempFile::new()?;
+    let dir = path
+        .as_ref()
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("failed to get parent dir: {:?}", path.as_ref()))?;
+    let mut temp = tempfile::NamedTempFile::new_in(dir)?;
     temp.write_all(text.as_bytes())?;
     temp.persist(path)?;
     Ok(())
