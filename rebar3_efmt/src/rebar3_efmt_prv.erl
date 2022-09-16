@@ -69,7 +69,7 @@ opts() ->
       "(note that files spcified by `.gitignore` will be ignored)"},
      {disable_update_check, undefined, "disable-update-check", undefined,
       "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"},
-     {allow_partial_failure, "allow-partial-failure", undefined,
+     {allow_partial_failure, undefined, "allow-partial-failure", undefined,
       "Don't raise an error even if the input contains wrong Erlang code."
       "`efmt` tries to continue formatting the remaining part of the code as much as possible"}
     ].
