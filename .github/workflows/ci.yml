@@ -80,3 +80,13 @@ jobs:
         with:
           command: clippy
           args: --all -- -D warnings
+
+  plugin-test:
+    name: rebar3 plugin test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: rebar3 help efmt
+        working-directory: rebar3_efmt/test/foo
+      - run: rebar3 efmt -w
+        working-directory: rebar3_efmt/test/foo
