@@ -17,6 +17,12 @@ impl<T: Format> Format for Box<T> {
     }
 }
 
+impl<T: Format> Format for &T {
+    fn format(&self, fmt: &mut Formatter) {
+        (**self).format(fmt);
+    }
+}
+
 impl<A: Format, B: Format> Format for (A, B) {
     fn format(&self, fmt: &mut Formatter) {
         self.0.format(fmt);

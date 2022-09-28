@@ -38,6 +38,11 @@ mod tests {
              {3, 4, 5},
              6,
              {7, 8, 9}}"},
+            indoc::indoc! {"
+            {error,
+             {Foo, Bar,
+              Baz},
+             qux}"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

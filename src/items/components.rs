@@ -211,18 +211,29 @@ impl<T: Format, D: Format> Format for NonEmptyItems<T, D> {
 
 impl<T: Format, D: Format> NonEmptyItems<T, D> {
     fn format_items(&self, fmt: &mut Formatter) {
-        fmt.with_scoped_indent(|fmt| {
-            fmt.set_indent(fmt.column());
-
-            let item = self.items().first().expect("unreachable");
-            item.format(fmt);
-            for (item, delimiter) in self.items.iter().skip(1).zip(self.delimiters.iter()) {
-                delimiter.format(fmt);
-                fmt.write_newline();
-                item.format(fmt);
-            }
-        });
+        format_non_empty_items(fmt, self.items().iter(), self.delimiters.iter());
     }
+}
+
+fn format_non_empty_items<T, D>(
+    fmt: &mut Formatter,
+    mut items: impl Iterator<Item = T>,
+    delimiters: impl Iterator<Item = D>,
+) where
+    T: Format,
+    D: Format,
+{
+    fmt.with_scoped_indent(|fmt| {
+        fmt.set_indent(fmt.column());
+
+        let item = items.next().expect("unreachable");
+        item.format(fmt);
+        for (item, delimiter) in items.zip(delimiters) {
+            delimiter.format(fmt);
+            fmt.write_newline();
+            item.format(fmt);
+        }
+    });
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
@@ -252,6 +263,10 @@ pub struct MaybePackedItems<T, D = CommaSymbol>(Items<T, D>);
 impl<T, D> MaybePackedItems<T, D> {
     pub(crate) fn items(&self) -> &[T] {
         self.0.items()
+    }
+
+    fn delimiters(&self) -> &[D] {
+        self.0.delimiters()
     }
 }
 
@@ -366,13 +381,27 @@ impl<T: Element + Format> Format for TupleLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
         if let Some(tag) = self.tag.get() {
+            if fmt.has_newline_until(&self.items) {
+                // Not a tagged tuple
+                let items_indent = fmt.column();
+                format_non_empty_items(
+                    fmt,
+                    std::iter::once(Either::A(&tag.0))
+                        .chain(self.items.items().iter().map(Either::B)),
+                    std::iter::once(Either::A(&tag.1))
+                        .chain(self.items.delimiters().iter().map(Either::B)),
+                );
+                fmt.set_next_comment_indent(items_indent);
+                self.close.format(fmt);
+                return;
+            }
+
             tag.format(fmt);
             fmt.write_space();
         }
 
         let items_indent = fmt.column();
         self.items.format(fmt);
-
         fmt.set_next_comment_indent(items_indent);
         self.close.format(fmt);
     }
