@@ -6,7 +6,7 @@ use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
 
 /// Token used in the parse phase.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Span, Format)]
 pub enum LexicalToken {
     Atom(AtomToken),
     Char(CharToken),
@@ -80,7 +80,7 @@ macro_rules! impl_traits {
     };
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AtomToken {
     value: String,
     start: Position,
@@ -109,7 +109,7 @@ impl Element for AtomToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CharToken {
     start: Position,
     end: Position,
@@ -129,7 +129,7 @@ impl Element for CharToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FloatToken {
     start: Position,
     end: Position,
@@ -149,7 +149,7 @@ impl Element for FloatToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IntegerToken {
     start: Position,
     end: Position,
@@ -169,7 +169,7 @@ impl Element for IntegerToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KeywordToken {
     value: Keyword,
     start: Position,
@@ -188,7 +188,7 @@ impl KeywordToken {
 
 impl_traits!(KeywordToken, Keyword);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StringToken {
     value: String,
     start: Position,
@@ -217,7 +217,7 @@ impl Element for StringToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SymbolToken {
     value: Symbol,
     start: Position,
@@ -236,7 +236,7 @@ impl SymbolToken {
 
 impl_traits!(SymbolToken, Symbol);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VariableToken {
     value: String,
     start: Position,
@@ -265,7 +265,7 @@ impl Element for VariableToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommentToken {
     is_trailing: bool,
     start: Position,

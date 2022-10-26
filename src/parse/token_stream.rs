@@ -469,9 +469,7 @@ fn dummy_string(position: Position) -> StringToken {
     StringToken::new("EFMT_DUMMY", position, position)
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) struct MacroDefineKey {
     name: String,
     arity: Option<usize>,
@@ -493,7 +491,7 @@ impl std::fmt::Display for MacroDefineKey {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub(crate) struct MacroDefine {
     variables: Option<Vec<String>>,
     replacement: Vec<LexicalToken>,
