@@ -484,7 +484,7 @@ impl MacroDefineKey {
 impl std::fmt::Display for MacroDefineKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if let Some(arity) = self.arity {
-            write!(f, "?{}/{}", self.name, arity)
+            write!(f, "?{}/{arity}", self.name)
         } else {
             write!(f, "?{}", self.name)
         }
