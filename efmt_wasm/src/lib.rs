@@ -8,7 +8,7 @@ pub fn check(text: *const u8, text_len: i32) -> *mut Vec<u8> {
     if let Err(e) = result {
         Box::into_raw(Box::new(e.to_string().into_bytes()))
     } else {
-        Box::into_raw(Box::new(Vec::new()))
+        Box::into_raw(Box::default())
     }
 }
 

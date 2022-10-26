@@ -188,7 +188,7 @@ fn main() -> anyhow::Result<()> {
     if opt.show_files {
         for file in opt.files {
             if let Some(file) = file.to_str() {
-                println!("{}", file);
+                println!("{file}");
             }
         }
         Ok(())
@@ -269,7 +269,7 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
                         Ok(())
                     }
                 } else {
-                    print!("{}", formatted);
+                    print!("{formatted}");
                     Ok(())
                 }
             }
@@ -322,12 +322,12 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
             }
             Ok((original, formatted)) => {
                 if original == formatted {
-                    log::info!("{:?} is already formatted correctly.", file);
+                    log::info!("{file:?} is already formatted correctly.");
                     true
                 } else {
                     let diff = efmt::diff::text_diff(&original, &formatted, file);
-                    println!("{}", diff);
-                    log::info!("{:?} is not formatted correctly.", file);
+                    println!("{diff}");
+                    log::info!("{file:?} is not formatted correctly.");
                     false
                 }
             }
