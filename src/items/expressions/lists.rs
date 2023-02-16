@@ -105,6 +105,8 @@ mod tests {
             indoc::indoc! {"
             [ X || X <- [1, 2] ]"},
             indoc::indoc! {"
+            [ {K, V} || K := V <- [1, 2] ]"},
+            indoc::indoc! {"
             [ X
               || X <- [1, 2,
                        3] ]"},
