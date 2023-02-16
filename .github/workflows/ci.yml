@@ -13,7 +13,7 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install ${{ matrix.toolchain }} toolchain
         uses: actions-rs/toolchain@v1
@@ -36,7 +36,7 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install ${{ matrix.toolchain }} toolchain
         uses: actions-rs/toolchain@v1
@@ -59,7 +59,7 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install ${{ matrix.toolchain }} toolchain
         uses: actions-rs/toolchain@v1
@@ -85,7 +85,11 @@ jobs:
     name: rebar3 plugin test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '25.0'
+          rebar3-version: '3.20.0'
       - run: rebar3 help efmt
         working-directory: rebar3_efmt/test/foo
       - run: rebar3 efmt -w

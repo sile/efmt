@@ -32,7 +32,7 @@ jobs:
     needs: github-release-draft
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install dependent packages
         run: sudo apt install -y musl-tools
@@ -69,7 +69,7 @@ jobs:
         target: ["x86_64-apple-darwin", "aarch64-apple-darwin"]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
