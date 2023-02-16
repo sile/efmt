@@ -124,6 +124,10 @@ mod tests {
                || X <- [1, 2,
                         3] >>"},
             indoc::indoc! {"
+            << <<X, Y>>
+               || X := Y <- [1, 2,
+                             3] >>"},
+            indoc::indoc! {"
             << (foo(X,
                     Y,
                     Z,

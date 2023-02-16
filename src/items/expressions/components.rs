@@ -3,7 +3,7 @@ use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
-    RightArrowSymbol,
+    MapMatchSymbol, RightArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
@@ -88,14 +88,31 @@ impl Format for Body {
 }
 
 /// ((`$GENERATOR` | `$FILTER`) `,`?)+
-/// - $GENERATOR: `Expr` (`<-` | `<=`) `Expr`
+/// - $GENERATOR: (`Expr` | `Expr` `:=` `Expr`) `<-` `Expr` | `Expr` `<=` `Expr`
 /// - $FILTER: `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Qualifier(Either<Generator, Expr>);
 
 #[derive(Debug, Clone, Span, Parse)]
+pub struct MapGeneratorPattern {
+    key: Expr,
+    delimiter: MapMatchSymbol,
+    value: Expr,
+}
+
+impl Format for MapGeneratorPattern {
+    fn format(&self, fmt: &mut Formatter) {
+        self.key.format(fmt);
+        fmt.write_space();
+        self.delimiter.format(fmt);
+        fmt.write_space();
+        self.value.format(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
 struct Generator {
-    pattern: Expr,
+    pattern: Either<MapGeneratorPattern, Expr>,
     delimiter: GeneratorDelimiter,
     sequence: Expr,
 }
@@ -117,15 +134,15 @@ impl Format for Generator {
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
 
 #[derive(Debug, Clone, Span, Parse)]
-pub(crate) struct ComprehensionExpr<Open, Close> {
+pub(crate) struct ComprehensionExpr<Open, Close, Value = Expr> {
     open: Open,
-    value: Expr,
+    value: Value,
     delimiter: DoubleVerticalBarSymbol,
     qualifiers: NonEmptyItems<Qualifier>,
     close: Close,
 }
 
-impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
+impl<Open: Format, Close: Format, Value: Format> Format for ComprehensionExpr<Open, Close, Value> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
         fmt.with_scoped_indent(|fmt| {

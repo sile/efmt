@@ -33,7 +33,7 @@ pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryE
 pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
 pub use self::lists::{ImproperListConstructExpr, ListComprehensionExpr, ListConstructExpr};
-pub use self::maps::{MapConstructExpr, MapUpdateExpr};
+pub use self::maps::{MapExpr, MapUpdateExpr};
 pub use self::records::{RecordAccessExpr, RecordConstructExpr, RecordIndexExpr, RecordUpdateExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
@@ -42,7 +42,7 @@ pub use self::tuples::TupleExpr;
 pub(crate) enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
-    MapConstruct(Box<MapConstructExpr>),
+    Map(Box<MapExpr>),
     RecordConstructOrIndex(Box<RecordConstructOrIndexExpr>),
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
@@ -66,7 +66,7 @@ impl Parse for BaseExpr {
                 Symbol::OpenParen => ts.parse().map(Self::Parenthesized),
                 Symbol::Sharp => {
                     if ts.peek::<(LexicalToken, OpenBraceSymbol)>().is_some() {
-                        ts.parse().map(Self::MapConstruct)
+                        ts.parse().map(Self::Map)
                     } else {
                         ts.parse().map(Self::RecordConstructOrIndex)
                     }
