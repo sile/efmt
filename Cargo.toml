@@ -8,6 +8,7 @@ description = "Erlang code formatter"
 homepage = "https://github.com/sile/efmt"
 repository = "https://github.com/sile/efmt"
 readme = "README.md"
+exclude = ["/rebar3_efmt/"]
 
 [dependencies]
 anyhow = "1"
