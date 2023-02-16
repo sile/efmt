@@ -11,7 +11,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 erl_tokenize = "0.5"
 efmt_derive = { path = "efmt_derive", version = "0.1.0" }
 env_logger = "0.10"
