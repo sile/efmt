@@ -134,15 +134,15 @@ impl Format for Generator {
 struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
 
 #[derive(Debug, Clone, Span, Parse)]
-pub(crate) struct ComprehensionExpr<Open, Close> {
+pub(crate) struct ComprehensionExpr<Open, Close, Value = Expr> {
     open: Open,
-    value: Expr,
+    value: Value,
     delimiter: DoubleVerticalBarSymbol,
     qualifiers: NonEmptyItems<Qualifier>,
     close: Close,
 }
 
-impl<Open: Format, Close: Format> Format for ComprehensionExpr<Open, Close> {
+impl<Open: Format, Close: Format, Value: Format> Format for ComprehensionExpr<Open, Close, Value> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
         fmt.with_scoped_indent(|fmt| {
