@@ -112,7 +112,7 @@ ensure_efmt_installed() ->
 -spec update_check() -> ok.
 update_check() ->
     Url = "https://github.com/sile/efmt/releases/latest",
-    case httpc:request(get, {Url, []}, [{autoredirect, false}, {ssl, [{log_level, error}]}], []) of
+    case httpc:request(get, {Url, []}, [{autoredirect, false}, {ssl, [{log_level, error}, {verify, verify_none}]}], []) of
         {error, Reason} ->
             rebar_api:warn("Failed to check update due to HTTP error: url=~p, reason=~p", [Url, Reason]),
             ok;

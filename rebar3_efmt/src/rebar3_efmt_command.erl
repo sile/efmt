@@ -70,7 +70,7 @@ install_prebuilt_binary(Version) ->
             Url = "https://github.com/sile/efmt/releases/download/" ++ Version ++
                 "/efmt-" ++ Version ++ "." ++ Arch,
             rebar_api:info("Pre-built binary URL: ~p", [Url]),
-            case httpc:request(Url) of
+            case httpc:request(get, {Url, []}, [{ssl, [{verify, verify_none}]}], []) of
                 {error, Reason} ->
                     {error, {http_get_failed, Reason}};
                 {ok, {{_, 200, _}, _Header, Body}} ->
