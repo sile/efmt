@@ -1,6 +1,6 @@
 {
   "name": "efmt",
-  "displayName": "Efmt",
+  "displayName": "efmt",
   "publisher": "sile",
   "license": "MIT",
   "description": "Erlang Code Formatter",
