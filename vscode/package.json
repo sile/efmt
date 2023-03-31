@@ -1,20 +1,39 @@
 {
   "name": "efmt",
   "displayName": "Efmt",
+  "publisher": "sile",
+  "license": "MIT",
   "description": "Erlang Code Formatter",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.77.0"
   },
   "categories": [
-    "Other"
+    "Formatters"
   ],
+  "keywords": [
+    "erlang",
+    "formatter"
+  ],
+  "bugs": {
+    "url": "https://github.com/sile/efmt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sile/efmt"
+  },
+  "homepage": "https://github.com/sile/efmt/blob/main/README.md",
+  "icon": "images/icon.png",
   "browser": "./dist/web/extension.js",
   "contributes": {
-    "languages": [{
-      "id": "erlang",
-      "aliases": ["Erlang"]
-    }]
+    "languages": [
+      {
+        "id": "erlang",
+        "aliases": [
+          "Erlang"
+        ]
+      }
+    ]
   },
   "scripts": {
     "test": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",
