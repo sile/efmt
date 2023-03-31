@@ -27,6 +27,7 @@ jobs:
         run: |
           mkdir _site/
           cp -r examples/ _site/
+          rm _site/examples/efmt_wasm.wasm
           cp target/wasm32-unknown-unknown/release/efmt_wasm.wasm _site/examples/
       - name: Upload files
         uses: actions/upload-pages-artifact@v1
