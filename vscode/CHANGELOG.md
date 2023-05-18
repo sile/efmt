@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.14.1-1]
+
+### Fixed
+
+- Specify activationEvents explicitly in package.json
+
 ## [0.14.1]
 
 - Initial release
