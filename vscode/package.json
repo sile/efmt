@@ -25,13 +25,21 @@
   "homepage": "https://github.com/sile/efmt/blob/main/README.md",
   "icon": "images/icon.png",
   "browser": "./dist/web/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:erlang"
+  ],
   "contributes": {
     "languages": [
       {
         "id": "erlang",
         "aliases": [
           "Erlang"
+        ],
+        "extensions": [
+          ".erl"
+        ],
+        "filenames": [
+          "rebar.config"
         ]
       }
     ]
