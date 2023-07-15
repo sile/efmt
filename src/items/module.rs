@@ -15,6 +15,15 @@ pub struct Module<const ALLOW_PARTIAL_FAILURE: bool = false> {
     eof: Position,
 }
 
+impl<const ALLOW_PARTIAL_FAILURE: bool> Module<ALLOW_PARTIAL_FAILURE> {
+    pub fn children(&self) -> impl Iterator<Item = &Form> {
+        self.forms.iter().filter_map(|form| match form {
+            Either::A(form) => Some(form),
+            Either::B(_) => None,
+        })
+    }
+}
+
 impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> {
     fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
         let sof = ts.prev_token_end_position();

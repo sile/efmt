@@ -24,7 +24,7 @@ use crate::parse::{Parse, TokenStream};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Span, Parse)]
-pub(super) enum Form {
+pub enum Form {
     Define(DefineDirective),
     Include(IncludeDirective),
     FunSpec(FunSpec),
@@ -242,6 +242,12 @@ pub struct FunDecl {
 /// `-` `module` `(` [AtomToken] `)` `.`
 #[derive(Debug, Clone, Span, Format)]
 pub struct ModuleAttr(AttrLike<ModuleAtom, AtomToken>);
+
+impl ModuleAttr {
+    pub fn module_name(&self) -> &AtomToken {
+        self.0.value()
+    }
+}
 
 impl Parse for ModuleAttr {
     fn parse(ts: &mut TokenStream) -> crate::parse::Result<Self> {

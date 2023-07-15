@@ -35,7 +35,7 @@ pub struct ModuleOrConfig<const ALLOW_PARTIAL_FAILURE: bool = false>(
 pub struct Form(self::forms::Form);
 
 impl Form {
-    fn get(&self) -> &self::forms::Form {
+    pub fn get(&self) -> &self::forms::Form {
         &self.0
     }
 

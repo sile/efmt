@@ -12,6 +12,11 @@ pub trait Span {
     fn contains_newline(&self) -> bool {
         self.start_position().line() != self.end_position().line()
     }
+
+    fn contains(&self, position: Position) -> bool {
+        self.start_position().offset() <= position.offset()
+            && position.offset() < self.end_position().offset()
+    }
 }
 
 impl<T: Span + ?Sized> Span for &T {
