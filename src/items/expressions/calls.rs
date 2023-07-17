@@ -19,6 +19,20 @@ pub struct FunctionCallExpr {
     args: Args<Expr>,
 }
 
+impl FunctionCallExpr {
+    pub fn module_expr(&self) -> Option<&BaseExpr> {
+        self.module.get().map(|(expr, _)| expr)
+    }
+
+    pub fn function_expr(&self) -> &BaseExpr {
+        &self.function
+    }
+
+    pub fn args(&self) -> &[Expr] {
+        self.args.get()
+    }
+}
+
 impl ResumeParse<(BaseExpr, bool)> for FunctionCallExpr {
     fn resume_parse(
         ts: &mut parse::TokenStream,
@@ -98,6 +112,10 @@ impl ResumeParse<Expr> for BinaryOpCallExpr {
 }
 
 impl BinaryOpCallExpr {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.left).chain(std::iter::once(&self.right))
+    }
+
     fn is_name_and_arity(&self) -> bool {
         self.left.get().is_atom_token()
             && matches!(self.op, BinaryOp::FloatDiv(_))

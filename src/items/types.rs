@@ -23,6 +23,12 @@ pub mod components;
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct UnionType(NonEmptyItems<NonUnionType, UnionDelimiter>);
 
+impl UnionType {
+    pub(crate) fn items(&self) -> &[NonUnionType] {
+        self.0.items()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct UnionDelimiter(VerticalBarSymbol);
 
@@ -34,7 +40,7 @@ impl Format for UnionDelimiter {
 }
 
 #[derive(Debug, Clone, Span, Format)]
-enum NonUnionType {
+pub enum NonUnionType {
     Base(BaseType),
     BinaryOp(Box<BinaryOpType>),
 }
@@ -52,7 +58,7 @@ impl Parse for NonUnionType {
 
 // Non left-recursive type.
 #[derive(Debug, Clone, Span, Parse, Format)]
-enum BaseType {
+pub enum BaseType {
     Mfargs(Box<MfargsType>),
     List(Box<ListType>),
     Tuple(Box<TupleType>),
@@ -72,6 +78,16 @@ pub struct AnnotatedVariableType {
     variable: VariableToken,
     colon: DoubleColonSymbol,
     ty: Type,
+}
+
+impl AnnotatedVariableType {
+    pub fn variable(&self) -> &VariableToken {
+        &self.variable
+    }
+
+    pub fn ty(&self) -> &Type {
+        &self.ty
+    }
 }
 
 impl Format for AnnotatedVariableType {
@@ -150,6 +166,24 @@ pub struct FunctionType {
     params_and_return: Parenthesized<Maybe<FunctionParamsAndReturn>>,
 }
 
+impl FunctionType {
+    pub fn params(&self) -> impl Iterator<Item = &Type> {
+        self.params_and_return
+            .get()
+            .get()
+            .and_then(|x| match &x.params {
+                FunctionParams::Any(_) => None,
+                FunctionParams::Params(x) => Some(x.get()),
+            })
+            .into_iter()
+            .flat_map(|x| x.iter())
+    }
+
+    pub fn return_type(&self) -> Option<&Type> {
+        self.params_and_return.get().get().map(|x| &x.ty)
+    }
+}
+
 impl Format for FunctionType {
     fn format(&self, fmt: &mut Formatter) {
         self.fun.format(fmt);
@@ -214,11 +248,34 @@ pub struct MfargsType {
     args: Args<Type>,
 }
 
+impl MfargsType {
+    pub fn module_name(&self) -> Option<&AtomToken> {
+        self.module.get().map(|(name, _)| name)
+    }
+
+    pub fn type_name(&self) -> &AtomToken {
+        &self.name
+    }
+
+    pub fn args(&self) -> &[Type] {
+        self.args.get()
+    }
+}
+
 /// `[` (`$ITEM` `,`?)* `]`
 ///
 /// - $ITEM: [Type] | `...`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListType(ListLike<ListItem>);
+
+impl ListType {
+    pub fn item_type(&self) -> Option<&Type> {
+        self.0.items().get(0).and_then(|item| match &item.0 {
+            Either::A(x) => Some(x),
+            Either::B(_) => None,
+        })
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct ListItem(Either<Type, TripleDotSymbol>);
@@ -233,12 +290,25 @@ impl Element for ListItem {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TupleType(TupleLike<TupleItem>);
 
+impl TupleType {
+    pub fn items(&self) -> (Option<&AtomToken>, impl Iterator<Item = &Type>) {
+        let (tag, items) = self.0.items();
+        (tag, items.iter().map(|item| &item.0))
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
 struct TupleItem(Type);
 
 /// `#` `{` ([Type] (`:=` | `=>`) [Type] `,`?)* `}`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapType(MapLike<SharpSymbol, Type>);
+
+impl MapType {
+    pub fn items(&self) -> impl Iterator<Item = (&Type, &Type)> {
+        self.0.items()
+    }
+}
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
@@ -247,6 +317,16 @@ pub struct MapType(MapLike<SharpSymbol, Type>);
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordType {
     record: RecordLike<(SharpSymbol, AtomToken), RecordItem>,
+}
+
+impl RecordType {
+    pub fn name(&self) -> &AtomToken {
+        &self.record.prefix().1
+    }
+
+    pub fn fields(&self) -> impl Iterator<Item = (&AtomToken, &Type)> {
+        self.record.fields().map(|item| (&item.name, &item.ty))
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse, Element)]

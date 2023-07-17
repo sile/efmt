@@ -39,7 +39,7 @@ pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
 
 #[derive(Debug, Clone, Span, Format)]
-pub(crate) enum BaseExpr {
+pub enum BaseExpr {
     List(Box<ListExpr>),
     Tuple(Box<TupleExpr>),
     Map(Box<MapExpr>),
@@ -54,6 +54,15 @@ pub(crate) enum BaseExpr {
     // Left recursive.
     MapUpdate(Box<MapUpdateExpr>),
     RecordAccessOrUpdate(Box<RecordAccessOrUpdateExpr>),
+}
+
+impl BaseExpr {
+    pub fn as_atom_token(&self) -> Option<&AtomToken> {
+        match self {
+            Self::Literal(LiteralExpr::Atom(token)) => Some(token),
+            _ => None,
+        }
+    }
 }
 
 impl Parse for BaseExpr {
@@ -116,7 +125,7 @@ impl Element for BaseExpr {
 }
 
 #[derive(Debug, Clone, Span, Format)]
-pub(crate) enum FullExpr {
+pub enum FullExpr {
     Base(BaseExpr),
     FunctionCall(Box<FunctionCallExpr>),
     BinaryOpCall(Box<BinaryOpCallExpr>),
@@ -175,7 +184,7 @@ pub enum LiteralExpr {
     Float(FloatToken),
     Integer(IntegerToken),
     String(StringExpr),
-    VariableToken(VariableToken),
+    Variable(VariableToken),
 }
 
 #[cfg(test)]

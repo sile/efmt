@@ -124,6 +124,20 @@ impl Format for RecordField {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct TypeDecl(AttrLike<TypeDeclName, TypeDeclItem>);
 
+impl TypeDecl {
+    pub fn type_name(&self) -> &AtomToken {
+        &self.0.value().name
+    }
+
+    pub fn params(&self) -> &[VariableToken] {
+        self.0.value().params.get()
+    }
+
+    pub fn type_value(&self) -> &Type {
+        &self.0.value().r#type
+    }
+}
+
 type TypeDeclName = Either<TypeAtom, OpaqueAtom>;
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -167,6 +181,37 @@ pub struct FunSpec(
     Either<AttrLike<SpecAtom, FunSpecItem<6>>, AttrLike<CallbackAtom, FunSpecItem<10>>>,
 );
 
+impl FunSpec {
+    pub fn module_name(&self) -> Option<&AtomToken> {
+        match &self.0 {
+            Either::A(x) => x.value().module_name.get().map(|(x, _)| x),
+            Either::B(x) => x.value().module_name.get().map(|(x, _)| x),
+        }
+    }
+
+    pub fn function_name(&self) -> &AtomToken {
+        match &self.0 {
+            Either::A(x) => &x.value().function_name,
+            Either::B(x) => &x.value().function_name,
+        }
+    }
+
+    pub fn clauses(&self) -> impl Iterator<Item = SpecClauseRef> {
+        match &self.0 {
+            Either::A(x) => Either::A(x.value().clauses.iter().map(|x| SpecClauseRef {
+                params: x.params.get(),
+                return_type: &x.r#return,
+                guard: x.guard.get(),
+            })),
+            Either::B(x) => Either::B(x.value().clauses.iter().map(|x| SpecClauseRef {
+                params: x.params.get(),
+                return_type: &x.r#return,
+                guard: x.guard.get(),
+            })),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct FunSpecItem<const INDENT: usize> {
     module_name: Maybe<(AtomToken, ColonSymbol)>,
@@ -182,6 +227,29 @@ impl<const INDENT: usize> Format for FunSpecItem<INDENT> {
             self.function_name.format(fmt);
             self.clauses.format(fmt);
         });
+    }
+}
+
+#[derive(Debug)]
+pub struct SpecClauseRef<'a> {
+    params: &'a [Type],
+    return_type: &'a Type,
+    guard: Option<&'a Guard<Type, CommaSymbol>>,
+}
+
+impl<'a> SpecClauseRef<'a> {
+    pub fn params(&self) -> &'a [Type] {
+        self.params
+    }
+
+    pub fn return_type(&self) -> &'a Type {
+        self.return_type
+    }
+
+    pub fn guard_types(&self) -> impl Iterator<Item = &'a Type> {
+        self.guard
+            .into_iter()
+            .flat_map(|x| x.conditions().items().iter())
     }
 }
 
@@ -237,6 +305,38 @@ impl<const INDENT: usize> Format for SpecClause<INDENT> {
 pub struct FunDecl {
     clauses: Clauses<FunctionClause<AtomToken>>,
     dot: DotSymbol,
+}
+
+impl FunDecl {
+    pub fn clauses(&self) -> impl Iterator<Item = FunctionClauseRef> {
+        self.clauses.iter().map(|x| FunctionClauseRef {
+            name: x.name(),
+            params: x.params(),
+            guard: x.guard(),
+            body: x.body(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionClauseRef<'a> {
+    name: &'a AtomToken,
+    params: &'a [Expr],
+    guard: Option<&'a Guard<Expr>>,
+    body: &'a [Expr],
+}
+
+impl<'a> FunctionClauseRef<'a> {
+    pub fn function_name(&self) -> &AtomToken {
+        self.name
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &'a Expr> {
+        self.params
+            .iter()
+            .chain(self.guard.into_iter().flat_map(|x| x.conditions().items()))
+            .chain(self.body.iter())
+    }
 }
 
 /// `-` `module` `(` [AtomToken] `)` `.`

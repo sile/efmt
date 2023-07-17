@@ -52,6 +52,12 @@ impl Form {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Type(self::types::UnionType);
 
+impl Type {
+    pub fn children(&self) -> impl Iterator<Item = &self::types::NonUnionType> {
+        self.0.items().iter()
+    }
+}
+
 impl Element for Type {
     fn is_packable(&self) -> bool {
         false
@@ -63,7 +69,7 @@ impl Element for Type {
 pub struct Expr(FullExpr);
 
 impl Expr {
-    pub(crate) fn get(&self) -> &FullExpr {
+    pub fn get(&self) -> &FullExpr {
         &self.0
     }
 

@@ -100,6 +100,21 @@ pub enum Either<A, B> {
     B(B),
 }
 
+impl<A, B> Iterator for Either<A, B>
+where
+    A: Iterator<Item = B::Item>,
+    B: Iterator,
+{
+    type Item = A::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Either::A(x) => x.next(),
+            Either::B(x) => x.next(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Parenthesized<T> {
     open: OpenParenSymbol,
@@ -434,6 +449,15 @@ impl<Prefix, Item> MapLike<Prefix, Item> {
             inner: RecordLike::new(prefix, items),
         }
     }
+
+    pub(crate) fn items(&self) -> impl Iterator<Item = (&Item, &Item)> {
+        self.inner
+            .fields
+            .fields
+            .items()
+            .iter()
+            .map(|x| (&x.key, &x.value))
+    }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
@@ -478,6 +502,14 @@ pub struct RecordLike<Prefix, Field> {
 impl<Prefix, Field> RecordLike<Prefix, Field> {
     pub(crate) fn new(prefix: Prefix, fields: RecordFieldsLike<Field>) -> Self {
         Self { prefix, fields }
+    }
+
+    pub(crate) fn prefix(&self) -> &Prefix {
+        &self.prefix
+    }
+
+    pub(crate) fn fields(&self) -> impl Iterator<Item = &Field> {
+        self.fields.fields.items().iter()
     }
 }
 
@@ -529,6 +561,12 @@ impl<T: Format> Format for RecordFieldsLike<T> {
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Clauses<T>(NonEmptyItems<T, SemicolonSymbol>);
+
+impl<T> Clauses<T> {
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.items().iter()
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Guard<T, D = GuardDelimiter> {

@@ -20,6 +20,24 @@ pub(crate) struct FunctionClause<Name, const BODY_INDENT: usize = 4> {
     body: Body,
 }
 
+impl<Name, const BODY_INDENT: usize> FunctionClause<Name, BODY_INDENT> {
+    pub fn name(&self) -> &Name {
+        &self.name
+    }
+
+    pub fn params(&self) -> &[Expr] {
+        self.params.get()
+    }
+
+    pub fn guard(&self) -> Option<&Guard<Expr>> {
+        self.guard.get()
+    }
+
+    pub fn body(&self) -> &[Expr] {
+        self.body.exprs()
+    }
+}
+
 impl<Name: Format, const BODY_INDENT: usize> Format for FunctionClause<Name, BODY_INDENT> {
     fn format(&self, fmt: &mut Formatter) {
         let f = |fmt: &mut Formatter| {
