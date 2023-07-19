@@ -10,6 +10,10 @@ use crate::span::Span;
 pub struct TupleExpr(TupleLike<Expr>);
 
 impl TupleExpr {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.items().1.iter()
+    }
+
     pub(crate) fn items(&self) -> (Option<&AtomToken>, &[Expr]) {
         self.0.items()
     }

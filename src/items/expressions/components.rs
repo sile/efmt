@@ -111,11 +111,26 @@ impl Format for Body {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Qualifier(Either<Generator, Expr>);
 
+impl Qualifier {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        match &self.0 {
+            Either::A(x) => Either::A(x.children()),
+            Either::B(x) => Either::B(std::iter::once(x)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 pub struct MapGeneratorPattern {
     key: Expr,
     delimiter: MapMatchSymbol,
     value: Expr,
+}
+
+impl MapGeneratorPattern {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.key).chain(std::iter::once(&self.value))
+    }
 }
 
 impl Format for MapGeneratorPattern {
@@ -133,6 +148,16 @@ struct Generator {
     pattern: Either<MapGeneratorPattern, Expr>,
     delimiter: GeneratorDelimiter,
     sequence: Expr,
+}
+
+impl Generator {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        let iter = match &self.pattern {
+            Either::A(x) => Either::A(x.children()),
+            Either::B(x) => Either::B(std::iter::once(x)),
+        };
+        iter.chain(std::iter::once(&self.sequence))
+    }
 }
 
 impl Format for Generator {
@@ -158,6 +183,13 @@ pub(crate) struct ComprehensionExpr<Open, Close, Value = Expr> {
     delimiter: DoubleVerticalBarSymbol,
     qualifiers: NonEmptyItems<Qualifier>,
     close: Close,
+}
+
+impl<Open, Close> ComprehensionExpr<Open, Close> {
+    pub(crate) fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.value)
+            .chain(self.qualifiers.items().iter().flat_map(|x| x.children()))
+    }
 }
 
 impl<Open: Format, Close: Format, Value: Format> Format for ComprehensionExpr<Open, Close, Value> {

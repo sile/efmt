@@ -2,7 +2,6 @@
 use self::bitstrings::BitstringExpr;
 use self::blocks::BlockExpr;
 use self::functions::FunctionExpr;
-use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 use crate::format::Format;
 use crate::items::components::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
@@ -26,17 +25,20 @@ mod records;
 mod strings;
 mod tuples;
 
-pub(crate) use self::lists::ListExpr;
-
 pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
 pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
 pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
 pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
-pub use self::lists::{ImproperListConstructExpr, ListComprehensionExpr, ListConstructExpr};
+pub use self::lists::{
+    ImproperListConstructExpr, ListComprehensionExpr, ListConstructExpr, ListExpr,
+};
 pub use self::maps::{MapExpr, MapUpdateExpr};
 pub use self::records::{RecordAccessExpr, RecordConstructExpr, RecordIndexExpr, RecordUpdateExpr};
+pub use self::records::{RecordAccessOrUpdateExpr, RecordConstructOrIndexExpr};
 pub use self::strings::StringExpr;
 pub use self::tuples::TupleExpr;
+
+pub type ParenthesizedExpr = Parenthesized<FullExpr>;
 
 #[derive(Debug, Clone, Span, Format)]
 pub enum BaseExpr {
@@ -47,7 +49,7 @@ pub enum BaseExpr {
     Bitstring(Box<BitstringExpr>),
     Function(Box<FunctionExpr>),
     UnaryOpCall(Box<UnaryOpCallExpr>),
-    Parenthesized(Box<Parenthesized<FullExpr>>),
+    Parenthesized(Box<ParenthesizedExpr>),
     Literal(LiteralExpr),
     Block(Box<BlockExpr>),
 

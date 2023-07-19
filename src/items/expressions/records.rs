@@ -14,10 +14,58 @@ pub enum RecordConstructOrIndexExpr {
     Index(Box<RecordIndexExpr>),
 }
 
+impl RecordConstructOrIndexExpr {
+    pub fn record_name(&self) -> &AtomToken {
+        match self {
+            Self::Construct(x) => &x.record.prefix().1,
+            Self::Index(x) => &x.name,
+        }
+    }
+
+    pub fn field_names(&self) -> impl Iterator<Item = &AtomToken> {
+        match self {
+            Self::Construct(x) => Either::A(x.record.fields().filter_map(|x| x.name())),
+            Self::Index(x) => Either::B(std::iter::once(&x.field)),
+        }
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        match self {
+            Self::Construct(x) => Either::A(x.record.fields().map(|x| &x.value)),
+            Self::Index(_) => Either::B(std::iter::empty()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum RecordAccessOrUpdateExpr {
     Access(Box<RecordAccessExpr>),
     Update(Box<RecordUpdateExpr>),
+}
+
+impl RecordAccessOrUpdateExpr {
+    pub fn record_name(&self) -> &AtomToken {
+        match self {
+            Self::Access(x) => &x.index.name,
+            Self::Update(x) => &x.record.prefix().1 .1,
+        }
+    }
+
+    pub fn field_names(&self) -> impl Iterator<Item = &AtomToken> {
+        match self {
+            Self::Access(x) => Either::A(std::iter::once(&x.index.field)),
+            Self::Update(x) => Either::B(x.record.fields().filter_map(|x| x.name())),
+        }
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        match self {
+            Self::Access(x) => Either::A(std::iter::once(&x.value)),
+            Self::Update(x) => Either::B(
+                std::iter::once(&x.record.prefix().0).chain(x.record.fields().map(|x| &x.value)),
+            ),
+        }
+    }
 }
 
 impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
@@ -97,6 +145,16 @@ struct RecordField {
     name: Either<AtomToken, UnderscoreVariable>,
     delimiter: MatchSymbol,
     value: Expr,
+}
+
+impl RecordField {
+    pub fn name(&self) -> Option<&AtomToken> {
+        if let Either::A(x) = &self.name {
+            Some(x)
+        } else {
+            None
+        }
+    }
 }
 
 impl Format for RecordField {

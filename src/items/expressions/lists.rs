@@ -16,6 +16,18 @@ pub enum ListExpr {
     ConstructImproper(ImproperListConstructExpr),
 }
 
+impl ListExpr {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        match self {
+            ListExpr::Construct(x) => Box::new(x.items().iter()) as Box<dyn Iterator<Item = &Expr>>,
+            ListExpr::Comprehension(x) => Box::new(x.0.children()),
+            ListExpr::ConstructImproper(x) => {
+                Box::new(x.items.items().iter().chain(std::iter::once(&x.last)))
+            }
+        }
+    }
+}
+
 /// `[` ([Expr] `,`?)* `]`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ListConstructExpr(ListLike<Expr>);
