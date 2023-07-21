@@ -4,17 +4,72 @@ use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
-use crate::items::tokens::VariableToken;
+use crate::items::tokens::{AtomToken, VariableToken};
+use crate::items::Expr;
 #[cfg(doc)]
 use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
+use std::borrow::Cow;
+
+use super::LiteralExpr;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum FunctionExpr {
     Defined(Box<DefinedFunctionExpr>),
     Anonymous(Box<AnonymousFunctionExpr>),
     Named(Box<NamedFunctionExpr>),
+}
+
+impl FunctionExpr {
+    pub fn module_name(&self) -> Option<&AtomToken> {
+        let Self::Defined(x) = self else {
+            return None;
+        };
+        x.module.get().and_then(|x| {
+            if let BaseExpr::Literal(LiteralExpr::Atom(x)) = &x.0 {
+                Some(x)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn function_name(&self) -> Option<&AtomToken> {
+        let Self::Defined(x) = self else {
+            return None;
+        };
+        if let BaseExpr::Literal(LiteralExpr::Atom(x)) = &x.name {
+            Some(x)
+        } else {
+            None
+        }
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        match self {
+            FunctionExpr::Defined(x) => Box::new(
+                x.module
+                    .get()
+                    .map(|x| Cow::Owned(x.0.clone().into()))
+                    .into_iter()
+                    .chain(std::iter::once(Cow::Owned(x.name.clone().into())))
+                    .chain(std::iter::once(Cow::Owned(x.arity.clone().into()))),
+            ) as Box<dyn Iterator<Item = Cow<Expr>>>,
+            FunctionExpr::Anonymous(x) => Box::new(
+                x.clauses
+                    .iter()
+                    .flat_map(|x| x.children())
+                    .map(Cow::Borrowed),
+            ),
+            FunctionExpr::Named(x) => Box::new(x.clauses.iter().flat_map(|x| {
+                std::iter::once(Cow::Owned(
+                    BaseExpr::Literal(LiteralExpr::Variable(x.name().clone())).into(),
+                ))
+                .chain(x.children().map(Cow::Borrowed))
+            })),
+        }
+    }
 }
 
 /// `fun` (`$MODULE` `:`)? `$NAME` `/` `$ARITY`

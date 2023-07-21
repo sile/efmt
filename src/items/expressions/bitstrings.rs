@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{BitstringLike, Element, Maybe, NonEmptyItems};
+use crate::items::components::{BitstringLike, Either, Element, Maybe, NonEmptyItems};
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
@@ -8,7 +8,6 @@ use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, HyphenSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken};
-#[cfg(doc)]
 use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
@@ -19,6 +18,15 @@ pub enum BitstringExpr {
     Comprehension(BitstringComprehensionExpr),
 }
 
+impl BitstringExpr {
+    pub fn children(&self) -> impl Iterator<Item = Either<&BaseExpr, &Expr>> {
+        match self {
+            BitstringExpr::Construct(x) => Either::A(x.children().map(Either::A)),
+            BitstringExpr::Comprehension(x) => Either::B(x.children().map(Either::B)),
+        }
+    }
+}
+
 /// `<<` (`$SEGMENT` `,`?)* `>>`
 ///
 /// - $SEGMENT: [Expr] `$SIZE`? `$TYPE`?
@@ -27,17 +35,35 @@ pub enum BitstringExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringConstructExpr(BitstringLike<BitstringSegment>);
 
+impl BitstringConstructExpr {
+    fn children(&self) -> impl Iterator<Item = &BaseExpr> {
+        self.0.items().iter().flat_map(|x| x.children())
+    }
+}
+
 /// `<<` [Expr] `||` ([Qualifier] `,`?)+  `>>`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct BitstringComprehensionExpr(
     ComprehensionExpr<DoubleLeftAngleSymbol, DoubleRightAngleSymbol>,
 );
 
+impl BitstringComprehensionExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.0.children()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse, Format)]
 struct BitstringSegment {
     value: BaseExpr,
     size: Maybe<BitstringSegmentSize>,
     ty: Maybe<BitstringSegmentType>,
+}
+
+impl BitstringSegment {
+    fn children(&self) -> impl Iterator<Item = &BaseExpr> {
+        std::iter::once(&self.value).chain(self.size.get().into_iter().map(|x| &x.size))
+    }
 }
 
 impl Element for BitstringSegment {

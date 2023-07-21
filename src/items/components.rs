@@ -429,6 +429,12 @@ pub struct BitstringLike<T: Element> {
     close: DoubleRightAngleSymbol,
 }
 
+impl<T: Element> BitstringLike<T> {
+    pub(crate) fn items(&self) -> &[T] {
+        self.items.items()
+    }
+}
+
 impl<T: Element + Format> Format for BitstringLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         self.open.format(fmt);
@@ -448,6 +454,10 @@ impl<Prefix, Item> MapLike<Prefix, Item> {
         Self {
             inner: RecordLike::new(prefix, items),
         }
+    }
+
+    pub(crate) fn prefix(&self) -> &Prefix {
+        &self.inner.prefix
     }
 
     pub(crate) fn items(&self) -> impl Iterator<Item = (&Item, &Item)> {
@@ -577,6 +587,10 @@ pub struct Guard<T, D = GuardDelimiter> {
 impl<T, D> Guard<T, D> {
     pub fn conditions(&self) -> &NonEmptyItems<T, D> {
         &self.conditions
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &T> {
+        self.conditions.items().iter()
     }
 }
 

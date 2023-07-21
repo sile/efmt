@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{Either, Element};
+use crate::items::components::Element;
 use crate::items::expressions::{BaseExpr, FullExpr, ListExpr, LiteralExpr};
 use crate::items::tokens::AtomToken;
 use crate::parse::Parse;
@@ -24,6 +24,8 @@ pub use self::config::Config;
 use self::expressions::BinaryOpCallExpr;
 pub use self::macros::Macro;
 pub use self::module::Module;
+use self::tokens::VariableToken;
+pub use crate::items::components::Either;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ModuleOrConfig<const ALLOW_PARTIAL_FAILURE: bool = false>(
@@ -71,6 +73,10 @@ pub struct Expr(FullExpr);
 impl Expr {
     pub fn get(&self) -> &FullExpr {
         &self.0
+    }
+
+    pub(crate) fn from_variable(v: VariableToken) -> Self {
+        Expr(FullExpr::Base(BaseExpr::Literal(LiteralExpr::Variable(v))))
     }
 
     pub(crate) fn as_binary_op(&self) -> Option<&BinaryOpCallExpr> {

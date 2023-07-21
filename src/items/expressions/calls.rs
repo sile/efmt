@@ -72,6 +72,12 @@ pub struct UnaryOpCallExpr {
     expr: BaseExpr,
 }
 
+impl UnaryOpCallExpr {
+    pub fn expr(&self) -> &BaseExpr {
+        &self.expr
+    }
+}
+
 impl Format for UnaryOpCallExpr {
     fn format(&self, fmt: &mut Formatter) {
         let last = fmt.last_char().unwrap_or('\n');

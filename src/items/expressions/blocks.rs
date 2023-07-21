@@ -10,6 +10,7 @@ use crate::items::tokens::{AtomToken, VariableToken};
 use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum BlockExpr {
@@ -20,6 +21,22 @@ pub enum BlockExpr {
     Try(Box<TryExpr>),
     Catch(Box<CatchExpr>),
     Maybe(Box<MaybeExpr>),
+}
+
+impl BlockExpr {
+    pub fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        match self {
+            BlockExpr::Case(x) => {
+                Box::new(x.children().map(Cow::Borrowed)) as Box<dyn Iterator<Item = Cow<Expr>>>
+            }
+            BlockExpr::If(x) => Box::new(x.children().map(Cow::Borrowed)),
+            BlockExpr::Receive(x) => Box::new(x.children().map(Cow::Borrowed)),
+            BlockExpr::Begin(x) => Box::new(x.children().map(Cow::Borrowed)),
+            BlockExpr::Try(x) => Box::new(x.children()),
+            BlockExpr::Catch(x) => Box::new(x.children().map(Cow::Borrowed)),
+            BlockExpr::Maybe(x) => Box::new(x.children().map(Cow::Borrowed)),
+        }
+    }
 }
 
 /// `case` [Expr] `of` (`$CLAUSE` `;`?)+ `end`
@@ -34,6 +51,12 @@ pub struct CaseExpr {
     of: OfKeyword,
     clauses: Clauses<CaseClause>,
     end: EndKeyword,
+}
+
+impl CaseExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.value).chain(self.clauses.iter().flat_map(|x| x.children()))
+    }
 }
 
 impl Format for CaseExpr {
@@ -84,6 +107,14 @@ struct CaseClause {
     body: Body,
 }
 
+impl CaseClause {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.pattern)
+            .chain(self.guard.get().into_iter().flat_map(|x| x.children()))
+            .chain(self.body.exprs())
+    }
+}
+
 impl Format for CaseClause {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
@@ -131,6 +162,12 @@ pub struct IfExpr {
     end: EndKeyword,
 }
 
+impl IfExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.clauses.iter().flat_map(|x| x.children())
+    }
+}
+
 impl Format for IfExpr {
     fn format(&self, fmt: &mut Formatter) {
         let f = |fmt: &mut Formatter| {
@@ -167,6 +204,12 @@ struct IfClause {
     body: Body,
 }
 
+impl IfClause {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.condition.0.items().iter().chain(self.body.exprs())
+    }
+}
+
 impl Format for IfClause {
     fn format(&self, fmt: &mut Formatter) {
         // 'Condition'
@@ -201,6 +244,12 @@ pub struct BeginExpr {
     begin: BeginKeyword,
     exprs: Body,
     end: EndKeyword,
+}
+
+impl BeginExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.exprs.exprs().iter()
+    }
 }
 
 impl Format for BeginExpr {
@@ -244,6 +293,16 @@ pub struct ReceiveExpr {
     clauses: Maybe<Clauses<CaseClause>>,
     timeout: Maybe<ReceiveTimeout>,
     end: EndKeyword,
+}
+
+impl ReceiveExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.clauses
+            .get()
+            .into_iter()
+            .flat_map(|x| x.iter().flat_map(|x| x.children()))
+            .chain(self.timeout.get().into_iter().flat_map(|x| x.children()))
+    }
 }
 
 impl Format for ReceiveExpr {
@@ -291,6 +350,12 @@ struct ReceiveTimeout {
     body: Body,
 }
 
+impl ReceiveTimeout {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.timeout).chain(self.body.exprs())
+    }
+}
+
 impl Format for ReceiveTimeout {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
@@ -331,6 +396,30 @@ pub struct TryExpr {
     catch: Maybe<TryCatch>,
     after: Maybe<TryAfter>,
     end: EndKeyword,
+}
+
+impl TryExpr {
+    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        self.body
+            .exprs()
+            .iter()
+            .map(Cow::Borrowed)
+            .chain(
+                self.clauses
+                    .get()
+                    .into_iter()
+                    .flat_map(|x| x.1.iter().flat_map(|x| x.children()))
+                    .map(Cow::Borrowed),
+            )
+            .chain(self.catch.get().into_iter().flat_map(|x| x.children()))
+            .chain(
+                self.after
+                    .get()
+                    .into_iter()
+                    .flat_map(|x| x.children())
+                    .map(Cow::Borrowed),
+            )
+    }
 }
 
 impl Format for TryExpr {
@@ -417,12 +506,31 @@ struct TryCatch {
     clauses: Clauses<CatchClause>,
 }
 
+impl TryCatch {
+    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        self.clauses.iter().flat_map(|x| x.children())
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct CatchClause {
     pattern: CatchPattern,
     guard: Maybe<Guard<Expr>>,
     arrow: RightArrowSymbol,
     body: Body,
+}
+
+impl CatchClause {
+    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        self.pattern.children().chain(
+            self.guard
+                .get()
+                .into_iter()
+                .flat_map(|x| x.children())
+                .chain(self.body.exprs())
+                .map(Cow::Borrowed),
+        )
+    }
 }
 
 impl Format for CatchClause {
@@ -469,10 +577,38 @@ struct CatchPattern {
     stacktrace: Maybe<(ColonSymbol, VariableToken)>,
 }
 
+impl CatchPattern {
+    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+        self.class
+            .get()
+            .and_then(|x| {
+                if let Either::B(x) = &x.0 {
+                    Some(Cow::Owned(Expr::from_variable(x.clone())))
+                } else {
+                    None
+                }
+            })
+            .into_iter()
+            .chain(std::iter::once(Cow::Borrowed(&self.pattern)))
+            .chain(
+                self.stacktrace
+                    .get()
+                    .map(|x| Cow::Owned(Expr::from_variable(x.1.clone())))
+                    .into_iter(),
+            )
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct TryAfter {
     after: AfterKeyword,
     body: Body,
+}
+
+impl TryAfter {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.body.exprs().iter()
+    }
 }
 
 /// `catch` [Expr]
@@ -480,6 +616,12 @@ struct TryAfter {
 pub struct CatchExpr {
     catch: CatchKeyword,
     expr: Expr,
+}
+
+impl CatchExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.expr)
+    }
 }
 
 impl Format for CatchExpr {
@@ -508,6 +650,15 @@ pub struct MaybeExpr {
     body: Body,
     else_block: Maybe<ElseBlock>,
     end: EndKeyword,
+}
+
+impl MaybeExpr {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.body
+            .exprs()
+            .iter()
+            .chain(self.else_block.get().into_iter().flat_map(|x| x.children()))
+    }
 }
 
 impl Format for MaybeExpr {
@@ -555,6 +706,12 @@ impl Format for MaybeExpr {
 struct ElseBlock {
     else_keyword: ElseKeyword,
     clauses: Clauses<CaseClause>,
+}
+
+impl ElseBlock {
+    fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.clauses.iter().flat_map(|x| x.children())
+    }
 }
 
 #[cfg(test)]

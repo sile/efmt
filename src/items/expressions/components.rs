@@ -33,8 +33,22 @@ impl<Name, const BODY_INDENT: usize> FunctionClause<Name, BODY_INDENT> {
         self.guard.get()
     }
 
+    fn guard_exprs(&self) -> impl Iterator<Item = &Expr> {
+        self.guard
+            .get()
+            .into_iter()
+            .flat_map(|x| x.conditions().items())
+    }
+
     pub fn body(&self) -> &[Expr] {
         self.body.exprs()
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.params()
+            .iter()
+            .chain(self.guard_exprs())
+            .chain(self.body())
     }
 }
 
@@ -189,6 +203,16 @@ impl<Open, Close> ComprehensionExpr<Open, Close> {
     pub(crate) fn children(&self) -> impl Iterator<Item = &Expr> {
         std::iter::once(&self.value)
             .chain(self.qualifiers.items().iter().flat_map(|x| x.children()))
+    }
+}
+
+impl<Open, Close, Value> ComprehensionExpr<Open, Close, Value> {
+    pub(crate) fn value(&self) -> &Value {
+        &self.value
+    }
+
+    pub(crate) fn qualifiers(&self) -> &[Qualifier] {
+        self.qualifiers.items()
     }
 }
 

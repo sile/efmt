@@ -1,7 +1,4 @@
 //! Erlang expressions.
-use self::bitstrings::BitstringExpr;
-use self::blocks::BlockExpr;
-use self::functions::FunctionExpr;
 use crate::format::Format;
 use crate::items::components::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
@@ -25,9 +22,11 @@ mod records;
 mod strings;
 mod tuples;
 
-pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr};
+pub use self::bitstrings::{BitstringComprehensionExpr, BitstringConstructExpr, BitstringExpr};
+pub use self::blocks::BlockExpr;
 pub use self::blocks::{BeginExpr, CaseExpr, CatchExpr, IfExpr, ReceiveExpr, TryExpr};
 pub use self::calls::{BinaryOpCallExpr, FunctionCallExpr, UnaryOpCallExpr};
+pub use self::functions::FunctionExpr;
 pub use self::functions::{AnonymousFunctionExpr, DefinedFunctionExpr, NamedFunctionExpr};
 pub use self::lists::{
     ImproperListConstructExpr, ListComprehensionExpr, ListConstructExpr, ListExpr,
@@ -64,6 +63,12 @@ impl BaseExpr {
             Self::Literal(LiteralExpr::Atom(token)) => Some(token),
             _ => None,
         }
+    }
+}
+
+impl From<BaseExpr> for Expr {
+    fn from(expr: BaseExpr) -> Self {
+        Expr(FullExpr::Base(expr))
     }
 }
 

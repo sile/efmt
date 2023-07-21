@@ -1,5 +1,5 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::MapLike;
+use crate::items::components::{Either, MapLike};
 use crate::items::symbols::{
     CloseBraceSymbol, DoubleRightArrowSymbol, OpenBraceSymbol, SharpSymbol,
 };
@@ -15,6 +15,18 @@ pub enum MapExpr {
     Comprehension(MapComprehensionExpr),
 }
 
+impl MapExpr {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        match self {
+            Self::Construct(x) => Either::A(
+                x.0.items()
+                    .flat_map(|(k, v)| std::iter::once(k).chain(std::iter::once(v))),
+            ),
+            Self::Comprehension(x) => Either::B(x.0.children()),
+        }
+    }
+}
+
 /// `#` `{` (`$ENTRY`, `,`?)* `}`
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
@@ -28,6 +40,14 @@ pub struct MapConstructExpr(MapLike<SharpSymbol, Expr>);
 pub struct MapComprehensionExpr(
     ComprehensionExpr<(SharpSymbol, OpenBraceSymbol), CloseBraceSymbol, MapComprehensionValue>,
 );
+
+impl<Open, Close> ComprehensionExpr<Open, Close, MapComprehensionValue> {
+    pub(crate) fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.value().key)
+            .chain(std::iter::once(&self.value().value))
+            .chain(self.qualifiers().iter().flat_map(|x| x.children()))
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse)]
 struct MapComprehensionValue {
@@ -52,6 +72,16 @@ impl Format for MapComprehensionValue {
 /// - $ENTRY: `Expr` (`:=` | `=>`) `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapUpdateExpr(MapLike<(Expr, SharpSymbol), Expr>);
+
+impl MapUpdateExpr {
+    pub fn children(&self) -> impl Iterator<Item = &Expr> {
+        std::iter::once(&self.0.prefix().0).chain(
+            self.0
+                .items()
+                .flat_map(|(k, v)| std::iter::once(k).chain(std::iter::once(v))),
+        )
+    }
+}
 
 impl ResumeParse<Expr> for MapUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
