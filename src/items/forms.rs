@@ -60,6 +60,16 @@ impl Format for Form {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordDecl(AttrLike<RecordAtom, RecordDeclValue>);
 
+impl RecordDecl {
+    pub fn record_name(&self) -> &AtomToken {
+        &self.0.value().name
+    }
+
+    pub fn fields(&self) -> &[RecordField] {
+        self.0.value().fields.get()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct RecordDeclValue {
     name: AtomToken,
@@ -80,10 +90,24 @@ impl Format for RecordDeclValue {
 }
 
 #[derive(Debug, Clone, Span, Parse, Element)]
-struct RecordField {
+pub struct RecordField {
     name: AtomToken,
     default: Maybe<(MatchSymbol, Expr)>,
     r#type: Maybe<(DoubleColonSymbol, Type)>,
+}
+
+impl RecordField {
+    pub fn field_name(&self) -> &AtomToken {
+        &self.name
+    }
+
+    pub fn default_value(&self) -> Option<&Expr> {
+        self.default.get().map(|(_, x)| x)
+    }
+
+    pub fn field_type(&self) -> Option<&Type> {
+        self.r#type.get().map(|(_, x)| x)
+    }
 }
 
 impl Format for RecordField {
@@ -367,6 +391,16 @@ impl Parse for ModuleAttr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ExportAttr(AttrLike<Either<ExportAtom, ExportTypeAtom>, ExportItems>);
 
+impl ExportAttr {
+    pub fn is_function(&self) -> bool {
+        matches!(self.0.name(), Either::A(_))
+    }
+
+    pub fn exports(&self) -> &[ExportItem] {
+        self.0.value().items.items()
+    }
+}
+
 #[derive(Debug, Clone, Span, Parse)]
 struct ExportItems {
     open: OpenSquareSymbol,
@@ -409,10 +443,20 @@ impl Format for ExportItems {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct ExportItem {
+pub struct ExportItem {
     name: AtomToken,
     slash: SlashSymbol,
     arity: IntegerToken,
+}
+
+impl ExportItem {
+    pub fn name(&self) -> &AtomToken {
+        &self.name
+    }
+
+    pub fn arity(&self) -> &IntegerToken {
+        &self.arity
+    }
 }
 
 /// `-` `$NAME` `$ARGS`? `.`
@@ -435,6 +479,10 @@ struct AttrLike<Name, Value, Empty = Never> {
 }
 
 impl<Name, Value> AttrLike<Name, Value> {
+    fn name(&self) -> &Name {
+        &self.name
+    }
+
     fn value(&self) -> &Value {
         match &self.value {
             Either::A(x) => x.get(),
@@ -490,6 +538,10 @@ pub struct DefineDirective {
 impl DefineDirective {
     pub fn macro_name(&self) -> &str {
         self.macro_name.value()
+    }
+
+    pub fn macro_name_token(&self) -> &MacroName {
+        &self.macro_name
     }
 
     pub fn variables(&self) -> Option<&[VariableToken]> {

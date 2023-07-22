@@ -54,8 +54,16 @@ impl Format for Macro {
 }
 
 impl Macro {
+    pub fn macro_name(&self) -> &MacroName {
+        &self.name
+    }
+
     pub fn arity(&self) -> Option<usize> {
         self.args.get().map(|x| x.get().len())
+    }
+
+    pub fn args(&self) -> impl Iterator<Item = &MacroArg> {
+        self.args.get().into_iter().flat_map(|x| x.get().iter())
     }
 
     pub fn expand(
@@ -101,7 +109,7 @@ impl Macro {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub(crate) struct MacroName(Either<AtomToken, VariableToken>);
+pub struct MacroName(Either<AtomToken, VariableToken>);
 
 impl MacroName {
     pub fn value(&self) -> &str {
@@ -171,13 +179,17 @@ impl Format for MacroReplacement {
 }
 
 #[derive(Debug, Clone)]
-struct MacroArg {
+pub struct MacroArg {
     tokens: Vec<LexicalToken>,
 }
 
 impl MacroArg {
     pub fn tokens(&self) -> &[LexicalToken] {
         &self.tokens
+    }
+
+    pub fn parse_expr(&self, ts: &mut TokenStream) -> Option<Expr> {
+        ts.parse_tokens::<Expr>(self.tokens.clone()).ok()
     }
 }
 

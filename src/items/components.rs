@@ -544,6 +544,12 @@ pub struct RecordFieldsLike<T> {
     close: CloseBraceSymbol,
 }
 
+impl<T> RecordFieldsLike<T> {
+    pub(crate) fn get(&self) -> &[T] {
+        self.fields.items()
+    }
+}
+
 impl<T: Format> Format for RecordFieldsLike<T> {
     fn format(&self, fmt: &mut Formatter) {
         let multiline = self.contains_newline();
