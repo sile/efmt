@@ -224,6 +224,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "efmt_core"
+version = "0.1.0"
+dependencies = [
+ "efmt_derive",
+ "erl_tokenize",
+ "indoc",
+ "log",
+ "similar-asserts",
+ "thiserror",
+]
+
+[[package]]
 name = "efmt_derive"
 version = "0.1.0"
 dependencies = [
