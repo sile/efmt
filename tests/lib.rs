@@ -1,4 +1,4 @@
-use efmt::items::ModuleOrConfig;
+use efmt_core::items::ModuleOrConfig;
 
 #[test]
 fn format_works() -> anyhow::Result<()> {

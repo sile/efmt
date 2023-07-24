@@ -1,14 +1,9 @@
-use crate::format::{Format, Formatter};
-use crate::parse::{Parse, TokenStream};
+use efmt_core::format::{Format, Formatter};
+use efmt_core::parse::{Parse, TokenStream};
 use std::path::Path;
 
 pub mod diff;
-pub mod error;
 pub mod files;
-pub mod format;
-pub mod items;
-pub mod parse;
-pub mod span;
 
 /// Formats an Erlang file with the default options.
 pub fn format_file<T: Parse + Format, P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
@@ -63,23 +58,4 @@ impl Options {
         let formatted_text = formatter.finish();
         Ok(formatted_text)
     }
-}
-
-#[cfg(test)]
-#[macro_export]
-macro_rules! assert_format {
-    ($text:expr, $item_type:ty) => {{
-        let formatted = crate::Options::new()
-            .format_text::<$item_type>(&$text)
-            .unwrap();
-        let expected = $text;
-        similar_asserts::assert_eq!(formatted, expected);
-    }};
-
-    ($text:expr, $expected:expr, $item_type:ty) => {{
-        let formatted = crate::Options::new()
-            .format_text::<$item_type>(&$text)
-            .unwrap();
-        similar_asserts::assert_eq!(formatted, $expected);
-    }};
 }

@@ -1,5 +1,5 @@
-use crate::items::{Config, Expr};
-use crate::parse::TokenStream;
+use efmt_core::items::{Config, Expr};
+use efmt_core::parse::TokenStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

@@ -4,8 +4,7 @@ pub mod items;
 pub mod parse;
 pub mod span;
 
-#[cfg(test)]
-fn format_text<T: crate::parse::Parse + crate::format::Format>(
+pub fn format_text<T: crate::parse::Parse + crate::format::Format>(
     text: &str,
 ) -> crate::parse::Result<String> {
     let tokenizer = erl_tokenize::Tokenizer::new(text.to_owned());

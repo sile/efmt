@@ -1,7 +1,7 @@
 use anyhow::Context;
 use clap::{CommandFactory as _, Parser};
 use efmt::files::RebarConfigValue;
-use efmt::items::ModuleOrConfig;
+use efmt_core::items::ModuleOrConfig;
 use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
@@ -387,7 +387,7 @@ fn validate_formatted_text<P: AsRef<Path>>(
         if let Some(p) = next_position {
             anyhow::bail!(
                 "{}",
-                efmt::error::generate_error_message(text, Some(path), p.into(), "extra token")
+                efmt_core::error::generate_error_message(text, Some(path), p.into(), "extra token")
             );
         }
         Ok(())
@@ -411,7 +411,7 @@ fn validate_formatted_text<P: AsRef<Path>>(
                 let reason_end = reason.find(" (").unwrap_or(reason.len());
                 anyhow::bail!(
                     "{}",
-                    efmt::error::generate_error_message(
+                    efmt_core::error::generate_error_message(
                         formatted,
                         Some("<formatted>"),
                         e.position().clone().into(),
@@ -426,13 +426,13 @@ fn validate_formatted_text<P: AsRef<Path>>(
         anyhow::ensure!(
             text(&t0) == text(&t1),
             "{}\n{}",
-            efmt::error::generate_error_message(
+            efmt_core::error::generate_error_message(
                 original,
                 Some(path),
                 t0.start_position().into(),
                 "expected"
             ),
-            efmt::error::generate_error_message(
+            efmt_core::error::generate_error_message(
                 formatted,
                 Some("<formatted>"),
                 t1.start_position().into(),

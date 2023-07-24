@@ -14,17 +14,15 @@ exclude = ["/rebar3_efmt/"]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 erl_tokenize = "0.5"
-efmt_derive = { path = "efmt_derive", version = "0.1.0" }
+efmt_core = { path = "efmt_core", version = "0.1.0" }
 env_logger = "0.10"
 log = "0.4"
 rayon = "1"
 similar = { version= "2", features = ["inline"] }
 tempfile = "3"
-thiserror = "1"
 regex = "1.6.0"
 
 [dev-dependencies]
-indoc = "2"
 similar-asserts = "1"
 
 [workspace]

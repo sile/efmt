@@ -10,4 +10,4 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-efmt = { path = "../" }
+efmt_core = { path = "../efmt_core/" }

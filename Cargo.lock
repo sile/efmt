@@ -210,17 +210,15 @@ version = "0.14.1"
 dependencies = [
  "anyhow",
  "clap",
- "efmt_derive",
+ "efmt_core",
  "env_logger",
  "erl_tokenize",
- "indoc",
  "log",
  "rayon",
  "regex",
  "similar",
  "similar-asserts",
  "tempfile",
- "thiserror",
 ]
 
 [[package]]
@@ -248,7 +246,7 @@ dependencies = [
 name = "efmt_wasm"
 version = "0.1.0"
 dependencies = [
- "efmt",
+ "efmt_core",
 ]
 
 [[package]]
