@@ -43,6 +43,13 @@ impl FunctionExpr {
         }
     }
 
+    pub fn arity(&self) -> Option<&BaseExpr> {
+        let Self::Defined(x) = self else {
+            return None;
+        };
+        Some(&x.arity)
+    }
+
     pub fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
         match self {
             FunctionExpr::Defined(x) => Box::new(

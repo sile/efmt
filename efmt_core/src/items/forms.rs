@@ -355,6 +355,10 @@ impl<'a> FunctionClauseRef<'a> {
         self.name
     }
 
+    pub fn params(&self) -> &'a [Expr] {
+        self.params
+    }
+
     pub fn children(&self) -> impl Iterator<Item = &'a Expr> {
         self.params
             .iter()
@@ -593,6 +597,16 @@ pub struct IncludeDirective {
     file: StringToken,
     close: CloseParenSymbol,
     dot: DotSymbol,
+}
+
+impl IncludeDirective {
+    pub fn is_include_lib(&self) -> bool {
+        matches!(self.include, Either::B(_))
+    }
+
+    pub fn include_path(&self) -> &str {
+        self.file.value()
+    }
 }
 
 #[cfg(test)]

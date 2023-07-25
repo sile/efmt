@@ -64,6 +64,13 @@ impl BaseExpr {
             _ => None,
         }
     }
+
+    pub fn as_integer_token(&self) -> Option<&IntegerToken> {
+        match self {
+            Self::Literal(LiteralExpr::Integer(token)) => Some(token),
+            _ => None,
+        }
+    }
 }
 
 impl From<BaseExpr> for Expr {
