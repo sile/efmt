@@ -593,8 +593,7 @@ impl CatchPattern {
             .chain(
                 self.stacktrace
                     .get()
-                    .map(|x| Cow::Owned(Expr::from_variable(x.1.clone())))
-                    .into_iter(),
+                    .map(|x| Cow::Owned(Expr::from_variable(x.1.clone()))),
             )
     }
 }
