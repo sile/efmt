@@ -128,6 +128,12 @@ impl<A: Parse, B: Parse> Parse for (A, B) {
     }
 }
 
+impl<A: Parse, B: Parse, C: Parse> Parse for (A, B, C) {
+    fn parse(ts: &mut TokenStream) -> Result<Self> {
+        Ok((ts.parse()?, ts.parse()?, ts.parse()?))
+    }
+}
+
 /// This trait allows resuming to parse an item from a token stream.
 pub trait ResumeParse<A>: Parse {
     /// Resume to parse an item from the given token stream.

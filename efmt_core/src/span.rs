@@ -69,6 +69,16 @@ impl<A: Span, B: Span> Span for (A, B) {
     }
 }
 
+impl<A: Span, B: Span, C: Span> Span for (A, B, C) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.2.end_position()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position {
     offset: usize,

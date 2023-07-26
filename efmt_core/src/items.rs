@@ -1,3 +1,5 @@
+use self::expressions::BinaryOpCallExpr;
+use self::tokens::VariableToken;
 use crate::format::{Format, Formatter};
 use crate::items::components::Element;
 use crate::items::expressions::{BaseExpr, FullExpr, ListExpr, LiteralExpr};
@@ -21,11 +23,10 @@ pub(crate) mod variables;
 mod module;
 
 pub use self::config::Config;
-use self::expressions::BinaryOpCallExpr;
 pub use self::macros::Macro;
 pub use self::module::Module;
-use self::tokens::VariableToken;
 pub use crate::items::components::Either;
+pub use crate::items::components::Maybe;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct ModuleOrConfig<const ALLOW_PARTIAL_FAILURE: bool = false>(
