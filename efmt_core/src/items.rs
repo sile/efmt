@@ -7,6 +7,7 @@ use crate::span::Span;
 
 pub mod expressions;
 pub mod forms;
+pub mod symbols;
 pub mod tokens;
 pub mod types;
 
@@ -15,7 +16,6 @@ pub(crate) mod components;
 pub(crate) mod config;
 pub(crate) mod keywords;
 pub(crate) mod macros;
-pub(crate) mod symbols;
 pub(crate) mod variables;
 
 mod module;
