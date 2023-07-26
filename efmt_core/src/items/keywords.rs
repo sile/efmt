@@ -6,6 +6,13 @@ use erl_tokenize::values::Keyword;
 
 macro_rules! impl_traits {
     ($name:ident,$value:ident) => {
+        impl $name {
+            #[allow(dead_code)]
+            pub fn value(&self) -> Keyword {
+                self.0.value()
+            }
+        }
+
         impl Parse for $name {
             fn parse(ts: &mut TokenStream) -> parse::Result<Self> {
                 let token: KeywordToken = ts.parse()?;

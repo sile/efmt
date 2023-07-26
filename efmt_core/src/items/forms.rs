@@ -471,6 +471,20 @@ impl ExportItem {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct Attr(AttrLike<AttrName, AttrValue, Null>);
 
+impl Attr {
+    pub fn name(&self) -> &str {
+        match self.0.name() {
+            Either::A(x) => x.value(),
+            Either::B(Either::A(x)) => x.value().as_str(),
+            Either::B(Either::B(x)) => x.value().as_str(),
+        }
+    }
+
+    pub fn values(&self) -> &[Expr] {
+        self.0.value().items()
+    }
+}
+
 type AttrName = Either<AtomToken, Either<IfKeyword, ElseKeyword>>;
 type AttrValue = NonEmptyItems<Expr>;
 
@@ -482,7 +496,7 @@ struct AttrLike<Name, Value, Empty = Never> {
     dot: DotSymbol,
 }
 
-impl<Name, Value> AttrLike<Name, Value> {
+impl<Name, Value, Empty> AttrLike<Name, Value, Empty> {
     fn name(&self) -> &Name {
         &self.name
     }
@@ -604,8 +618,8 @@ impl IncludeDirective {
         matches!(self.include, Either::B(_))
     }
 
-    pub fn include_path(&self) -> &str {
-        self.file.value()
+    pub fn include_path(&self) -> &StringToken {
+        &self.file
     }
 }
 
