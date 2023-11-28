@@ -270,7 +270,7 @@ pub struct ListType(ListLike<ListItem>);
 
 impl ListType {
     pub fn item_type(&self) -> Option<&Type> {
-        self.0.items().get(0).and_then(|item| match &item.0 {
+        self.0.items().first().and_then(|item| match &item.0 {
             Either::A(x) => Some(x),
             Either::B(_) => None,
         })
