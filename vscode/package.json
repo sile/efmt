@@ -45,7 +45,6 @@
     ]
   },
   "scripts": {
-    "test": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",
     "pretest": "npm run compile-web",
     "vscode:prepublish": "npm run package-web",
     "compile-web": "webpack",
@@ -62,7 +61,6 @@
     "@typescript-eslint/parser": "^5.56.0",
     "mocha": "^10.2.0",
     "typescript": "^4.9.5",
-    "@vscode/test-web": "^0.0.36",
     "ts-loader": "^9.4.2",
     "webpack": "^5.76.3",
     "webpack-cli": "^5.0.1",
