@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.15.0]
+
+### Added
+
+- Add support for triple-quoted strings (EEP-0064) that will be introduced in OTP-27
+- Add support for sigil string literals (EEP-0066) that will be introduced in OTP-27
+
 ## [0.14.2]
 
 ### Fixed
