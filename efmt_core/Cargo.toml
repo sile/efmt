@@ -10,7 +10,7 @@ repository = "https://github.com/sile/efmt"
 readme = "README.md"
 
 [dependencies]
-erl_tokenize = "0.5"
+erl_tokenize = "0.6"
 efmt_derive = { path = "../efmt_derive", version = "0.1.0" }
 log = "0.4"
 thiserror = "1"
