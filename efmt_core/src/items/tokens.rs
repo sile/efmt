@@ -13,6 +13,7 @@ pub enum LexicalToken {
     Float(FloatToken),
     Integer(IntegerToken),
     Keyword(KeywordToken),
+    SigilString(SigilStringToken),
     String(StringToken),
     Symbol(SymbolToken),
     Variable(VariableToken),
@@ -26,6 +27,7 @@ impl LexicalToken {
             Self::Float(x) => (&mut x.start, &mut x.end),
             Self::Integer(x) => (&mut x.start, &mut x.end),
             Self::Keyword(x) => (&mut x.start, &mut x.end),
+            Self::SigilString(x) => (&mut x.start, &mut x.end),
             Self::String(x) => (&mut x.start, &mut x.end),
             Self::Symbol(x) => (&mut x.start, &mut x.end),
             Self::Variable(x) => (&mut x.start, &mut x.end),
@@ -187,6 +189,26 @@ impl KeywordToken {
 }
 
 impl_traits!(KeywordToken, Keyword);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SigilStringToken {
+    start: Position,
+    end: Position,
+}
+
+impl SigilStringToken {
+    pub fn new(start: Position, end: Position) -> Self {
+        Self { start, end }
+    }
+}
+
+impl_traits!(SigilStringToken, SigilString);
+
+impl Element for SigilStringToken {
+    fn is_packable(&self) -> bool {
+        true
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StringToken {

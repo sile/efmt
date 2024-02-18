@@ -4,7 +4,7 @@ use crate::items::macros::{Macro, MacroName};
 use crate::items::symbols::{OpenParenSymbol, QuestionSymbol};
 use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, LexicalToken,
-    StringToken, SymbolToken, VariableToken,
+    SigilStringToken, StringToken, SymbolToken, VariableToken,
 };
 use crate::parse::{Error, Parse, Result, ResumeParse};
 use crate::span::{Position, Span};
@@ -246,6 +246,9 @@ impl TokenStream {
                 }
                 erl_tokenize::Token::Keyword(x) => {
                     KeywordToken::new(x.value(), start_position, end_position).into()
+                }
+                erl_tokenize::Token::SigilString(_) => {
+                    SigilStringToken::new(start_position, end_position).into()
                 }
                 erl_tokenize::Token::String(x) => {
                     StringToken::new(x.value(), start_position, end_position).into()

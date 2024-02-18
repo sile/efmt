@@ -3,7 +3,8 @@ use crate::format::Format;
 use crate::items::components::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
-    AtomToken, CharToken, FloatToken, IntegerToken, LexicalToken, SymbolToken, VariableToken,
+    AtomToken, CharToken, FloatToken, IntegerToken, LexicalToken, SigilStringToken, SymbolToken,
+    VariableToken,
 };
 use crate::items::Expr;
 use crate::parse::{self, Parse};
@@ -190,13 +191,14 @@ impl Element for FullExpr {
     }
 }
 
-/// [AtomToken] | [CharToken] | [FloatToken] | [IntegerToken] | [VariableToken] | [StringExpr]
+/// [AtomToken] | [CharToken] | [FloatToken] | [IntegerToken] | [VariableToken] | [StringExpr] | [SigilStringToken]
 #[derive(Debug, Clone, Span, Parse, Format, Element)]
 pub enum LiteralExpr {
     Atom(AtomToken),
     Char(CharToken),
     Float(FloatToken),
     Integer(IntegerToken),
+    SigilString(SigilStringToken),
     String(StringExpr),
     Variable(VariableToken),
 }
