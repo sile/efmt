@@ -316,7 +316,7 @@ impl Formatter {
         match comment.text(&self.ts.text()).parse() {
             Err(()) => {}
             Ok(Directive::FormatOn) => {
-                log::warn!("Found a `@efmt:on` comment at line {} without a preceeding `@efmt:off` (just ignored).",
+                log::warn!("Found a `@efmt:on` comment at line {} without a preceding `@efmt:off` (just ignored).",
                            comment.start_position().line());
             }
             Ok(Directive::FormatOff) => {

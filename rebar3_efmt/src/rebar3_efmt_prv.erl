@@ -66,7 +66,7 @@ opts() ->
       "Format target files. "
       "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
       "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
-      "(note that files spcified by `.gitignore` will be ignored)"},
+      "(note that files specified by `.gitignore` will be ignored)"},
      {disable_update_check, undefined, "disable-update-check", undefined,
       "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"},
      {allow_partial_failure, undefined, "allow-partial-failure", undefined,

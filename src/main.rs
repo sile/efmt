@@ -42,7 +42,7 @@ struct Opt {
     /// `-` means the standard input.
     /// If no files are specified and any of `-c`, `-w` or `--show-files` options is specified,
     /// All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default
-    /// (note that files spcified by `.gitignore` will be ignored).
+    /// (note that files specified by `.gitignore` will be ignored).
     files: Vec<PathBuf>,
 
     /// Executes formatting in parallel.
