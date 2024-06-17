@@ -414,7 +414,8 @@ impl TokenStream {
             self.macro_defines
                 .get_mut(key)
                 .expect("unreachable")
-                .replacement = replacement.clone();
+                .replacement
+                .clone_from(&replacement);
         }
 
         let unread_tokens = self.tokens.split_off(self.current_token_index);
