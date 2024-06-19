@@ -2,11 +2,10 @@
 
 -include_lib("kernel/include/file.hrl").
 
--export([
-         version/0,
+-export([version/0,
          install_prebuilt_binary/1,
-         execute/1
-        ]).
+         execute/1]).
+
 
 -spec version() -> {ok, string()} | {error, term()}.
 version() ->
@@ -23,6 +22,7 @@ version() ->
             end
     end.
 
+
 -spec collect_port_output(port(), iodata()) -> {ok, string()} | {error, term()}.
 collect_port_output(Port, Acc) ->
     receive
@@ -37,11 +37,13 @@ collect_port_output(Port, Acc) ->
             {error, timeout}
     end.
 
+
 -spec execute([string()]) -> ok.
 execute(Args) ->
     {ok, Path} = command_path(),
     Port = erlang:open_port({spawn_executable, Path}, [{args, Args}, exit_status]),
     execute_output(Port).
+
 
 -spec execute_output(port()) -> ok.
 execute_output(Port) ->
@@ -59,6 +61,7 @@ execute_output(Port) ->
         60000 ->
             rebar_api:abort("Timeout", [])
     end.
+
 
 -spec install_prebuilt_binary(string()) -> ok | {error, term()}.
 install_prebuilt_binary(Version) ->
@@ -91,6 +94,7 @@ install_prebuilt_binary(Version) ->
             end
     end.
 
+
 -spec command_path() -> {ok, string()} | error.
 command_path() ->
     case os:find_executable("efmt", code:priv_dir(rebar3_efmt)) of
@@ -107,13 +111,14 @@ command_path() ->
             {ok, Path}
     end.
 
+
 -spec get_prebuilt_binary_arch() -> {ok, string()} | error.
 get_prebuilt_binary_arch() ->
     Arch = rebar_api:get_arch(),
     Candidates = [{"x86_64-unknown-linux-musl", ".*x86_64.*linux.*"},
                   {"x86_64-apple-darwin", ".*x86_64.*apple-darwin.*"},
                   {"aarch64-apple-darwin", ".*aarch64.*apple-darwin.*"}],
-    case [K || {K, V} <- Candidates, re:run(Arch, V) =/= nomatch] of
+    case [ K || {K, V} <- Candidates, re:run(Arch, V) =/= nomatch ] of
         [] ->
             error;
         [K] ->
