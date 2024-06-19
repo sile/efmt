@@ -5,23 +5,22 @@
 -export([init/1, do/1, format_error/1]).
 
 -define(PROVIDER, efmt).
--define(DEPS, [app_discovery]).
+-define(DEPS,     [app_discovery]).
+
 
 %% ===================================================================
 %% Public API
 %% ===================================================================
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
-    Provider = providers:create([
-            {name, ?PROVIDER},            % The 'user friendly' name of the task
-            {module, ?MODULE},            % The module implementation of the task
-            {bare, true},                 % The task can be run by the user, always true
-            {deps, ?DEPS},                % The list of dependencies
-            {example, "rebar3 efmt --write"}, % How to use the plugin
-            {opts, opts()},                   % list of options understood by the plugin
-            {short_desc, "Erlang code formatter"},
-            {desc, "Erlang code formatter"}
-    ]),
+    Provider = providers:create([{name, ?PROVIDER},  % The 'user friendly' name of the task
+                                 {module, ?MODULE},  % The module implementation of the task
+                                 {bare, true},  % The task can be run by the user, always true
+                                 {deps, ?DEPS},  % The list of dependencies
+                                 {example, "rebar3 efmt --write"},  % How to use the plugin
+                                 {opts, opts()},  % list of options understood by the plugin
+                                 {short_desc, "Erlang code formatter"},
+                                 {desc, "Erlang code formatter"}]),
     {ok, rebar_state:add_provider(State, Provider)}.
 
 
@@ -38,41 +37,50 @@ do(State) ->
     ok = rebar3_efmt_command:execute(Args -- ["--disable-update-check"]),
     {ok, State}.
 
--spec format_error(any()) ->  iolist().
+
+-spec format_error(any()) -> iolist().
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
+
 
 %% ===================================================================
 %% Private API
 %% ===================================================================
 -spec opts() -> [{atom(), char(), atom(), string()}].
 opts() ->
-    [
-     {help, $h, "help", undefined, "Prints help information"},
+    [{help, $h, "help", undefined, "Prints help information"},
      {version, $V, "version", undefined, "Prints version information"},
-     {check, $c, "check", undefined,
-      "Checks if input is formatted correctly. "
-      "If so, exits with 0. Otherwise, exits with 1 and shows a diff."},
+     {check, $c,
+             "check",
+             undefined,
+             "Checks if input is formatted correctly. "
+             "If so, exits with 0. Otherwise, exits with 1 and shows a diff."},
      {write, $w, "write", undefined, "Overwrites input file with the formatted text"},
      {show_files, undefined, "show-files", undefined, "Shows the target input files"},
      {exclude_files, undefined, "exclude-file", string,
-      "Excludes files that matches the specified regexs from the default target file list."},
+                     "Excludes files that matches the specified regexs from the default target file list."},
      {verbose, undefined, "verbose", undefined, "Outputs debug log messages"},
      {parallel, undefined, "parallel", undefined, "Executes formatting in parallel"},
-     {default_off, undefined, "default-off", string,
-      "Disables formatting by default. "
-      "efmt behaves as if there is a \"% @efmt:off\" comment at the head of the each target file."},
-     {files, undefined, undefined, string,
-      "Format target files. "
-      "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
-      "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
-      "(note that files specified by `.gitignore` will be ignored)"},
+     {default_off, undefined,
+                   "default-off",
+                   string,
+                   "Disables formatting by default. "
+                   "efmt behaves as if there is a \"% @efmt:off\" comment at the head of the each target file."},
+     {files, undefined,
+             undefined,
+             string,
+             "Format target files. "
+             "If no files are specified and any of `-c`, `-w` or `--show-files` options is specified, "
+             "All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default "
+             "(note that files specified by `.gitignore` will be ignored)"},
      {disable_update_check, undefined, "disable-update-check", undefined,
-      "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"},
-     {allow_partial_failure, undefined, "allow-partial-failure", undefined,
-      "Don't raise an error even if the input contains wrong Erlang code."
-      "`efmt` tries to continue formatting the remaining part of the code as much as possible"}
-    ].
+                            "Stops issuing an HTTP GET request each command execution to check if a newer version has been released"},
+     {allow_partial_failure, undefined,
+                             "allow-partial-failure",
+                             undefined,
+                             "Don't raise an error even if the input contains wrong Erlang code."
+                             "`efmt` tries to continue formatting the remaining part of the code as much as possible"}].
+
 
 -spec ensure_efmt_installed() -> ok.
 ensure_efmt_installed() ->
@@ -86,7 +94,8 @@ ensure_efmt_installed() ->
                 {error, Reason} ->
                     rebar_api:abort("Failed to install a pre-built binary (~p). "
                                     "Please visit https://github.com/sile/efmt, "
-                                    "and install it manually.", [Reason])
+                                    "and install it manually.",
+                                    [Reason])
             end;
         {error, timeout} ->
             rebar_api:abort("Failed to execute `efmt` command due to timeout.", []);
@@ -104,10 +113,12 @@ ensure_efmt_installed() ->
                                    "Keeps using the current binary. "
                                    "If you'd like to update it, "
                                    "please visit https://github.com/sile/efmt, "
-                                   "and install it manually.", [Reason]),
+                                   "and install it manually.",
+                                   [Reason]),
                     ok
             end
     end.
+
 
 -spec update_check() -> ok.
 update_check() ->
@@ -138,6 +149,7 @@ update_check() ->
             rebar_api:warn("Expected HTTP 302 response from ~p, but got ~p", [Url, Status]),
             ok
     end.
+
 
 -spec is_update_check_enabled(rebar_state:t()) -> boolean().
 is_update_check_enabled(State) ->
