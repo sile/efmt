@@ -62,6 +62,10 @@ struct Opt {
     /// `efmt` tries to continue formatting the remaining part of the code as much as possible.
     #[clap(long)]
     allow_partial_failure: bool,
+
+    /// Show colored diff. Only applies when `--check` is given.
+    #[clap(long)]
+    color: bool,
 }
 
 impl Opt {
@@ -314,7 +318,12 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
-    fn do_check(format_options: &efmt::Options, file: &Path, allow_partial_failure: bool) -> bool {
+    fn do_check(
+        format_options: &efmt::Options,
+        file: &Path,
+        allow_partial_failure: bool,
+        color: bool,
+    ) -> bool {
         match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
@@ -325,8 +334,11 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     log::info!("{file:?} is already formatted correctly.");
                     true
                 } else {
-                    let diff = efmt::diff::text_diff(&original, &formatted, file);
-                    println!("{diff}");
+                    if color {
+                        efmt::diff::text_color_diff(&original, &formatted, file);
+                    } else {
+                        efmt::diff::text_diff(&original, &formatted, file);
+                    }
                     log::info!("{file:?} is not formatted correctly.");
                     false
                 }
@@ -338,12 +350,12 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         opt.files
             .clone()
             .into_par_iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure))
+            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
             .collect::<Vec<_>>()
     } else {
         opt.files
             .iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure))
+            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
             .cloned()
             .collect::<Vec<_>>()
     };
