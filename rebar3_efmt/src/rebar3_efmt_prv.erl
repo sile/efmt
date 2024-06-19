@@ -79,7 +79,8 @@ opts() ->
                              "allow-partial-failure",
                              undefined,
                              "Don't raise an error even if the input contains wrong Erlang code."
-                             "`efmt` tries to continue formatting the remaining part of the code as much as possible"}].
+                             "`efmt` tries to continue formatting the remaining part of the code as much as possible"},
+     {color, undefined, "color", undefined, "Show colored diff. Only applies when `--check` is given."}].
 
 
 -spec ensure_efmt_installed() -> ok.
