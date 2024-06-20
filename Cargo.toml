@@ -21,6 +21,7 @@ rayon = "1"
 similar = { version= "2", features = ["inline"] }
 tempfile = "3"
 regex = "1.6.0"
+colored = "2.1.0"
 
 [dev-dependencies]
 similar-asserts = "1"
