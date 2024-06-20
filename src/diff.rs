@@ -11,11 +11,12 @@ pub fn text_color_diff<P: AsRef<Path>>(original: &str, formatted: &str, file: P)
     for hunk in diff.unified_diff().iter_hunks() {
         println!("{}", hunk.header().to_string().cyan());
         for change in hunk.iter_changes() {
-            match change.tag() {
-                ChangeTag::Equal => print!("{}", format!(" {}", change.to_string())),
-                ChangeTag::Delete => print!("{}", format!("-{}", change.to_string()).red()),
-                ChangeTag::Insert => print!("{}", format!("+{}", change.to_string()).green()),
-            }
+            let line: &dyn std::fmt::Display = match change.tag() {
+                ChangeTag::Equal => &format!(" {}", change),
+                ChangeTag::Delete => &format!("-{}", change).red(),
+                ChangeTag::Insert => &format!("+{}", change).green(),
+            };
+            print!("{line}");
         }
     }
     println!();
@@ -28,6 +29,5 @@ pub fn text_diff<P: AsRef<Path>>(original: &str, formatted: &str, file: P) {
         "{}",
         diff.unified_diff()
             .header(&format!("a/{file}"), &format!("b/{file}"))
-            .to_string()
     );
 }
