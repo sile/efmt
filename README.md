@@ -173,6 +173,7 @@ Editor Integrations
 
 - Emacs: [emacs-format-all-the-code](https://github.com/lassik/emacs-format-all-the-code)
 - VSCode: [extension](https://marketplace.visualstudio.com/items?itemName=sile.efmt)
+- Sublime Text: [Formatter](https://packagecontrol.io/packages/Formatter)
 
 Differences with other Erlang formatters
 -----------------------------------------
