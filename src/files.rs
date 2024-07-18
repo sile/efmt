@@ -80,8 +80,8 @@ pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
         let entry = result?;
         if entry.file_type().map_or(false, |t| t.is_file()) {
             let path = entry.path();
-            if is_format_target(&path) {
-                let path = path.strip_prefix("./").unwrap_or(&path).to_path_buf();
+            if is_format_target(path) {
+                let path = path.strip_prefix("./").unwrap_or(path).to_path_buf();
                 files.push(path);
             }
         }
