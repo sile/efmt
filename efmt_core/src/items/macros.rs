@@ -603,4 +603,15 @@ mod tests {
             crate::assert_format!(text, Module);
         }
     }
+
+    #[test]
+    fn assert_match() {
+        let texts = [indoc::indoc! {"
+            foo() ->
+                ?assertMatch(ok when true, Value).
+            "}];
+        for text in texts {
+            crate::assert_format!(text, Module);
+        }
+    }
 }
