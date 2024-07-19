@@ -1,3 +1,4 @@
+use super::components::Guard;
 use crate::format::{Format, Formatter};
 use crate::items::components::{Args, Either, Maybe};
 use crate::items::symbols::{
@@ -270,12 +271,23 @@ impl Parse for MacroArg {
 
 impl Format for MacroArg {
     fn format(&self, fmt: &mut Formatter) {
-        if let Ok(expr) = fmt
+        if let Ok(arg) = fmt
             .token_stream_mut()
-            .parse_tokens::<Expr>(self.tokens.clone())
+            .parse_tokens::<(Expr, Maybe<Guard<Expr>>)>(self.tokens.clone())
         {
-            if expr.end_position() == self.end_position() {
-                expr.format(fmt);
+            if arg.end_position() == self.end_position() {
+                fmt.with_scoped_indent(|fmt| {
+                    arg.0.format(fmt);
+                    if let Some(guard) = arg.1.get() {
+                        if fmt.has_newline_until(guard) {
+                            fmt.set_indent(fmt.indent() + 2);
+                            fmt.write_newline();
+                        } else {
+                            fmt.write_space();
+                        }
+                        guard.format(fmt);
+                    }
+                });
                 return;
             }
         }
@@ -609,7 +621,10 @@ mod tests {
         let texts = [indoc::indoc! {"
             foo() ->
                 ?assertMatch(ok when true, Value),
-                ?assertNotMatch(ok when true, Value),
+                ?assertNotMatch([A, B, C]
+                                  when is_binary(B) andalso
+                                       is_integer(C),
+                                Value),
                 ok.
             "}];
         for text in texts {
