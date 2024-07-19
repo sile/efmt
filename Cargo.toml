@@ -1,6 +1,6 @@
 [package]
 name = "efmt"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ exclude = ["/rebar3_efmt/", "efmt_wasm.wasm", "/vscode/"]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 erl_tokenize = "0.6"
-efmt_core = { path = "efmt_core", version = "0.2.0" }
+efmt_core = { path = "efmt_core", version = "0.3.0" }
 env_logger = "0.11"
 log = "0.4"
 rayon = "1"
