@@ -320,11 +320,16 @@ impl TokenStream {
                     self.macro_defines[&key].replacement.clone(),
                 )
             }
-            (_, _) => self.expand_macro_with_args(macro_name),
+            _ => self.expand_macro_with_args(macro_name, |this, key| {
+                this.macro_defines.get(key).cloned()
+            }),
         }
     }
 
-    fn expand_macro_with_args(&mut self, macro_name: MacroName) -> Result<()> {
+    fn expand_macro_with_args<F>(&mut self, macro_name: MacroName, f: F) -> Result<()>
+    where
+        F: FnOnce(&Self, &MacroDefineKey) -> Option<MacroDefine>,
+    {
         let start_index = self.current_token_index - 2;
         let start_position = self.tokens[start_index].start_position();
         let question = QuestionSymbol::new(start_position);
@@ -336,7 +341,7 @@ impl TokenStream {
         assert!(arity.is_some());
 
         let key = MacroDefineKey::new(macro_name.value().to_owned(), arity);
-        if let Some(define) = self.macro_defines.get(&key).cloned() {
+        if let Some(define) = f(self, &key) {
             let variables = define.variables.as_ref().map(|x| x.to_owned());
 
             let replacement = r#macro.expand(variables, define.replacement);
@@ -371,8 +376,19 @@ impl TokenStream {
         let start_index = self.current_token_index - 2;
         let start_position = self.tokens[start_index].start_position();
 
-        if let Some(replacement) = get_predefined_macro(macro_name.value(), start_position) {
-            self.expand_macro_without_args(macro_name, replacement)
+        if let Some((has_args, replacement)) =
+            get_predefined_macro(macro_name.value(), start_position)
+        {
+            if has_args {
+                self.expand_macro_with_args(macro_name, |_this, _key| {
+                    Some(MacroDefine {
+                        variables: None,
+                        replacement,
+                    })
+                })
+            } else {
+                self.expand_macro_without_args(macro_name, replacement)
+            }
         } else if self.disable_macro_expand {
             log::debug!(
                 "Found an undefined macro {:?} in disabling macro expansions.",
@@ -451,14 +467,16 @@ impl Iterator for TokenStream {
     }
 }
 
-fn get_predefined_macro(name: &str, position: Position) -> Option<Vec<LexicalToken>> {
-    let token: LexicalToken = match name {
-        "MODULE" | "FUNCTION_NAME" => dummy_atom(position).into(),
-        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => dummy_integer(position).into(),
-        "MODULE_STRING" | "FILE" | "MACHINE" => dummy_string(position).into(),
-        _ => return None,
-    };
-    Some(vec![token])
+fn get_predefined_macro(name: &str, position: Position) -> Option<(bool, Vec<LexicalToken>)> {
+    match name {
+        "MODULE" | "FUNCTION_NAME" => Some((false, vec![dummy_atom(position).into()])),
+        "LINE" | "FUNCTION_ARITY" | "OTP_RELEASE" => {
+            Some((false, vec![dummy_integer(position).into()]))
+        }
+        "MODULE_STRING" | "FILE" | "MACHINE" => Some((false, vec![dummy_string(position).into()])),
+        "assertMatch" | "assertNotMatch" => Some((true, vec![dummy_atom(position).into()])),
+        _ => None,
+    }
 }
 
 fn dummy_atom(position: Position) -> AtomToken {
