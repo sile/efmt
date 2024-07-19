@@ -608,7 +608,9 @@ mod tests {
     fn assert_match() {
         let texts = [indoc::indoc! {"
             foo() ->
-                ?assertMatch(ok when true, Value).
+                ?assertMatch(ok when true, Value),
+                ?assertNotMatch(ok when true, Value),
+                ok.
             "}];
         for text in texts {
             crate::assert_format!(text, Module);
