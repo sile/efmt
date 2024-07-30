@@ -7,7 +7,7 @@ pub mod span;
 pub fn format_text<T: crate::parse::Parse + crate::format::Format>(
     text: &str,
 ) -> crate::parse::Result<String> {
-    let tokenizer = erl_tokenize::Tokenizer::new(text.to_owned());
+    let tokenizer = crate::parse::Tokenizer::new(text.to_owned());
     let mut ts = crate::parse::TokenStream::new(tokenizer);
     let item: T = ts.parse()?;
     let mut formatter = crate::format::Formatter::new(ts);

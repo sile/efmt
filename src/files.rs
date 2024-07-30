@@ -1,5 +1,5 @@
 use efmt_core::items::{Config, Expr};
-use efmt_core::parse::TokenStream;
+use efmt_core::parse::{TokenStream, Tokenizer};
 use ignore::Walk;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,7 @@ pub fn find_rebar_config_dir() -> Option<PathBuf> {
 
 pub fn load_rebar_config<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<RebarConfigValue>> {
     let text = std::fs::read_to_string(&path)?;
-    let mut tokenizer = erl_tokenize::Tokenizer::new(text);
+    let mut tokenizer = Tokenizer::new(text);
     tokenizer.set_filepath(path);
     let mut ts = TokenStream::new(tokenizer);
     let config: Config = ts.parse()?;

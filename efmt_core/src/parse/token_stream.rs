@@ -6,17 +6,18 @@ use crate::items::tokens::{
     AtomToken, CharToken, CommentToken, FloatToken, IntegerToken, KeywordToken, LexicalToken,
     SigilStringToken, StringToken, SymbolToken, VariableToken,
 };
+use crate::parse::Tokenizer;
 use crate::parse::{Error, Parse, Result, ResumeParse};
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
-use erl_tokenize::{PositionRange as _, Tokenizer};
+use erl_tokenize::PositionRange as _;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct TokenStream {
-    tokenizer: Tokenizer<String>,
+    tokenizer: Tokenizer,
     tokens: Vec<LexicalToken>,
     current_token_index: usize,
     comments: BTreeMap<Position, CommentToken>,
@@ -33,7 +34,7 @@ pub struct TokenStream {
 }
 
 impl TokenStream {
-    pub fn new(tokenizer: Tokenizer<String>) -> Self {
+    pub fn new(tokenizer: Tokenizer) -> Self {
         let text = Arc::new(tokenizer.text().to_owned());
         let path = tokenizer
             .next_position()
