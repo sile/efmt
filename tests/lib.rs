@@ -7,7 +7,7 @@ fn format_works() -> anyhow::Result<()> {
         let path = entry.path();
         if path
             .extension()
-            .map_or(true, |ext| ext != "erl" && ext != "src")
+            .map_or(true, |ext| ext != "erl" && ext != "src" && ext != "escript")
         {
             continue;
         }
