@@ -15,6 +15,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use super::TokenOrShebang;
+
 #[derive(Debug)]
 pub struct TokenStream {
     tokenizer: Tokenizer,
@@ -219,10 +221,18 @@ impl TokenStream {
             let start_position = Position::from(token.start_position());
             let end_position = Position::from(token.end_position());
             let token: LexicalToken = match token {
-                erl_tokenize::Token::Whitespace(_) => {
+                TokenOrShebang::Shebang(_) => {
+                    let is_trailing = false;
+                    self.comments.insert(
+                        start_position,
+                        CommentToken::new(is_trailing, start_position, end_position),
+                    );
                     continue;
                 }
-                erl_tokenize::Token::Comment(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Whitespace(_)) => {
+                    continue;
+                }
+                TokenOrShebang::Token(erl_tokenize::Token::Comment(x)) => {
                     let is_trailing = self.tokens.last().map_or(false, |y| {
                         y.start_position().line() == x.start_position().line()
                     });
@@ -232,29 +242,31 @@ impl TokenStream {
                     );
                     continue;
                 }
-                erl_tokenize::Token::Symbol(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Symbol(x)) => {
                     SymbolToken::new(x.value(), start_position, end_position).into()
                 }
-                erl_tokenize::Token::Atom(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Atom(x)) => {
                     AtomToken::new(x.value(), start_position, end_position).into()
                 }
-                erl_tokenize::Token::Char(_) => CharToken::new(start_position, end_position).into(),
-                erl_tokenize::Token::Float(_) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Char(_)) => {
+                    CharToken::new(start_position, end_position).into()
+                }
+                TokenOrShebang::Token(erl_tokenize::Token::Float(_)) => {
                     FloatToken::new(start_position, end_position).into()
                 }
-                erl_tokenize::Token::Integer(_) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Integer(_)) => {
                     IntegerToken::new(start_position, end_position).into()
                 }
-                erl_tokenize::Token::Keyword(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Keyword(x)) => {
                     KeywordToken::new(x.value(), start_position, end_position).into()
                 }
-                erl_tokenize::Token::SigilString(_) => {
+                TokenOrShebang::Token(erl_tokenize::Token::SigilString(_)) => {
                     SigilStringToken::new(start_position, end_position).into()
                 }
-                erl_tokenize::Token::String(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::String(x)) => {
                     StringToken::new(x.value(), start_position, end_position).into()
                 }
-                erl_tokenize::Token::Variable(x) => {
+                TokenOrShebang::Token(erl_tokenize::Token::Variable(x)) => {
                     VariableToken::new(x.value(), start_position, end_position).into()
                 }
             };
