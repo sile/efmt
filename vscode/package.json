@@ -36,7 +36,8 @@
           "Erlang"
         ],
         "extensions": [
-          ".erl"
+          ".erl",
+          ".escript"
         ],
         "filenames": [
           "rebar.config"
