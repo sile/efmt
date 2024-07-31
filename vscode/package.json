@@ -4,7 +4,7 @@
   "publisher": "sile",
   "license": "MIT",
   "description": "Erlang Code Formatter",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "engines": {
     "vscode": "^1.77.0"
   },
