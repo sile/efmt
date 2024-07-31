@@ -1,5 +1,5 @@
 use efmt_core::format::{Format, Formatter};
-use efmt_core::parse::{Parse, TokenStream};
+use efmt_core::parse::{Parse, TokenStream, Tokenizer};
 use std::path::Path;
 
 pub mod diff;
@@ -34,20 +34,17 @@ impl Options {
 
     pub fn format_file<T: Parse + Format, P: AsRef<Path>>(self, path: P) -> anyhow::Result<String> {
         let text = std::fs::read_to_string(&path)?;
-        let mut tokenizer = erl_tokenize::Tokenizer::new(text);
+        let mut tokenizer = Tokenizer::new(text);
         tokenizer.set_filepath(path);
         self.format::<T>(tokenizer)
     }
 
     pub fn format_text<T: Parse + Format>(self, text: &str) -> anyhow::Result<String> {
-        let tokenizer = erl_tokenize::Tokenizer::new(text.to_owned());
+        let tokenizer = Tokenizer::new(text.to_owned());
         self.format::<T>(tokenizer)
     }
 
-    fn format<T: Parse + Format>(
-        self,
-        tokenizer: erl_tokenize::Tokenizer<String>,
-    ) -> anyhow::Result<String> {
+    fn format<T: Parse + Format>(self, tokenizer: Tokenizer) -> anyhow::Result<String> {
         let mut ts = TokenStream::new(tokenizer);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(ts);

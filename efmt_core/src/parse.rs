@@ -4,11 +4,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub use self::token_stream::TokenStream;
+pub use self::tokenizer::{TokenOrShebang, Tokenizer};
 
 /// A procedural macro to derive [Parse].
 pub use efmt_derive::Parse;
 
 pub(crate) mod token_stream;
+pub(crate) mod tokenizer;
 
 /// Possible errors.
 #[derive(Debug, Clone, thiserror::Error)]
