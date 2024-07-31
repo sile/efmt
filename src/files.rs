@@ -97,5 +97,6 @@ fn is_format_target(path: &Path) -> bool {
                 || n.ends_with(".erl")
                 || n.ends_with(".hrl")
                 || n.ends_with(".app.src")
+                || n.ends_with(".escript")
         })
 }
