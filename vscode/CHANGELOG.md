@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.18.0]
+
+- Add support for formatting escript files
+
 ## [0.17.0]
 
 - Enable formatting of `?assertMatch()` and `?assertNotMatch()` macros even when they contain when in the pattern
