@@ -6,7 +6,6 @@ use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
 use std::io::Read as _;
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 /// Erlang Code Formatter.
@@ -456,12 +455,6 @@ fn validate_formatted_text<P: AsRef<Path>>(
 }
 
 fn overwrite<P: AsRef<Path>>(path: P, text: &str) -> anyhow::Result<()> {
-    let dir = path
-        .as_ref()
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("failed to get parent dir: {:?}", path.as_ref()))?;
-    let mut temp = tempfile::NamedTempFile::new_in(dir)?;
-    temp.write_all(text.as_bytes())?;
-    temp.persist(path)?;
+    std::fs::write(path, text)?;
     Ok(())
 }
