@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.18.2]
+
+- Fix a bug when formatting consecutive `-define` directives with single-quoted macro names.
+
 ## [0.18.0]
 
 - Add support for formatting escript files

@@ -1,6 +1,6 @@
 {application, rebar3_efmt,
  [{description, "Erlang Code Formatter"},
-  {vsn, "0.18.1"},
+  {vsn, "0.18.2"},
   {registered, []},
   {applications, [kernel, stdlib, inets]},
   {env, []},
