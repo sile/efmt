@@ -121,7 +121,11 @@ impl<'a> FormatState<'a> {
         let indent = self
             .pending_constants
             .iter()
-            .map(|define| "-define(".len() + define.macro_name().len() + ", ".len())
+            .map(|define| {
+                let macro_name_len = define.macro_name_token().end_position().offset()
+                    - define.macro_name_token().start_position().offset();
+                "-define(".len() + macro_name_len + ", ".len()
+            })
             .max()
             .expect("unreachable");
 
