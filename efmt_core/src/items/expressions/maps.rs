@@ -11,7 +11,7 @@ use super::components::ComprehensionExpr;
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum MapExpr {
-    Construct(MapConstructExpr),
+    Construct(Box<MapConstructExpr>),
     Comprehension(MapComprehensionExpr),
 }
 

@@ -23,3 +23,7 @@
 %% bar
 -define(ccc,  3).
 -define(dddd, 4).
+
+-define('meow-1', "Meow").
+-define('meow-2', "Meow Meow").
+-define('meow-3', "Meow Meow Meow").
