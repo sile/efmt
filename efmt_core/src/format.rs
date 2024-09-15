@@ -176,16 +176,16 @@ impl Formatter {
             return;
         }
 
+        if self.single_line_mode {
+            self.write_space();
+            return;
+        }
+
         if self.skipping {
             self.pending_blank = Some(Blank::Newline(n));
             return;
         }
         self.pending_blank = None;
-
-        if self.single_line_mode {
-            self.write_space();
-            return;
-        }
 
         let indent = self.cancel_last_spaces();
         for c in self.buf.chars().rev() {

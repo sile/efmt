@@ -618,7 +618,8 @@ mod tests {
 
     #[test]
     fn assert_match() {
-        let texts = [indoc::indoc! {"
+        let texts = [
+            indoc::indoc! {"
             foo() ->
                 ?assertMatch(ok when true, Value),
                 ?assertNotMatch([A, B, C]
@@ -626,7 +627,11 @@ mod tests {
                                        is_integer(C),
                                 Value),
                 ok.
-            "}];
+            "},
+            indoc::indoc! {"
+            foo() -> fun() -> ?assertMatch(ok, Value) end.
+            "},
+        ];
         for text in texts {
             crate::assert_format!(text, Module);
         }
