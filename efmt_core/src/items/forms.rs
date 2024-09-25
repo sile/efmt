@@ -1,4 +1,5 @@
 //! Erlang top-level components such as attributes, directives or declarations.
+use super::atoms::DocAtom;
 use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
@@ -33,6 +34,7 @@ pub enum Form {
     RecordDecl(RecordDecl),
     Export(ExportAttr),
     Module(ModuleAttr),
+    Doc(DocAttr),
     Attr(Attr),
 }
 
@@ -47,6 +49,7 @@ impl Format for Form {
             Form::RecordDecl(x) => x.format(fmt),
             Form::Export(x) => x.format(fmt),
             Form::Module(x) => x.format(fmt),
+            Form::Doc(x) => x.format(fmt),
             Form::Attr(x) => x.format(fmt),
         }
         fmt.write_subsequent_comments();
@@ -463,6 +466,12 @@ impl ExportItem {
     }
 }
 
+/// `-` `doc` `$ARGS` `.`
+/// - $ARGS: `(` (`$ARG` `,`?)* `)`
+/// - $ARG: [Expr]
+#[derive(Debug, Clone, Span, Parse, Format)]
+pub struct DocAttr(AttrLike<DocAtom, AttrValue>);
+
 /// `-` `$NAME` `$ARGS`? `.`
 ///
 /// - $NAME: [AtomToken] | `if`
@@ -842,6 +851,20 @@ mod tests {
                             Val) ::
                       [{Key,
                         Val}]."},
+        ];
+        for text in texts {
+            crate::assert_format!(text, Form);
+        }
+    }
+
+    #[test]
+    fn doc_works() {
+        let texts = [
+            r#"-doc "Adds two number together"."#,
+            r#"-doc(#{since => "1.0"})."#,
+            indoc::indoc! {"
+            -doc({file,
+                  \"../doc/add.md\"})."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);

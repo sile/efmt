@@ -68,7 +68,7 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> 
 impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE> {
     fn format(&self, fmt: &mut Formatter) {
         let mut state = FormatState {
-            is_last_spec: false,
+            is_last_spec_or_doc: false,
             pending_constants: Vec::new(),
         };
         let mut is_last_fun_decl = false;
@@ -108,7 +108,7 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE>
 }
 
 struct FormatState<'a> {
-    is_last_spec: bool,
+    is_last_spec_or_doc: bool,
     pending_constants: Vec<&'a DefineDirective>,
 }
 
@@ -168,16 +168,16 @@ impl<'a> FormatState<'a> {
     }
 
     fn insert_two_empty_newlines_if_need(&mut self, fmt: &mut Formatter, form: &'a Form) {
-        if form.is_func_decl() && !self.is_last_spec {
+        if form.is_func_decl() && !self.is_last_spec_or_doc {
             fmt.flush_non_preceding_comments(form);
             fmt.write_newlines(3);
         }
 
-        self.is_last_spec = form.is_func_spec();
-        if form.is_func_spec() {
+        if form.is_func_spec_or_doc() && !self.is_last_spec_or_doc {
             fmt.flush_non_preceding_comments(form);
             fmt.write_newlines(3);
         }
+        self.is_last_spec_or_doc = form.is_func_spec_or_doc();
     }
 }
 

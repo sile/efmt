@@ -42,8 +42,11 @@ impl Form {
         &self.0
     }
 
-    pub(crate) fn is_func_spec(&self) -> bool {
-        matches!(self.0, self::forms::Form::FunSpec(_))
+    pub(crate) fn is_func_spec_or_doc(&self) -> bool {
+        matches!(
+            self.0,
+            self::forms::Form::FunSpec(_) | self::forms::Form::Doc(_)
+        )
     }
 
     pub(crate) fn is_func_decl(&self) -> bool {
