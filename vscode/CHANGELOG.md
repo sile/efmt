@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.18.3]
+
+- Remove extra newlines between `-doc` attributes and function definitions
+
 ## [0.18.2]
 
 - Fix a bug when formatting consecutive `-define` directives with single-quoted macro names.
