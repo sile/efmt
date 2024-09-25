@@ -1,12 +1,11 @@
 -module(otp27_strings).
 
+
 -doc """
     First line
     Second line with "\*not emphasized\* Markdown"
     Third line
     """.
-
-
 triple_quoted_strings() ->
     X = <<"""
         Line 1
