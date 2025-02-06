@@ -13,7 +13,7 @@ exclude = ["/rebar3_efmt/", "efmt_wasm.wasm", "/vscode/"]
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-erl_tokenize = "0.6"
+erl_tokenize = "0.7"
 efmt_core = { path = "efmt_core", version = "0.4.0" }
 env_logger = "0.11"
 log = "0.4"
