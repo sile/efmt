@@ -13,10 +13,9 @@ pub(crate) mod token_stream;
 pub(crate) mod tokenizer;
 
 /// Possible errors.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone)]
 pub enum Error {
     /// Unexpected EOF.
-    #[error("Parse failed:{}", Self::unexpected_eof_message(.position, .text, .path))]
     UnexpectedEof {
         position: Position,
         text: Arc<String>,
@@ -24,7 +23,6 @@ pub enum Error {
     },
 
     /// Unexpected token.
-    #[error("Parse failed:{}", Self::unexpected_token_message(.position, .text, .path))]
     UnexpectedToken {
         position: Position,
         text: Arc<String>,
@@ -32,7 +30,6 @@ pub enum Error {
     },
 
     /// Error during tokenization.
-    #[error("Tokenize failed:{}", Self::tokenize_error_message(.source, .text))]
     TokenizeError {
         source: erl_tokenize::Error,
         text: Arc<String>,
@@ -106,6 +103,51 @@ impl Error {
             *position,
             "unexpected token",
         )
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::UnexpectedEof {
+                position,
+                text,
+                path,
+            } => {
+                write!(
+                    f,
+                    "Parse failed:{}",
+                    Self::unexpected_eof_message(position, text, path)
+                )
+            }
+            Error::UnexpectedToken {
+                position,
+                text,
+                path,
+            } => {
+                write!(
+                    f,
+                    "Parse failed:{}",
+                    Self::unexpected_token_message(position, text, path)
+                )
+            }
+            Error::TokenizeError { source, text } => {
+                write!(
+                    f,
+                    "Tokenize failed:{}",
+                    Self::tokenize_error_message(source, text)
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::UnexpectedEof { .. } | Error::UnexpectedToken { .. } => None,
+            Error::TokenizeError { source, .. } => Some(source),
+        }
     }
 }
 

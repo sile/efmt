@@ -13,7 +13,6 @@ readme = "README.md"
 erl_tokenize = "0.6"
 efmt_derive = { path = "../efmt_derive", version = "0.1.0" }
 log = "0.4"
-thiserror = "1"
 
 [dev-dependencies]
 indoc = "2"
