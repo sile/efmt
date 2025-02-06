@@ -78,7 +78,7 @@ pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for result in Walk::new("./") {
         let entry = result?;
-        if entry.file_type().map_or(false, |t| t.is_file()) {
+        if entry.file_type().is_some_and(|t| t.is_file()) {
             let path = entry.path();
             if is_format_target(path) {
                 let path = path.strip_prefix("./").unwrap_or(path).to_path_buf();
@@ -90,13 +90,11 @@ pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
 }
 
 fn is_format_target(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .map_or(false, |n| {
-            n == "rebar.config"
-                || n.ends_with(".erl")
-                || n.ends_with(".hrl")
-                || n.ends_with(".app.src")
-                || n.ends_with(".escript")
-        })
+    path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+        n == "rebar.config"
+            || n.ends_with(".erl")
+            || n.ends_with(".hrl")
+            || n.ends_with(".app.src")
+            || n.ends_with(".escript")
+    })
 }
