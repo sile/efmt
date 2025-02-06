@@ -37,19 +37,9 @@ jobs:
       - name: Install dependent packages
         run: sudo apt install -y musl-tools
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: x86_64-unknown-linux-musl
-          override: true
-
-      - name: Run cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target=x86_64-unknown-linux-musl
+      - run: rustup update stable
+      - run: rustup target add x86_64-unknown-linux-musl
+      - run: cargo build --release --target=x86_64-unknown-linux-musl
 
       - uses: actions/upload-release-asset@v1
         env:
@@ -71,19 +61,9 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-
-      - name: Run cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target=${{ matrix.target }}
+      - run: rustup update stable
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --release --target=${{ matrix.target }}
 
       - uses: actions/upload-release-asset@v1
         env:
