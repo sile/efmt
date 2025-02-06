@@ -94,7 +94,7 @@ impl TokenStream {
             if self
                 .last_parse_error
                 .as_ref()
-                .map_or(false, |e| e.position() < succeeded_position)
+                .is_some_and(|e| e.position() < succeeded_position)
             {
                 self.last_parse_error = None;
             }
@@ -233,9 +233,10 @@ impl TokenStream {
                     continue;
                 }
                 TokenOrShebang::Token(erl_tokenize::Token::Comment(x)) => {
-                    let is_trailing = self.tokens.last().map_or(false, |y| {
-                        y.start_position().line() == x.start_position().line()
-                    });
+                    let is_trailing = self
+                        .tokens
+                        .last()
+                        .is_some_and(|y| y.start_position().line() == x.start_position().line());
                     self.comments.insert(
                         start_position,
                         CommentToken::new(is_trailing, start_position, end_position),
