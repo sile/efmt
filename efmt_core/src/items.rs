@@ -52,6 +52,14 @@ impl Form {
     pub(crate) fn is_func_decl(&self) -> bool {
         matches!(self.0, self::forms::Form::FunDecl(_))
     }
+
+    pub(crate) fn is_include_lib(&self) -> Option<bool> {
+        if let self::forms::Form::Include(x) = &self.0 {
+            Some(x.is_include_lib())
+        } else {
+            None
+        }
+    }
 }
 
 /// One of [types].

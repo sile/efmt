@@ -72,6 +72,7 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE>
             pending_constants: Vec::new(),
         };
         let mut is_last_fun_decl = false;
+        let mut is_last_include_lib = None;
 
         for form in &self.forms {
             if is_last_fun_decl {
@@ -88,6 +89,13 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE>
                 }
             };
 
+            match (is_last_include_lib.take(), form.is_include_lib()) {
+                (Some(a), Some(b)) if a != b => {
+                    fmt.write_newlines(2);
+                }
+                _ => {}
+            }
+
             if state.pend_if_need(fmt, form) {
                 continue;
             }
@@ -101,6 +109,7 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Format for Module<ALLOW_PARTIAL_FAILURE>
             form.format(fmt);
             fmt.write_newline();
             is_last_fun_decl = form.is_func_decl();
+            is_last_include_lib = form.is_include_lib();
         }
 
         state.flush_pendings(fmt);
