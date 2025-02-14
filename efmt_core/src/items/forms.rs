@@ -1,5 +1,5 @@
 //! Erlang top-level components such as attributes, directives or declarations.
-use super::atoms::DocAtom;
+use super::atoms::{DocAtom, NominalAtom};
 use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
@@ -166,7 +166,7 @@ impl TypeDecl {
     }
 }
 
-type TypeDeclName = Either<TypeAtom, OpaqueAtom>;
+type TypeDeclName = Either<TypeAtom, Either<OpaqueAtom, NominalAtom>>;
 
 #[derive(Debug, Clone, Span, Parse)]
 struct TypeDeclItem {
@@ -852,6 +852,11 @@ mod tests {
                             Val) ::
                       [{Key,
                         Val}]."},
+            indoc::indoc! {"
+            -nominal orddict(Key,
+                             Val) ::
+                       [{Key,
+                         Val}]."},
         ];
         for text in texts {
             crate::assert_format!(text, Form);
