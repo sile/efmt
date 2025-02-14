@@ -44,6 +44,10 @@ pub struct OpaqueAtom(AtomToken);
 impl_parse!(OpaqueAtom, "opaque");
 
 #[derive(Debug, Clone, Span, Format, Element)]
+pub struct NominalAtom(AtomToken);
+impl_parse!(NominalAtom, "nominal");
+
+#[derive(Debug, Clone, Span, Format, Element)]
 pub struct CallbackAtom(AtomToken);
 impl_parse!(CallbackAtom, "callback");
 
