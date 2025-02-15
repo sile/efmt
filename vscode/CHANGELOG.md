@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.19.0]
+
+- Add support for EEP 75 (Based Floating Point Literals)
+- Add support for EEP 73 (Zip generator)
+- Add support for EEP-69 (Nominal Type)
+- Add support for strict comprehensions generators
+- Insert a blank line between `-include` and `-include_lib`
+
 ## [0.18.3]
 
 - Remove extra newlines between `-doc` attributes and function definitions
