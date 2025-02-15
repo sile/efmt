@@ -130,6 +130,15 @@ mod tests {
                  false ]"},
             indoc::indoc! {"
             [ X || X <:- [1, 2] ]"},
+            indoc::indoc! {"
+            [ X || X <:- [1, 2] && Y <:- Z,
+                   is_integer(Y) ]"},
+            indoc::indoc! {"
+            [ [X, Y]
+              || X <- [1, 2, 3,
+                       4, 5] &&
+                 Y <- [0, 9, 2],
+                 Y <= X ]"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
