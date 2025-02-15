@@ -122,6 +122,7 @@ mod tests {
         let texts = [
             "#{ Key => Value || Key := Value <- MapOrIterator }",
             "#{ K => V || <<K, V>> <= Binary }",
+            "#{ K => V || <<K, V>> <:= Binary }",
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

@@ -128,6 +128,8 @@ mod tests {
                        4, 5],
                  Y <= Z,
                  false ]"},
+            indoc::indoc! {"
+            [ X || X <:- [1, 2] ]"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);

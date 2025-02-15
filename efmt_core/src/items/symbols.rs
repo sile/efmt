@@ -147,6 +147,10 @@ pub struct DoubleRightArrowSymbol(SymbolToken);
 impl_traits!(DoubleRightArrowSymbol, DoubleRightArrow);
 
 #[derive(Debug, Clone, Span, Format)]
+pub struct StrictLeftArrowSymbol(SymbolToken);
+impl_traits!(StrictLeftArrowSymbol, StrictLeftArrow);
+
+#[derive(Debug, Clone, Span, Format)]
 pub struct DoubleLeftArrowSymbol(SymbolToken);
 impl_traits!(DoubleLeftArrowSymbol, DoubleLeftArrow);
 
@@ -157,6 +161,10 @@ impl_traits!(DoubleRightAngleSymbol, DoubleRightAngle);
 #[derive(Debug, Clone, Span, Format)]
 pub struct DoubleLeftAngleSymbol(SymbolToken);
 impl_traits!(DoubleLeftAngleSymbol, DoubleLeftAngle);
+
+#[derive(Debug, Clone, Span, Format)]
+pub struct StrictDoubleLeftArrowSymbol(SymbolToken);
+impl_traits!(StrictDoubleLeftArrowSymbol, StrictDoubleLeftArrow);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct EqSymbol(SymbolToken);
