@@ -142,7 +142,7 @@ impl Format for RecordField {
     }
 }
 
-/// `-` (`type` | `opaque`) `$NAME` `(` (`$PARAM` `,`?)* `)` `::` `$TYPE` `.`
+/// `-` (`type` | `opaque` | `nominal`) `$NAME` `(` (`$PARAM` `,`?)* `)` `::` `$TYPE` `.`
 ///
 /// - $NAME: [AtomToken]
 /// - $PARAM: [VariableToken]

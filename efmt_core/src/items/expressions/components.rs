@@ -120,15 +120,16 @@ impl Format for Body {
 }
 
 /// ((`$GENERATOR` | `$FILTER`) `,`?)+
-/// - $GENERATOR: (`Expr` | `Expr` `:=` `Expr`) `<-` `Expr` | `Expr` `<=` `Expr`
+/// - $GENERATOR: (`Expr` | `Expr` `:=` `Expr`) (`<-` | `<:-`) `Expr` | `Expr` (`<=` | `<:=`) `Expr` (`&&` $GENERATOR)?
 /// - $FILTER: `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Qualifier(Either<Generator, Expr>);
+pub struct Qualifier(Either<Either<ZipGenerator, Generator>, Expr>);
 
 impl Qualifier {
     pub fn children(&self) -> impl Iterator<Item = &Expr> {
         match &self.0 {
-            Either::A(x) => Either::A(x.children()),
+            Either::A(Either::A(x)) => Either::A(Either::A(x.children())),
+            Either::A(Either::B(x)) => Either::A(Either::B(x.children())),
             Either::B(x) => Either::B(std::iter::once(x)),
         }
     }
