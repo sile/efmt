@@ -80,6 +80,10 @@ pub struct SemicolonSymbol(SymbolToken);
 impl_traits!(SemicolonSymbol, Semicolon);
 
 #[derive(Debug, Clone, Span, Format)]
+pub struct DoubleAmpersandSymbol(SymbolToken);
+impl_traits!(DoubleAmpersandSymbol, DoubleAmpersand);
+
+#[derive(Debug, Clone, Span, Format)]
 pub struct MatchSymbol(SymbolToken);
 impl_traits!(MatchSymbol, Match);
 
