@@ -176,10 +176,8 @@ impl Generator {
         iter.chain(std::iter::once(&self.sequence))
             .chain(Box::new(zip_iter) as Box<dyn Iterator<Item = &Expr>>)
     }
-}
 
-impl Format for Generator {
-    fn format(&self, fmt: &mut Formatter) {
+    fn format_generator(&self, fmt: &mut Formatter, multiline: bool) {
         fmt.with_scoped_indent(|fmt| {
             self.pattern.format(fmt);
             fmt.write_space();
@@ -189,7 +187,6 @@ impl Format for Generator {
             self.sequence.format(fmt);
         });
         if let Some((delimiter, zipped)) = self.zip.get() {
-            let multiline = fmt.has_newline_until(zipped);
             fmt.write_space();
             delimiter.format(fmt);
             if multiline {
@@ -199,6 +196,13 @@ impl Format for Generator {
             }
             zipped.format(fmt);
         }
+    }
+}
+
+impl Format for Generator {
+    fn format(&self, fmt: &mut Formatter) {
+        let multiline = fmt.has_newline_until(&self.end_position());
+        self.format_generator(fmt, multiline);
     }
 }
 
