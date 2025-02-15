@@ -3,7 +3,7 @@ use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
     self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
-    MapMatchSymbol, RightArrowSymbol,
+    MapMatchSymbol, RightArrowSymbol, StrictDoubleLeftArrowSymbol, StrictLeftArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
@@ -188,7 +188,12 @@ impl Format for Generator {
 }
 
 #[derive(Debug, Clone, Span, Parse, Format)]
-struct GeneratorDelimiter(Either<LeftArrowSymbol, DoubleLeftArrowSymbol>);
+struct GeneratorDelimiter(
+    Either<
+        Either<LeftArrowSymbol, DoubleLeftArrowSymbol>,
+        Either<StrictLeftArrowSymbol, StrictDoubleLeftArrowSymbol>,
+    >,
+);
 
 #[derive(Debug, Clone, Span, Parse)]
 pub(crate) struct ComprehensionExpr<Open, Close, Value = Expr> {
