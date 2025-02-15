@@ -35,6 +35,10 @@ impl Tokenizer {
         self.inner.next_position()
     }
 
+    pub fn set_position(&mut self, position: Position) {
+        self.inner.set_position(position);
+    }
+
     pub fn set_filepath<P: AsRef<Path>>(&mut self, path: P) {
         self.inner.set_filepath(path)
     }
