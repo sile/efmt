@@ -2,8 +2,9 @@ use crate::format::{Format, Formatter};
 use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
-    self, CommaSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol, LeftArrowSymbol,
-    MapMatchSymbol, RightArrowSymbol, StrictDoubleLeftArrowSymbol, StrictLeftArrowSymbol,
+    self, CommaSymbol, DoubleAmpersandSymbol, DoubleLeftArrowSymbol, DoubleVerticalBarSymbol,
+    LeftArrowSymbol, MapMatchSymbol, RightArrowSymbol, StrictDoubleLeftArrowSymbol,
+    StrictLeftArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
 use crate::items::Expr;
@@ -123,13 +124,12 @@ impl Format for Body {
 /// - $GENERATOR: (`Expr` | `Expr` `:=` `Expr`) (`<-` | `<:-`) `Expr` | `Expr` (`<=` | `<:=`) `Expr` (`&&` $GENERATOR)?
 /// - $FILTER: `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct Qualifier(Either<Either<ZipGenerator, Generator>, Expr>);
+pub struct Qualifier(Either<Generator, Expr>);
 
 impl Qualifier {
     pub fn children(&self) -> impl Iterator<Item = &Expr> {
         match &self.0 {
-            Either::A(Either::A(x)) => Either::A(Either::A(x.children())),
-            Either::A(Either::B(x)) => Either::A(Either::B(x.children())),
+            Either::A(x) => Either::A(x.children()),
             Either::B(x) => Either::B(std::iter::once(x)),
         }
     }
@@ -163,6 +163,7 @@ struct Generator {
     pattern: Either<MapGeneratorPattern, Expr>,
     delimiter: GeneratorDelimiter,
     sequence: Expr,
+    zip: Maybe<(DoubleAmpersandSymbol, Box<Self>)>,
 }
 
 impl Generator {
@@ -171,7 +172,9 @@ impl Generator {
             Either::A(x) => Either::A(x.children()),
             Either::B(x) => Either::B(std::iter::once(x)),
         };
+        let zip_iter = self.zip.get().into_iter().flat_map(|x| x.1.children());
         iter.chain(std::iter::once(&self.sequence))
+            .chain(Box::new(zip_iter) as Box<dyn Iterator<Item = &Expr>>)
     }
 }
 
@@ -185,6 +188,17 @@ impl Format for Generator {
             fmt.set_indent(fmt.column());
             self.sequence.format(fmt);
         });
+        if let Some((delimiter, zipped)) = self.zip.get() {
+            let multiline = fmt.has_newline_until(zipped);
+            fmt.write_space();
+            delimiter.format(fmt);
+            if multiline {
+                fmt.write_newline();
+            } else {
+                fmt.write_space();
+            }
+            zipped.format(fmt);
+        }
     }
 }
 
