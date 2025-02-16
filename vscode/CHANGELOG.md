@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.19.1]
+
+- Fix float tokenizing bug
+
 ## [0.19.0]
 
 - Add support for EEP 75 (Based Floating Point Literals)
