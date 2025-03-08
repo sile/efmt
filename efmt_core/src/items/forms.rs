@@ -473,6 +473,12 @@ impl ExportItem {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct DocAttr(AttrLike<DocAtom, AttrValue>);
 
+impl DocAttr {
+    pub fn value(&self) -> &AttrValue {
+        self.0.value()
+    }
+}
+
 /// `-` `$NAME` `$ARGS`? `.`
 ///
 /// - $NAME: [AtomToken] | `if`
