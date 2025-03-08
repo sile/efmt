@@ -90,7 +90,7 @@ impl<T> Maybe<T> {
 
 impl<T: Element> Element for Maybe<T> {
     fn is_packable(&self) -> bool {
-        self.get().map_or(true, Element::is_packable)
+        self.get().is_none_or(Element::is_packable)
     }
 }
 

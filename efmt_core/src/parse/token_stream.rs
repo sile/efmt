@@ -85,7 +85,7 @@ impl TokenStream {
             if self
                 .last_parse_error
                 .as_ref()
-                .map_or(true, |e0| e0.position() < e.position())
+                .is_none_or(|e0| e0.position() < e.position())
             {
                 self.last_parse_error = Some(e.clone());
             }
