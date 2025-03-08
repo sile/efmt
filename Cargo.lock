@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "efmt_core"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "efmt_derive",
  "erl_tokenize",
