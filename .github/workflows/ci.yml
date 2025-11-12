@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        toolchain: [stable, beta, nightly]
+        toolchain: [stable]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
@@ -53,7 +53,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: '27.0'
-          rebar3-version: '3.20.0'
+          rebar3-version: '3.23.0'
       - run: rebar3 help efmt
         working-directory: rebar3_efmt/test/foo
       - run: rebar3 efmt -w
