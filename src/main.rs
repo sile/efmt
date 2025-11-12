@@ -45,7 +45,11 @@ impl Opt {
 
         let check = noargs::flag("check")
             .short('c')
-            .doc("Checks if input is formatted correctly")
+            .doc(concat!(
+                "Checks if input is formatted correctly\n",
+                "\n",
+                "If so, exits with 0. Otherwise, exits with 1 and shows a diff."
+            ))
             .take(&mut args)
             .is_present();
         let write = noargs::flag("write")
@@ -54,14 +58,22 @@ impl Opt {
             .take(&mut args)
             .is_present();
         let show_files = noargs::flag("show-files")
-            .doc("Shows the target input files")
+            .doc(concat!(
+                "Shows the target input files\n",
+                "\n",
+                "You can use this flag to exclude some files from the default target, ",
+                "e.g., `$ efmt $(efmt --show-files | grep -v rebar.config)`."
+            ))
             .take(&mut args)
             .is_present();
 
         let mut exclude_files = Vec::new();
         while let Some(pattern) = noargs::opt("exclude-file")
             .short('e')
-            .doc("Excludes files matching the regex pattern")
+            .doc(concat!(
+                "Excludes files that matches the specified regexs ",
+                "from the default target file list"
+            ))
             .take(&mut args)
             .present_and_then(|o| Regex::new(o.value()))?
         {
@@ -74,28 +86,48 @@ impl Opt {
             .is_present();
 
         let default_off = noargs::flag("default-off")
-            .doc("Disables formatting by default")
+            .doc(concat!(
+                "Disables formatting by default\n",
+                "\n",
+                "efmt behaves as if ",
+                "there is a \"% @efmt:off\" comment at the head of the each target file"
+            ))
             .take(&mut args)
             .is_present();
 
         let disable_rebar3_mode = noargs::flag("disable-rebar3-mode")
-            .doc("Don't assume the project is built using rebar3")
+            .doc("Don't assume the target project is built using rebar3")
             .take(&mut args)
             .is_present();
 
         let allow_partial_failure = noargs::flag("allow-partial-failure")
-            .doc("Don't raise an error for wrong Erlang code")
+            .doc(concat!(
+                "Don't raise an error even if the input contains wrong Erlang code\n",
+                "\n",
+                "`efmt` tries to continue formatting the remaining part of the code ",
+                "as much as possible"
+            ))
             .take(&mut args)
             .is_present();
 
         let color = noargs::flag("color")
-            .doc("Show colored diff (requires --check)")
+            .doc("Show colored diff (Only applies when `--check` is given)")
             .take(&mut args)
             .is_present();
 
         // Parse positional arguments (files)
         let mut files = Vec::new();
         while let Some(file) = noargs::arg("[FILE]...")
+            .doc(concat!(
+                "Format target files\n",
+                "\n",
+                "`-` means the standard input.\n",
+                "If no files are specified and ",
+                "any of `-c`, `-w` or `--show-files` options is specified,\n",
+                "All of the files named `**.{hrl,erl,app.src}` and ",
+                "`**/rebar.config` are used as the default\n",
+                "(note that files specified by `.gitignore` will be ignored)."
+            ))
             .take(&mut args)
             .present_and_then(|a| a.value().parse::<PathBuf>())?
         {
