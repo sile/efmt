@@ -1,12 +1,12 @@
 use super::LiteralExpr;
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{Clauses, Maybe, Null};
-use crate::items::expressions::components::FunctionClause;
 use crate::items::expressions::BaseExpr;
+use crate::items::expressions::components::FunctionClause;
 use crate::items::keywords::{EndKeyword, FunKeyword};
 use crate::items::symbols::{ColonSymbol, SlashSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
-use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 use std::borrow::Cow;
@@ -50,7 +50,7 @@ impl FunctionExpr {
         Some(&x.arity)
     }
 
-    pub fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    pub fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         match self {
             FunctionExpr::Defined(x) => Box::new(
                 x.module

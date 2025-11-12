@@ -1,4 +1,5 @@
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
@@ -7,7 +8,6 @@ use crate::items::keywords::{
 };
 use crate::items::symbols::{ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
-use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 use std::borrow::Cow;
@@ -24,7 +24,7 @@ pub enum BlockExpr {
 }
 
 impl BlockExpr {
-    pub fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    pub fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         match self {
             BlockExpr::Case(x) => {
                 Box::new(x.children().map(Cow::Borrowed)) as Box<dyn Iterator<Item = Cow<Expr>>>
@@ -399,7 +399,7 @@ pub struct TryExpr {
 }
 
 impl TryExpr {
-    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         self.body
             .exprs()
             .iter()
@@ -507,7 +507,7 @@ struct TryCatch {
 }
 
 impl TryCatch {
-    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         self.clauses.iter().flat_map(|x| x.children())
     }
 }
@@ -521,7 +521,7 @@ struct CatchClause {
 }
 
 impl CatchClause {
-    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         self.pattern.children().chain(
             self.guard
                 .get()
@@ -578,7 +578,7 @@ struct CatchPattern {
 }
 
 impl CatchPattern {
-    fn children(&self) -> impl Iterator<Item = Cow<Expr>> {
+    fn children(&self) -> impl Iterator<Item = Cow<'_, Expr>> {
         self.class
             .get()
             .and_then(|x| {

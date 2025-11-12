@@ -3,6 +3,8 @@ use super::atoms::{DocAtom, NominalAtom};
 use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
+use crate::items::Type;
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, ModuleAtom,
     OpaqueAtom, RecordAtom, SpecAtom, TypeAtom,
@@ -19,8 +21,6 @@ use crate::items::symbols::{
     HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
-use crate::items::Expr;
-use crate::items::Type;
 use crate::parse::{Parse, TokenStream};
 use crate::span::Span;
 
@@ -224,7 +224,7 @@ impl FunSpec {
         }
     }
 
-    pub fn clauses(&self) -> impl Iterator<Item = SpecClauseRef> {
+    pub fn clauses(&self) -> impl Iterator<Item = SpecClauseRef<'_>> {
         match &self.0 {
             Either::A(x) => Either::A(x.value().clauses.iter().map(|x| SpecClauseRef {
                 params: x.params.get(),
@@ -336,7 +336,7 @@ pub struct FunDecl {
 }
 
 impl FunDecl {
-    pub fn clauses(&self) -> impl Iterator<Item = FunctionClauseRef> {
+    pub fn clauses(&self) -> impl Iterator<Item = FunctionClauseRef<'_>> {
         self.clauses.iter().map(|x| FunctionClauseRef {
             name: x.name(),
             params: x.params(),
