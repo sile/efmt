@@ -13,8 +13,9 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: rustup update ${{ matrix.toolchain }}
+      - run: rustup default ${{ matrix.toolchain }}
       - run: cargo check --all
 
   test:
@@ -25,8 +26,9 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: rustup update ${{ matrix.toolchain }}
+      - run: rustup default ${{ matrix.toolchain }}
       - run: cargo test --all
 
   lints:
@@ -37,8 +39,9 @@ jobs:
         toolchain: [stable, beta, nightly]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: rustup update ${{ matrix.toolchain }}
+      - run: rustup default ${{ matrix.toolchain }}
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all -- -D warnings
 
@@ -46,10 +49,10 @@ jobs:
     name: rebar3 plugin test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '25.0'
+          otp-version: '27.0'
           rebar3-version: '3.20.0'
       - run: rebar3 help efmt
         working-directory: rebar3_efmt/test/foo
