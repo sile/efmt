@@ -168,12 +168,10 @@ impl Format for MacroReplacement {
         if let Ok(expr) = fmt
             .token_stream_mut()
             .parse_tokens::<Expr>(self.tokens.clone())
-        {
-            if expr.end_position() == self.end_position() {
+            && expr.end_position() == self.end_position() {
                 expr.format(fmt);
                 return;
             }
-        }
 
         fmt.write_span(self);
     }
@@ -274,8 +272,7 @@ impl Format for MacroArg {
         if let Ok(arg) = fmt
             .token_stream_mut()
             .parse_tokens::<(Expr, Maybe<Guard<Expr>>)>(self.tokens.clone())
-        {
-            if arg.end_position() == self.end_position() {
+            && arg.end_position() == self.end_position() {
                 fmt.with_scoped_indent(|fmt| {
                     arg.0.format(fmt);
                     if let Some(guard) = arg.1.get() {
@@ -290,7 +287,6 @@ impl Format for MacroArg {
                 });
                 return;
             }
-        }
 
         fmt.write_span(self);
     }

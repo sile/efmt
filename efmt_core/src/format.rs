@@ -146,11 +146,10 @@ impl Formatter {
             self.next_comment_indent = None;
         }
 
-        if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' ')) {
-            if let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next() {
+        if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' '))
+            && let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next() {
                 self.write_space();
             }
-        }
         self.is_last_macro = false;
 
         self.buf.push_str(text);

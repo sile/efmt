@@ -40,8 +40,8 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> 
                 }
                 Err(e) => loop {
                     if let Some(Ok(token)) = ts.next() {
-                        if let LexicalToken::Symbol(token) = token {
-                            if token.value() == Symbol::Dot {
+                        if let LexicalToken::Symbol(token) = token
+                            && token.value() == Symbol::Dot {
                                 log::warn!(
                                     concat!(
                                         "Skipped formatting a form due to ",
@@ -53,7 +53,6 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> 
                                 forms.push(Either::B(Skipped { start, end }));
                                 break;
                             }
-                        }
                     } else {
                         return Err(e);
                     }
@@ -159,11 +158,10 @@ impl<'a> FormatState<'a> {
                 return false;
             }
 
-            if let Some(last) = self.pending_constants.last() {
-                if last.end_position().line() + 1 < define.start_position().line() {
+            if let Some(last) = self.pending_constants.last()
+                && last.end_position().line() + 1 < define.start_position().line() {
                     return false;
                 }
-            }
 
             if fmt.token_stream().contains_comment(define) {
                 return false;
