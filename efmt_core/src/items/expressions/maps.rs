@@ -1,9 +1,9 @@
 use crate::format::{Format, Formatter};
-use crate::items::Expr;
 use crate::items::components::{Either, MapLike};
 use crate::items::symbols::{
     CloseBraceSymbol, DoubleRightArrowSymbol, OpenBraceSymbol, SharpSymbol,
 };
+use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 

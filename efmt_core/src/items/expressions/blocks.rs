@@ -1,5 +1,4 @@
 use crate::format::{Format, Formatter};
-use crate::items::Expr;
 use crate::items::components::{Clauses, Either, Guard, Maybe, NonEmptyItems};
 use crate::items::expressions::components::Body;
 use crate::items::keywords::{
@@ -8,6 +7,7 @@ use crate::items::keywords::{
 };
 use crate::items::symbols::{ColonSymbol, CommaSymbol, RightArrowSymbol, SemicolonSymbol};
 use crate::items::tokens::{AtomToken, VariableToken};
+use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 use std::borrow::Cow;
