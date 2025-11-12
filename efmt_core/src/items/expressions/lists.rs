@@ -1,10 +1,10 @@
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{ListLike, MaybePackedItems};
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
 use crate::items::symbols::{CloseSquareSymbol, OpenSquareSymbol, VerticalBarSymbol};
-use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 

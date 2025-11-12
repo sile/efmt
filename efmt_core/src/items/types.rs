@@ -3,6 +3,7 @@
 //! <https://www.erlang.org/doc/reference_manual/typespec.html>
 use self::components::{BinaryOp, BitstringItem, UnaryOp};
 use crate::format::{Format, Formatter};
+use crate::items::Type;
 use crate::items::components::{
     Args, BitstringLike, Either, Element, ListLike, MapLike, Maybe, NonEmptyItems, Params,
     Parenthesized, RecordLike, TupleLike,
@@ -13,7 +14,6 @@ use crate::items::symbols::{
     VerticalBarSymbol,
 };
 use crate::items::tokens::{AtomToken, CharToken, IntegerToken, VariableToken};
-use crate::items::Type;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 

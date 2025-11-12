@@ -146,20 +146,19 @@ impl Opt {
                     }
                     _ => {}
                 }
-            } else if let Some((k, v)) = item.as_kv_tuple() {
-                if k == "exclude_file" {
-                    if let RebarConfigValue::String(v) = v {
-                        match Regex::new(v) {
-                            Ok(regex) => {
-                                self.exclude_files.push(regex);
-                            }
-                            Err(e) => {
-                                log::warn!("{v:?} is not a valid regex: {e}");
-                            }
-                        }
-                        continue;
+            } else if let Some((k, v)) = item.as_kv_tuple()
+                && k == "exclude_file"
+                && let RebarConfigValue::String(v) = v
+            {
+                match Regex::new(v) {
+                    Ok(regex) => {
+                        self.exclude_files.push(regex);
+                    }
+                    Err(e) => {
+                        log::warn!("{v:?} is not a valid regex: {e}");
                     }
                 }
+                continue;
             }
             log::warn!("found an unhandled efmt option in rebar.config: {item:?}");
         }

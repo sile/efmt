@@ -1,4 +1,5 @@
 use crate::format::Format;
+use crate::items::Type;
 use crate::items::components::{Either, Element};
 use crate::items::keywords::{
     BandKeyword, BnotKeyword, BorKeyword, BslKeyword, BsrKeyword, BxorKeyword, DivKeyword,
@@ -8,7 +9,6 @@ use crate::items::symbols::{
     ColonSymbol, DoubleDotSymbol, HyphenSymbol, MultiplySymbol, PlusSymbol,
 };
 use crate::items::variables::UnderscoreVariable;
-use crate::items::Type;
 use crate::parse::Parse;
 use crate::span::Span;
 

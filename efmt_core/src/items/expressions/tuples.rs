@@ -1,7 +1,7 @@
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::TupleLike;
 use crate::items::tokens::AtomToken;
-use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 

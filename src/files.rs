@@ -38,12 +38,11 @@ pub enum RebarConfigValue {
 
 impl RebarConfigValue {
     pub fn as_kv_tuple(&self) -> Option<(&str, &Self)> {
-        if let Self::Tuple(kv) = self {
-            if kv.len() == 2 {
-                if let Self::Atom(k) = &kv[0] {
-                    return Some((k.as_str(), &kv[1]));
-                }
-            }
+        if let Self::Tuple(kv) = self
+            && kv.len() == 2
+            && let Self::Atom(k) = &kv[0]
+        {
+            return Some((k.as_str(), &kv[1]));
         }
         None
     }

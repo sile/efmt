@@ -9,8 +9,8 @@ use crate::items::tokens::{
 use crate::parse::Tokenizer;
 use crate::parse::{Error, Parse, Result, ResumeParse};
 use crate::span::{Position, Span};
-use erl_tokenize::values::Symbol;
 use erl_tokenize::PositionRange as _;
+use erl_tokenize::values::Symbol;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -437,7 +437,7 @@ impl TokenStream {
         {
             log::debug!(
                 "A circular macro {:?} was detected. It was replaced with a dummy atom 'EFMT_DUMMY'.",
-                  key.to_string(),
+                key.to_string(),
             );
             let start_position = self.tokens[start_index].start_position();
             replacement = vec![LexicalToken::from(dummy_atom(start_position))];

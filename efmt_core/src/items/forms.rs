@@ -3,6 +3,8 @@ use super::atoms::{DocAtom, NominalAtom};
 use super::components::Guard;
 use super::symbols::RightArrowSymbol;
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
+use crate::items::Type;
 use crate::items::atoms::{
     CallbackAtom, DefineAtom, ExportAtom, ExportTypeAtom, IncludeAtom, IncludeLibAtom, ModuleAtom,
     OpaqueAtom, RecordAtom, SpecAtom, TypeAtom,
@@ -19,8 +21,6 @@ use crate::items::symbols::{
     HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
-use crate::items::Expr;
-use crate::items::Type;
 use crate::parse::{Parse, TokenStream};
 use crate::span::Span;
 

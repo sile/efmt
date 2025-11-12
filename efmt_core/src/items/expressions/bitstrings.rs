@@ -1,14 +1,14 @@
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{BitstringLike, Either, Element, Maybe, NonEmptyItems};
+use crate::items::expressions::BaseExpr;
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
-use crate::items::expressions::BaseExpr;
 use crate::items::symbols::{
     ColonSymbol, DoubleLeftAngleSymbol, DoubleRightAngleSymbol, HyphenSymbol, SlashSymbol,
 };
 use crate::items::tokens::{AtomToken, IntegerToken};
-use crate::items::Expr;
 use crate::parse::Parse;
 use crate::span::Span;
 
