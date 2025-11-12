@@ -57,6 +57,13 @@ impl Opt {
             .doc("Overwrites input file with the formatted text")
             .take(&mut args)
             .is_present();
+        if !help_mode && check && write {
+            return Err(noargs::Error::other(
+                &args,
+                "conflicting options: --check and --write cannot be used together",
+            ));
+        }
+
         let show_files = noargs::flag("show-files")
             .doc(concat!(
                 "Shows the target input files\n",
@@ -66,6 +73,12 @@ impl Opt {
             ))
             .take(&mut args)
             .is_present();
+        if !help_mode && (check || write) && show_files {
+            return Err(noargs::Error::other(
+                &args,
+                "conflicting options: --show-files cannot be used with --check or --write",
+            ));
+        }
 
         let mut exclude_files = Vec::new();
         while let Some(pattern) = noargs::opt("exclude-file")
