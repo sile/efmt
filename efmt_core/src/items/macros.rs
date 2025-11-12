@@ -1,11 +1,11 @@
 use super::components::Guard;
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{Args, Either, Maybe};
 use crate::items::symbols::{
     CloseParenSymbol, CommaSymbol, DotSymbol, OpenParenSymbol, QuestionSymbol,
 };
 use crate::items::tokens::{AtomToken, LexicalToken, StringToken, VariableToken};
-use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::{Keyword, Symbol};
@@ -168,10 +168,11 @@ impl Format for MacroReplacement {
         if let Ok(expr) = fmt
             .token_stream_mut()
             .parse_tokens::<Expr>(self.tokens.clone())
-            && expr.end_position() == self.end_position() {
-                expr.format(fmt);
-                return;
-            }
+            && expr.end_position() == self.end_position()
+        {
+            expr.format(fmt);
+            return;
+        }
 
         fmt.write_span(self);
     }
@@ -272,21 +273,22 @@ impl Format for MacroArg {
         if let Ok(arg) = fmt
             .token_stream_mut()
             .parse_tokens::<(Expr, Maybe<Guard<Expr>>)>(self.tokens.clone())
-            && arg.end_position() == self.end_position() {
-                fmt.with_scoped_indent(|fmt| {
-                    arg.0.format(fmt);
-                    if let Some(guard) = arg.1.get() {
-                        if fmt.has_newline_until(guard) {
-                            fmt.set_indent(fmt.indent() + 2);
-                            fmt.write_newline();
-                        } else {
-                            fmt.write_space();
-                        }
-                        guard.format(fmt);
+            && arg.end_position() == self.end_position()
+        {
+            fmt.with_scoped_indent(|fmt| {
+                arg.0.format(fmt);
+                if let Some(guard) = arg.1.get() {
+                    if fmt.has_newline_until(guard) {
+                        fmt.set_indent(fmt.indent() + 2);
+                        fmt.write_newline();
+                    } else {
+                        fmt.write_space();
                     }
-                });
-                return;
-            }
+                    guard.format(fmt);
+                }
+            });
+            return;
+        }
 
         fmt.write_span(self);
     }

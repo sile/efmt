@@ -1,6 +1,6 @@
 use crate::format::{Format, Formatter};
-use crate::items::symbols::DotSymbol;
 use crate::items::Expr;
+use crate::items::symbols::DotSymbol;
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 

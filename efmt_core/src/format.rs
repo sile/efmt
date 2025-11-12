@@ -146,10 +146,12 @@ impl Formatter {
             self.next_comment_indent = None;
         }
 
-        if self.is_last_macro && !matches!(self.buf.chars().last(), Some('\n' | ' '))
-            && let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next() {
-                self.write_space();
-            }
+        if self.is_last_macro
+            && !matches!(self.buf.chars().last(), Some('\n' | ' '))
+            && let Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') = text.chars().next()
+        {
+            self.write_space();
+        }
         self.is_last_macro = false;
 
         self.buf.push_str(text);
@@ -315,8 +317,10 @@ impl Formatter {
         match comment.text(&self.ts.text()).parse() {
             Err(()) => {}
             Ok(Directive::FormatOn) => {
-                log::warn!("Found a `@efmt:on` comment at line {} without a preceding `@efmt:off` (just ignored).",
-                           comment.start_position().line());
+                log::warn!(
+                    "Found a `@efmt:on` comment at line {} without a preceding `@efmt:off` (just ignored).",
+                    comment.start_position().line()
+                );
             }
             Ok(Directive::FormatOff) => {
                 self.next_position = comment.start_position();

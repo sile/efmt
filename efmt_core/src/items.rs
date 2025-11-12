@@ -109,25 +109,28 @@ impl Expr {
 
     pub fn as_string(&self) -> Option<&str> {
         if let FullExpr::Base(BaseExpr::Literal(LiteralExpr::String(x))) = &self.0
-            && x.tokens().len() == 1 {
-                return Some(x.tokens()[0].value());
-            }
+            && x.tokens().len() == 1
+        {
+            return Some(x.tokens()[0].value());
+        }
         None
     }
 
     pub fn as_u32(&self, text: &str) -> Option<u32> {
         if let FullExpr::Base(BaseExpr::Literal(LiteralExpr::Integer(x))) = &self.0
-            && let Ok(x) = text[x.start_position().offset()..x.end_position().offset()].parse() {
-                return Some(x);
-            }
+            && let Ok(x) = text[x.start_position().offset()..x.end_position().offset()].parse()
+        {
+            return Some(x);
+        }
         None
     }
 
     pub fn as_list(&self) -> Option<&[Expr]> {
         if let FullExpr::Base(BaseExpr::List(x)) = &self.0
-            && let ListExpr::Construct(x) = &**x {
-                return Some(x.items());
-            }
+            && let ListExpr::Construct(x) = &**x
+        {
+            return Some(x.items());
+        }
         None
     }
 

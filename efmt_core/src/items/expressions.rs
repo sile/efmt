@@ -1,12 +1,12 @@
 //! Erlang expressions.
 use crate::format::Format;
+use crate::items::Expr;
 use crate::items::components::{Either, Element, Parenthesized};
 use crate::items::symbols::OpenBraceSymbol;
 use crate::items::tokens::{
     AtomToken, CharToken, FloatToken, IntegerToken, LexicalToken, SigilStringToken, SymbolToken,
     VariableToken,
 };
-use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};

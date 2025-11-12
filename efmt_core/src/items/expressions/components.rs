@@ -1,4 +1,5 @@
 use crate::format::{Format, Formatter};
+use crate::items::Expr;
 use crate::items::components::{Either, Guard, Maybe, NonEmptyItems, Params};
 use crate::items::keywords;
 use crate::items::symbols::{
@@ -7,7 +8,6 @@ use crate::items::symbols::{
     StrictLeftArrowSymbol,
 };
 use crate::items::tokens::LexicalToken;
-use crate::items::Expr;
 use crate::parse::{self, Parse};
 use crate::span::Span;
 use erl_tokenize::values::{Keyword, Symbol};

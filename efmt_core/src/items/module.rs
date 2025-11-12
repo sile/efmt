@@ -2,7 +2,7 @@ use super::components::Either;
 use super::tokens::LexicalToken;
 use crate::format::{Format, Formatter};
 use crate::items::forms::DefineDirective;
-use crate::items::{forms, Form};
+use crate::items::{Form, forms};
 use crate::parse::{self, Parse, TokenStream};
 use crate::span::{Position, Span};
 use erl_tokenize::values::Symbol;
@@ -41,18 +41,19 @@ impl<const ALLOW_PARTIAL_FAILURE: bool> Parse for Module<ALLOW_PARTIAL_FAILURE> 
                 Err(e) => loop {
                     if let Some(Ok(token)) = ts.next() {
                         if let LexicalToken::Symbol(token) = token
-                            && token.value() == Symbol::Dot {
-                                log::warn!(
-                                    concat!(
-                                        "Skipped formatting a form due to ",
-                                        "the following error.\n{}"
-                                    ),
-                                    e
-                                );
-                                let end = token.end_position();
-                                forms.push(Either::B(Skipped { start, end }));
-                                break;
-                            }
+                            && token.value() == Symbol::Dot
+                        {
+                            log::warn!(
+                                concat!(
+                                    "Skipped formatting a form due to ",
+                                    "the following error.\n{}"
+                                ),
+                                e
+                            );
+                            let end = token.end_position();
+                            forms.push(Either::B(Skipped { start, end }));
+                            break;
+                        }
                     } else {
                         return Err(e);
                     }
@@ -159,9 +160,10 @@ impl<'a> FormatState<'a> {
             }
 
             if let Some(last) = self.pending_constants.last()
-                && last.end_position().line() + 1 < define.start_position().line() {
-                    return false;
-                }
+                && last.end_position().line() + 1 < define.start_position().line()
+            {
+                return false;
+            }
 
             if fmt.token_stream().contains_comment(define) {
                 return false;

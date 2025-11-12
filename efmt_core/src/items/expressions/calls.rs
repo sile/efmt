@@ -1,9 +1,9 @@
 use crate::format::{Format, Formatter};
-use crate::items::components::{Args, Maybe};
-use crate::items::expressions::components::{BinaryOp, UnaryOp};
-use crate::items::expressions::BaseExpr;
-use crate::items::symbols::ColonSymbol;
 use crate::items::Expr;
+use crate::items::components::{Args, Maybe};
+use crate::items::expressions::BaseExpr;
+use crate::items::expressions::components::{BinaryOp, UnaryOp};
+use crate::items::symbols::ColonSymbol;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 

@@ -1,10 +1,10 @@
 use crate::format::Format;
+use crate::items::Expr;
 use crate::items::components::{Element, RecordLike};
 use crate::items::expressions::Either;
 use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
 use crate::items::tokens::AtomToken;
 use crate::items::variables::UnderscoreVariable;
-use crate::items::Expr;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
 
@@ -47,7 +47,7 @@ impl RecordAccessOrUpdateExpr {
     pub fn record_name(&self) -> &AtomToken {
         match self {
             Self::Access(x) => &x.index.name,
-            Self::Update(x) => &x.record.prefix().1 .1,
+            Self::Update(x) => &x.record.prefix().1.1,
         }
     }
 
