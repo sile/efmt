@@ -109,7 +109,7 @@ impl Opt {
             .is_present();
 
         let disable_rebar3_mode = noargs::flag("disable-rebar3-mode")
-            .doc("Don't assume the target project is built using rebar3")
+            .doc("Don't assume that the target project is built using rebar3")
             .take(&mut args)
             .is_present();
 
