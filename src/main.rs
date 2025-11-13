@@ -124,7 +124,7 @@ impl Opt {
             .is_present();
 
         let color = noargs::flag("color")
-            .doc("Show colored diff (Only applies when `--check` is given)")
+            .doc("Shows colored diff (Only applies when `--check` is given)")
             .take(&mut args)
             .is_present();
 
