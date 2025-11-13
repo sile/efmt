@@ -147,6 +147,9 @@ impl Opt {
             files.push(file);
         }
 
+        if files.is_empty() && !check && !write && !show_files {
+            args.metadata_mut().help_mode = true;
+        }
         if let Some(help) = args.finish()? {
             print!("{help}");
             std::process::exit(0);
