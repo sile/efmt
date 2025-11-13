@@ -138,7 +138,7 @@ impl Opt {
             ))
             .env("EFMT_MAX_COLUMNS")
             .take(&mut args)
-            .present_and_then(|o| o.value().parse::<usize>().ok())?;
+            .present_and_then(|o| o.value().parse())?;
 
         // Parse positional arguments (files)
         let mut files = Vec::new();
@@ -431,7 +431,7 @@ fn check_line_lengths<P: AsRef<Path>>(
 ) -> anyhow::Result<()> {
     let mut has_error = false;
     for (line_num, line) in text.lines().enumerate() {
-        let width = UnicodeWidthStr::width(line.as_str());
+        let width = UnicodeWidthStr::width(line);
         if width > max_columns {
             eprintln!(
                 "{}:{}: Line exceeds max columns ({}>{}):\n  {}",
