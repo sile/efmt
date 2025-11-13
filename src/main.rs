@@ -84,7 +84,7 @@ impl Opt {
         while let Some(pattern) = noargs::opt("exclude-file")
             .short('e')
             .doc(concat!(
-                "Excludes files that matches the specified regexs ",
+                "Excludes files that matches the specified regexes ",
                 "from the default target file list"
             ))
             .take(&mut args)
