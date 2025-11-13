@@ -6,6 +6,7 @@ use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use unicode_width::UnicodeWidthStr;
 
 struct Opt {
     check: bool,
@@ -18,6 +19,7 @@ struct Opt {
     disable_rebar3_mode: bool,
     allow_partial_failure: bool,
     color: bool,
+    max_columns: Option<usize>,
 }
 
 impl Opt {
@@ -128,6 +130,16 @@ impl Opt {
             .take(&mut args)
             .is_present();
 
+        let max_columns = noargs::opt("max-columns")
+            .doc(concat!(
+                "Specifies the maximum number of columns per line\n",
+                "\n",
+                "When checking, emits errors if any line exceeds this limit"
+            ))
+            .env("EFMT_MAX_COLUMNS")
+            .take(&mut args)
+            .present_and_then(|o| o.value().parse::<usize>().ok())?;
+
         // Parse positional arguments (files)
         let mut files = Vec::new();
         while let Some(file) = noargs::arg("[FILE]...")
@@ -166,6 +178,7 @@ impl Opt {
             disable_rebar3_mode,
             allow_partial_failure,
             color,
+            max_columns,
         })
     }
 
@@ -411,6 +424,32 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn check_line_lengths<P: AsRef<Path>>(
+    text: &str,
+    max_columns: usize,
+    path: P,
+) -> anyhow::Result<()> {
+    let mut has_error = false;
+    for (line_num, line) in text.lines().enumerate() {
+        let width = UnicodeWidthStr::width(line.as_str());
+        if width > max_columns {
+            eprintln!(
+                "{}:{}: Line exceeds max columns ({}>{}):\n  {}",
+                path.as_ref().display(),
+                line_num + 1,
+                width,
+                max_columns,
+                line
+            );
+            has_error = true;
+        }
+    }
+    if has_error {
+        anyhow::bail!("Some lines exceed the max column limit");
+    }
+    Ok(())
+}
+
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
@@ -419,6 +458,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         file: &Path,
         allow_partial_failure: bool,
         color: bool,
+        max_columns: Option<usize>,
     ) -> bool {
         match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
@@ -428,6 +468,13 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
             Ok((original, formatted)) => {
                 if original == formatted {
                     log::info!("{file:?} is already formatted correctly.");
+
+                    // Check line length if max_columns is specified
+                    if let Some(max) = max_columns {
+                        if check_line_lengths(&formatted, max, file).is_err() {
+                            return false;
+                        }
+                    }
                     true
                 } else {
                     if color {
@@ -436,6 +483,14 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                         efmt::diff::text_diff(&original, &formatted, file);
                     }
                     log::info!("{file:?} is not formatted correctly.");
+
+                    // Check line length if max_columns is specified
+                    if let Some(max) = max_columns {
+                        if check_line_lengths(&formatted, max, file).is_err() {
+                            return false;
+                        }
+                    }
+
                     false
                 }
             }
@@ -446,12 +501,28 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         opt.files
             .clone()
             .into_par_iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
+            .filter(|file| {
+                !do_check(
+                    &format_options,
+                    file,
+                    opt.allow_partial_failure,
+                    opt.color,
+                    opt.max_columns,
+                )
+            })
             .collect::<Vec<_>>()
     } else {
         opt.files
             .iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
+            .filter(|file| {
+                !do_check(
+                    &format_options,
+                    file,
+                    opt.allow_partial_failure,
+                    opt.color,
+                    opt.max_columns,
+                )
+            })
             .cloned()
             .collect::<Vec<_>>()
     };
