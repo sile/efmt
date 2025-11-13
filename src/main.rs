@@ -149,7 +149,7 @@ impl Opt {
 
         if let Some(help) = args.finish()? {
             print!("{help}");
-            std::process::exit(if check || write || show_files { 0 } else { 1 });
+            std::process::exit(0);
         }
 
         Ok(Opt {
