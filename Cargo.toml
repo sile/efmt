@@ -12,7 +12,6 @@ exclude = ["/rebar3_efmt/", "efmt_wasm.wasm", "/vscode/"]
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4", features = ["derive"] }
 erl_tokenize = "0.9.0"
 efmt_core = { path = "efmt_core", version = "0.5.0" }
 env_logger = "0.11"
@@ -22,6 +21,7 @@ similar = { version= "2", features = ["inline"] }
 regex = "1.6.0"
 colored = "3"
 ignore = "0.4.22"
+noargs = "0.4.1"
 
 [dev-dependencies]
 similar-asserts = "1"

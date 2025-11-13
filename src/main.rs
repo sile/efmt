@@ -1,5 +1,4 @@
 use anyhow::Context;
-use clap::{CommandFactory as _, Parser};
 use efmt::files::RebarConfigValue;
 use efmt_core::items::ModuleOrConfig;
 use env_logger::Env;
@@ -8,66 +7,165 @@ use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
-/// Erlang Code Formatter.
-#[derive(Debug, Parser)]
-#[clap(about, version)]
 struct Opt {
-    /// Checks if input is formatted correctly.
-    ///
-    /// If so, exits with 0. Otherwise, exits with 1 and shows a diff.
-    #[clap(long, short)]
     check: bool,
-
-    /// Overwrites input file with the formatted text.
-    #[clap(long, short, conflicts_with = "check")]
     write: bool,
-
-    /// Shows the target input files.
-    ///
-    /// You can use this flag to exclude some files from the default target, e.g., `$ efmt $(efmt --show-files | grep -v rebar.config)`.
-    #[clap(long, conflicts_with = "check", conflicts_with = "write")]
     show_files: bool,
-
-    /// Excludes files that matches the specified regexs from the default target file list.
-    #[clap(short, long = "exclude-file")]
-    exclude_files: Vec<regex::Regex>,
-
-    /// Outputs debug log messages.
-    #[clap(long)]
-    verbose: bool,
-
-    /// Format target files.
-    ///
-    /// `-` means the standard input.
-    /// If no files are specified and any of `-c`, `-w` or `--show-files` options is specified,
-    /// All of the files named `**.{hrl,erl,app.src}` and `**/rebar.config` are used as the default
-    /// (note that files specified by `.gitignore` will be ignored).
+    exclude_files: Vec<Regex>,
     files: Vec<PathBuf>,
-
-    /// Executes formatting in parallel.
-    #[clap(long)]
     parallel: bool,
-
-    /// Disables formatting by default.
-    /// efmt behaves as if there is a "% @efmt:off" comment at the head of the each target file.
-    #[clap(long)]
     default_off: bool,
-
-    /// Don't assume that the target project is built using rebar3.
-    #[clap(long)]
     disable_rebar3_mode: bool,
-
-    /// Don't raise an error even if the input contains wrong Erlang code.
-    /// `efmt` tries to continue formatting the remaining part of the code as much as possible.
-    #[clap(long)]
     allow_partial_failure: bool,
-
-    /// Show colored diff. Only applies when `--check` is given.
-    #[clap(long)]
     color: bool,
 }
 
 impl Opt {
+    fn parse() -> noargs::Result<Self> {
+        let mut args = noargs::raw_args();
+
+        args.metadata_mut().app_name = env!("CARGO_PKG_NAME");
+        args.metadata_mut().app_description = env!("CARGO_PKG_DESCRIPTION");
+
+        if noargs::VERSION_FLAG.take(&mut args).is_present() {
+            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        }
+        let help_mode = noargs::HELP_FLAG.take_help(&mut args).is_present();
+
+        // Parse options
+        let verbose = noargs::flag("verbose")
+            .doc("Outputs debug log messages")
+            .take(&mut args)
+            .is_present();
+        if !help_mode {
+            let loglevel = if verbose { "debug" } else { "info" };
+            env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
+        }
+
+        let check = noargs::flag("check")
+            .short('c')
+            .doc(concat!(
+                "Checks if input is formatted correctly\n",
+                "\n",
+                "If so, exits with 0. Otherwise, exits with 1 and shows a diff."
+            ))
+            .take(&mut args)
+            .is_present();
+        let write = noargs::flag("write")
+            .short('w')
+            .doc("Overwrites input file with the formatted text")
+            .take(&mut args)
+            .is_present();
+        if !help_mode && check && write {
+            return Err(noargs::Error::other(
+                &args,
+                "conflicting options: --check and --write cannot be used together",
+            ));
+        }
+
+        let show_files = noargs::flag("show-files")
+            .doc(concat!(
+                "Shows the target input files\n",
+                "\n",
+                "You can use this flag to exclude some files from the default target, ",
+                "e.g., `$ efmt $(efmt --show-files | grep -v rebar.config)`."
+            ))
+            .take(&mut args)
+            .is_present();
+        if !help_mode && (check || write) && show_files {
+            return Err(noargs::Error::other(
+                &args,
+                "conflicting options: --show-files cannot be used with --check or --write",
+            ));
+        }
+
+        let mut exclude_files = Vec::new();
+        while let Some(pattern) = noargs::opt("exclude-file")
+            .short('e')
+            .doc(concat!(
+                "Excludes files that matches the specified regexes ",
+                "from the default target file list"
+            ))
+            .take(&mut args)
+            .present_and_then(|o| Regex::new(o.value()))?
+        {
+            exclude_files.push(pattern);
+        }
+
+        let parallel = noargs::flag("parallel")
+            .doc("Executes formatting in parallel")
+            .take(&mut args)
+            .is_present();
+
+        let default_off = noargs::flag("default-off")
+            .doc(concat!(
+                "Disables formatting by default\n",
+                "\n",
+                "efmt behaves as if ",
+                "there is a \"% @efmt:off\" comment at the head of the each target file"
+            ))
+            .take(&mut args)
+            .is_present();
+
+        let disable_rebar3_mode = noargs::flag("disable-rebar3-mode")
+            .doc("Don't assume that the target project is built using rebar3")
+            .take(&mut args)
+            .is_present();
+
+        let allow_partial_failure = noargs::flag("allow-partial-failure")
+            .doc(concat!(
+                "Don't raise an error even if the input contains wrong Erlang code\n",
+                "\n",
+                "`efmt` tries to continue formatting the remaining part of the code ",
+                "as much as possible"
+            ))
+            .take(&mut args)
+            .is_present();
+
+        let color = noargs::flag("color")
+            .doc("Shows colored diff (Only applies when `--check` is given)")
+            .take(&mut args)
+            .is_present();
+
+        // Parse positional arguments (files)
+        let mut files = Vec::new();
+        while let Some(file) = noargs::arg("[FILE]...")
+            .doc(concat!(
+                "Format target files\n",
+                "\n",
+                "`-` means the standard input.\n",
+                "If no files are specified and ",
+                "any of `-c`, `-w` or `--show-files` options is specified,\n",
+                "all of the files named `**.{hrl,erl,app.src}` and ",
+                "`**/rebar.config` are used as the default\n",
+                "(note that files specified by `.gitignore` will be ignored)."
+            ))
+            .take(&mut args)
+            .present_and_then(|a| a.value().parse::<PathBuf>())?
+        {
+            files.push(file);
+        }
+
+        if let Some(help) = args.finish()? {
+            print!("{help}");
+            std::process::exit(0);
+        }
+
+        Ok(Opt {
+            check,
+            write,
+            show_files,
+            exclude_files,
+            files,
+            parallel,
+            default_off,
+            disable_rebar3_mode,
+            allow_partial_failure,
+            color,
+        })
+    }
+
     fn collect_default_files_if_need(&mut self) -> anyhow::Result<()> {
         if !self.files.is_empty() || !(self.check || self.write || self.show_files) {
             return Ok(());
@@ -104,7 +202,6 @@ impl Opt {
     }
 
     fn enable_rebar3_mode(&mut self, rebar_config_dir: PathBuf) -> anyhow::Result<()> {
-        // rebar.config
         let rebar_config_path = rebar_config_dir.join("rebar.config");
         for value in efmt::files::load_rebar_config(&rebar_config_path)
             .with_context(|| format!("failed to load rebar.config file: {rebar_config_path:?}"))?
@@ -166,10 +263,9 @@ impl Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut opt = Opt::parse();
-
-    let loglevel = if opt.verbose { "debug" } else { "info" };
-    env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
+    let Ok(mut opt) = Opt::parse().inspect_err(|e| eprintln!("Error: {e:?}")) else {
+        std::process::exit(1);
+    };
 
     if !opt.disable_rebar3_mode {
         if let Some(rebar_config_dir) = efmt::files::find_rebar_config_dir() {
@@ -182,8 +278,7 @@ fn main() -> anyhow::Result<()> {
 
     opt.collect_default_files_if_need()?;
     if opt.files.is_empty() {
-        Opt::command().print_help()?;
-        println!();
+        eprintln!("No input files found. Use --help for usage information.");
         std::process::exit(1);
     }
 
