@@ -137,7 +137,7 @@ impl Opt {
                 "`-` means the standard input.\n",
                 "If no files are specified and ",
                 "any of `-c`, `-w` or `--show-files` options is specified,\n",
-                "All of the files named `**.{hrl,erl,app.src}` and ",
+                "all of the files named `**.{hrl,erl,app.src}` and ",
                 "`**/rebar.config` are used as the default\n",
                 "(note that files specified by `.gitignore` will be ignored)."
             ))
