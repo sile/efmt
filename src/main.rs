@@ -278,7 +278,7 @@ fn main() -> anyhow::Result<()> {
 
     opt.collect_default_files_if_need()?;
     if opt.files.is_empty() {
-        eprintln!("No input files specified. Use --help for usage information.");
+        eprintln!("No input files found. Use --help for usage information.");
         std::process::exit(1);
     }
 
