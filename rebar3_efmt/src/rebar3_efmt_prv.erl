@@ -80,6 +80,10 @@ opts() ->
                              undefined,
                              "Don't raise an error even if the input contains wrong Erlang code."
                              "`efmt` tries to continue formatting the remaining part of the code as much as possible"},
+     {max_line_length, $l, "max-line-length", integer,
+                       "Validates that lines don't exceed the specified length. "
+                       "When checking, emits errors if any line exceeds this limit. "
+                       "This option only validates; it does not reformat code."},
      {color, undefined, "color", undefined, "Show colored diff. Only applies when `--check` is given."}].
 
 
