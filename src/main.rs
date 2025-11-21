@@ -130,7 +130,7 @@ impl Opt {
             .take(&mut args)
             .is_present();
 
-        let check_line_length = noargs::opt("CHECK-line-length")
+        let check_line_length = noargs::opt("check-line-length")
             .doc(concat!(
                 "validates that non comment lines don't exceed the specified length ",
                 "(works with --check)\n",
