@@ -19,7 +19,7 @@ struct Opt {
     disable_rebar3_mode: bool,
     allow_partial_failure: bool,
     color: bool,
-    max_line_length: Option<usize>,
+    check_line_length: Option<usize>,
 }
 
 impl Opt {
@@ -126,19 +126,18 @@ impl Opt {
             .is_present();
 
         let color = noargs::flag("color")
-            .doc("Shows colored diff (Only applies when `--check` is given)")
+            .doc("Shows colored diff (works with `--check`)")
             .take(&mut args)
             .is_present();
 
-        let max_line_length = noargs::opt("max-line-length")
-            .short('l')
+        let check_line_length = noargs::opt("CHECK-line-length")
             .doc(concat!(
-                "Validates that non comment lines don't exceed the specified length\n",
+                "validates that non comment lines don't exceed the specified length ",
+                "(works with --check)\n",
                 "\n",
                 "When checking, emits errors if any non comment line exceeds this limit.\n",
                 "This option only validates; it does not reformat code."
             ))
-            .env("EFMT_MAX_LINE_LENGTH")
             .take(&mut args)
             .present_and_then(|o| o.value().parse())?;
 
@@ -180,7 +179,7 @@ impl Opt {
             disable_rebar3_mode,
             allow_partial_failure,
             color,
-            max_line_length,
+            check_line_length,
         })
     }
 
@@ -426,7 +425,7 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn check_line_lengths<P: AsRef<Path>>(text: &str, max_line_length: usize, path: P) -> bool {
+fn check_line_lengths<P: AsRef<Path>>(text: &str, check_line_length: usize, path: P) -> bool {
     let mut has_error = false;
     for (line_num, line) in text.lines().enumerate() {
         if line.trim_start().starts_with('%') {
@@ -434,13 +433,13 @@ fn check_line_lengths<P: AsRef<Path>>(text: &str, max_line_length: usize, path: 
         };
 
         let width = UnicodeWidthStr::width(line);
-        if width > max_line_length {
+        if width > check_line_length {
             eprintln!(
                 "{}:{}: Line exceeds max length ({}>{}):\n  {}",
                 path.as_ref().display(),
                 line_num + 1,
                 width,
-                max_line_length,
+                check_line_length,
                 line
             );
             has_error = true;
@@ -457,7 +456,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         file: &Path,
         allow_partial_failure: bool,
         color: bool,
-        max_line_length: Option<usize>,
+        check_line_length: Option<usize>,
     ) -> bool {
         match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
@@ -468,8 +467,9 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                 if original == formatted {
                     log::info!("{file:?} is already formatted correctly.");
 
-                    // Check line length if max_line_length is specified
-                    if max_line_length.is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    // Check line length if check_line_length is specified
+                    if check_line_length
+                        .is_some_and(|max| !check_line_lengths(&formatted, max, file))
                     {
                         return false;
                     }
@@ -482,8 +482,9 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     }
                     log::info!("{file:?} is not formatted correctly.");
 
-                    // Check line length if max_line_length is specified
-                    if max_line_length.is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    // Check line length if check_line_length is specified
+                    if check_line_length
+                        .is_some_and(|max| !check_line_lengths(&formatted, max, file))
                     {
                         return false;
                     }
@@ -504,7 +505,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     file,
                     opt.allow_partial_failure,
                     opt.color,
-                    opt.max_line_length,
+                    opt.check_line_length,
                 )
             })
             .collect::<Vec<_>>()
@@ -517,7 +518,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     file,
                     opt.allow_partial_failure,
                     opt.color,
-                    opt.max_line_length,
+                    opt.check_line_length,
                 )
             })
             .cloned()
