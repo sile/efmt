@@ -19,7 +19,7 @@ struct Opt {
     disable_rebar3_mode: bool,
     allow_partial_failure: bool,
     color: bool,
-    max_columns: Option<usize>,
+    max_line_length: Option<usize>,
 }
 
 impl Opt {
@@ -130,13 +130,15 @@ impl Opt {
             .take(&mut args)
             .is_present();
 
-        let max_columns = noargs::opt("max-columns")
+        let max_line_length = noargs::opt("max-line-length")
+            .short('l')
             .doc(concat!(
-                "Specifies the maximum number of columns per line\n",
+                "Validates that lines don't exceed the specified length\n",
                 "\n",
-                "When checking, emits errors if any line exceeds this limit"
+                "When checking, emits errors if any line exceeds this limit.\n",
+                "This option only validates; it does not reformat code."
             ))
-            .env("EFMT_MAX_COLUMNS")
+            .env("EFMT_MAX_LINE_LENGTH")
             .take(&mut args)
             .present_and_then(|o| o.value().parse())?;
 
@@ -178,7 +180,7 @@ impl Opt {
             disable_rebar3_mode,
             allow_partial_failure,
             color,
-            max_columns,
+            max_line_length,
         })
     }
 
@@ -426,26 +428,26 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 
 fn check_line_lengths<P: AsRef<Path>>(
     text: &str,
-    max_columns: usize,
+    max_line_length: usize,
     path: P,
 ) -> anyhow::Result<()> {
     let mut has_error = false;
     for (line_num, line) in text.lines().enumerate() {
         let width = UnicodeWidthStr::width(line);
-        if width > max_columns {
+        if width > max_line_length {
             eprintln!(
-                "{}:{}: Line exceeds max columns ({}>{}):\n  {}",
+                "{}:{}: Line exceeds max line length ({}>{}):\n  {}",
                 path.as_ref().display(),
                 line_num + 1,
                 width,
-                max_columns,
+                max_line_length,
                 line
             );
             has_error = true;
         }
     }
     if has_error {
-        anyhow::bail!("Some lines exceed the max column limit");
+        anyhow::bail!("Some lines exceed the max line length limit");
     }
     Ok(())
 }
@@ -458,7 +460,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         file: &Path,
         allow_partial_failure: bool,
         color: bool,
-        max_columns: Option<usize>,
+        max_line_length: Option<usize>,
     ) -> bool {
         match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
@@ -469,8 +471,8 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                 if original == formatted {
                     log::info!("{file:?} is already formatted correctly.");
 
-                    // Check line length if max_columns is specified
-                    if let Some(max) = max_columns {
+                    // Check line length if max_line_length is specified
+                    if let Some(max) = max_line_length {
                         if check_line_lengths(&formatted, max, file).is_err() {
                             return false;
                         }
@@ -484,8 +486,8 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     }
                     log::info!("{file:?} is not formatted correctly.");
 
-                    // Check line length if max_columns is specified
-                    if let Some(max) = max_columns {
+                    // Check line length if max_line_length is specified
+                    if let Some(max) = max_line_length {
                         if check_line_lengths(&formatted, max, file).is_err() {
                             return false;
                         }
@@ -507,7 +509,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     file,
                     opt.allow_partial_failure,
                     opt.color,
-                    opt.max_columns,
+                    opt.max_line_length,
                 )
             })
             .collect::<Vec<_>>()
@@ -520,7 +522,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     file,
                     opt.allow_partial_failure,
                     opt.color,
-                    opt.max_columns,
+                    opt.max_line_length,
                 )
             })
             .cloned()
