@@ -426,11 +426,7 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn check_line_lengths<P: AsRef<Path>>(
-    text: &str,
-    max_line_length: usize,
-    path: P,
-) -> anyhow::Result<()> {
+fn check_line_lengths<P: AsRef<Path>>(text: &str, max_line_length: usize, path: P) -> bool {
     let mut has_error = false;
     for (line_num, line) in text.lines().enumerate() {
         let width = UnicodeWidthStr::width(line);
@@ -446,10 +442,7 @@ fn check_line_lengths<P: AsRef<Path>>(
             has_error = true;
         }
     }
-    if has_error {
-        anyhow::bail!("Some lines exceed the max line length limit");
-    }
-    Ok(())
+    !has_error
 }
 
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
@@ -472,10 +465,9 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     log::info!("{file:?} is already formatted correctly.");
 
                     // Check line length if max_line_length is specified
-                    if let Some(max) = max_line_length {
-                        if check_line_lengths(&formatted, max, file).is_err() {
-                            return false;
-                        }
+                    if max_line_length.is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    {
+                        return false;
                     }
                     true
                 } else {
@@ -487,10 +479,9 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                     log::info!("{file:?} is not formatted correctly.");
 
                     // Check line length if max_line_length is specified
-                    if let Some(max) = max_line_length {
-                        if check_line_lengths(&formatted, max, file).is_err() {
-                            return false;
-                        }
+                    if max_line_length.is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    {
+                        return false;
                     }
 
                     false
