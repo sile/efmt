@@ -133,9 +133,9 @@ impl Opt {
         let max_line_length = noargs::opt("max-line-length")
             .short('l')
             .doc(concat!(
-                "Validates that lines don't exceed the specified length\n",
+                "Validates that non comment lines don't exceed the specified length\n",
                 "\n",
-                "When checking, emits errors if any line exceeds this limit.\n",
+                "When checking, emits errors if any non comment line exceeds this limit.\n",
                 "This option only validates; it does not reformat code."
             ))
             .env("EFMT_MAX_LINE_LENGTH")
@@ -429,10 +429,14 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
 fn check_line_lengths<P: AsRef<Path>>(text: &str, max_line_length: usize, path: P) -> bool {
     let mut has_error = false;
     for (line_num, line) in text.lines().enumerate() {
+        if line.trim_start().starts_with('%') {
+            continue;
+        };
+
         let width = UnicodeWidthStr::width(line);
         if width > max_line_length {
             eprintln!(
-                "{}:{}: Line exceeds max line length ({}>{}):\n  {}",
+                "{}:{}: Line exceeds max length ({}>{}):\n  {}",
                 path.as_ref().display(),
                 line_num + 1,
                 width,
