@@ -132,10 +132,10 @@ impl Opt {
 
         let check_line_length = noargs::opt("check-line-length")
             .doc(concat!(
-                "Validates that non comment lines don't exceed the specified length ",
+                "Validates that non-comment lines don't exceed the specified length ",
                 "(works with --check)\n",
                 "\n",
-                "When checking, emits errors if any non comment line exceeds this limit.\n",
+                "When checking, emits errors if any non-comment line exceeds this limit.\n",
                 "This option only validates; it does not reformat code."
             ))
             .take(&mut args)
