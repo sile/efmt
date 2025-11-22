@@ -13,6 +13,9 @@ jobs:
       version: ${{ steps.get_version.outputs.VERSION }}
       upload-url: ${{ steps.create-release.outputs.upload_url }}
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
       - name: Get the version
         id: get_version
         run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
@@ -22,9 +25,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          release_output=$(gh release create ${{ steps.get_version.outputs.VERSION }} \
+          gh release create ${{ steps.get_version.outputs.VERSION }} \
             --draft \
-            --title "v${{ steps.get_version.outputs.VERSION }}")
+            --title "v${{ steps.get_version.outputs.VERSION }}"
           echo "upload_url=https://uploads.github.com/repos/${{ github.repository }}/releases/latest/assets" >> $GITHUB_OUTPUT
 
   linux-binary:
