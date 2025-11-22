@@ -430,7 +430,7 @@ fn check_line_lengths<P: AsRef<Path>>(text: &str, check_line_length: usize, path
     for (line_num, line) in text.lines().enumerate() {
         if line.trim_start().starts_with('%') {
             continue;
-        };
+        }
 
         let width = UnicodeWidthStr::width(line);
         if width > check_line_length {
