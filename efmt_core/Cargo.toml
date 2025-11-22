@@ -1,6 +1,6 @@
 [package]
 name = "efmt_core"
-version = "0.5.3"
+version = "0.6.0"
 edition = "2024"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 license = "MIT OR Apache-2.0"
