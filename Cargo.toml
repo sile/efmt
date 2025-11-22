@@ -22,6 +22,7 @@ regex = "1.6.0"
 colored = "3"
 ignore = "0.4.22"
 noargs = "0.4.1"
+unicode-width = "0.2.2"
 
 [dev-dependencies]
 similar-asserts = "1"

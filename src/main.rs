@@ -6,6 +6,7 @@ use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use unicode_width::UnicodeWidthStr;
 
 struct Opt {
     check: bool,
@@ -18,6 +19,7 @@ struct Opt {
     disable_rebar3_mode: bool,
     allow_partial_failure: bool,
     color: bool,
+    check_line_length: Option<usize>,
 }
 
 impl Opt {
@@ -124,9 +126,20 @@ impl Opt {
             .is_present();
 
         let color = noargs::flag("color")
-            .doc("Shows colored diff (Only applies when `--check` is given)")
+            .doc("Shows colored diff (works with --check)")
             .take(&mut args)
             .is_present();
+
+        let check_line_length = noargs::opt("check-line-length")
+            .doc(concat!(
+                "Validates that non-comment lines don't exceed the specified length ",
+                "(works with --check)\n",
+                "\n",
+                "When checking, emits errors if any non-comment line exceeds this limit.\n",
+                "This option only validates; it does not reformat code."
+            ))
+            .take(&mut args)
+            .present_and_then(|o| o.value().parse())?;
 
         // Parse positional arguments (files)
         let mut files = Vec::new();
@@ -166,6 +179,7 @@ impl Opt {
             disable_rebar3_mode,
             allow_partial_failure,
             color,
+            check_line_length,
         })
     }
 
@@ -411,6 +425,29 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn check_line_lengths<P: AsRef<Path>>(text: &str, check_line_length: usize, path: P) -> bool {
+    let mut has_error = false;
+    for (line_num, line) in text.lines().enumerate() {
+        if line.trim_start().starts_with('%') {
+            continue;
+        }
+
+        let width = UnicodeWidthStr::width(line);
+        if width > check_line_length {
+            eprintln!(
+                "{}:{}: Line exceeds max length ({}>{}):\n  {}",
+                path.as_ref().display(),
+                line_num + 1,
+                width,
+                check_line_length,
+                line
+            );
+            has_error = true;
+        }
+    }
+    !has_error
+}
+
 fn check_files(opt: &Opt) -> anyhow::Result<()> {
     let format_options = opt.to_format_options();
 
@@ -419,6 +456,7 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         file: &Path,
         allow_partial_failure: bool,
         color: bool,
+        check_line_length: Option<usize>,
     ) -> bool {
         match format_file_or_stdin(format_options, file, allow_partial_failure) {
             Err(e) => {
@@ -428,6 +466,13 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
             Ok((original, formatted)) => {
                 if original == formatted {
                     log::info!("{file:?} is already formatted correctly.");
+
+                    // Check line length if check_line_length is specified
+                    if check_line_length
+                        .is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    {
+                        return false;
+                    }
                     true
                 } else {
                     if color {
@@ -436,6 +481,14 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
                         efmt::diff::text_diff(&original, &formatted, file);
                     }
                     log::info!("{file:?} is not formatted correctly.");
+
+                    // Check line length if check_line_length is specified
+                    if check_line_length
+                        .is_some_and(|max| !check_line_lengths(&formatted, max, file))
+                    {
+                        return false;
+                    }
+
                     false
                 }
             }
@@ -446,12 +499,28 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
         opt.files
             .clone()
             .into_par_iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
+            .filter(|file| {
+                !do_check(
+                    &format_options,
+                    file,
+                    opt.allow_partial_failure,
+                    opt.color,
+                    opt.check_line_length,
+                )
+            })
             .collect::<Vec<_>>()
     } else {
         opt.files
             .iter()
-            .filter(|file| !do_check(&format_options, file, opt.allow_partial_failure, opt.color))
+            .filter(|file| {
+                !do_check(
+                    &format_options,
+                    file,
+                    opt.allow_partial_failure,
+                    opt.color,
+                    opt.check_line_length,
+                )
+            })
             .cloned()
             .collect::<Vec<_>>()
     };
