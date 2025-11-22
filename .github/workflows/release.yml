@@ -49,8 +49,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          mv target/x86_64-unknown-linux-musl/release/efmt efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-unknown-linux-musl
           gh release upload ${{ needs.github-release-draft.outputs.version }} \
-            target/x86_64-unknown-linux-musl/release/efmt#efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-unknown-linux-musl
+            efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-unknown-linux-musl
 
   macos-binary:
     name: 'Upload Binary for MacOS'
@@ -71,6 +72,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          mv target/${{ matrix.target }}/release/efmt efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
           gh release upload ${{ needs.github-release-draft.outputs.version }} \
-            target/${{ matrix.target }}/release/efmt#efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
+            efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
 
