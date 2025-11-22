@@ -26,6 +26,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ steps.get_version.outputs.VERSION }} \
+            --generate-notes \
             --draft \
             --title "v${{ steps.get_version.outputs.VERSION }}"
           echo "upload_url=https://uploads.github.com/repos/${{ github.repository }}/releases/latest/assets" >> $GITHUB_OUTPUT
