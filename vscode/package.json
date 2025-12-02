@@ -51,15 +51,11 @@
     "compile-web": "webpack",
     "watch-web": "webpack --watch",
     "package-web": "webpack --mode production --devtool hidden-source-map",
-    "lint": "eslint src --ext ts",
     "run-in-browser": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. ."
   },
   "devDependencies": {
     "@types/vscode": "^1.77.0",
     "@types/mocha": "^10.0.1",
-    "eslint": "^8.36.0",
-    "@typescript-eslint/eslint-plugin": "^5.56.0",
-    "@typescript-eslint/parser": "^5.56.0",
     "mocha": "^10.2.0",
     "typescript": "^4.9.5",
     "ts-loader": "^9.4.2",
