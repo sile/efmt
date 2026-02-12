@@ -11,7 +11,6 @@ readme = "README.md"
 exclude = ["/rebar3_efmt/", "efmt_wasm.wasm", "/vscode/"]
 
 [dependencies]
-anyhow = "1"
 erl_tokenize = "0.9.0"
 efmt_core = { path = "efmt_core", version = "0.6.0" }
 env_logger = "0.11"

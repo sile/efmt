@@ -3,15 +3,20 @@ use efmt_core::parse::{Parse, TokenStream, Tokenizer};
 use std::path::Path;
 
 pub mod diff;
+mod error;
 pub mod files;
 
+pub use error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// Formats an Erlang file with the default options.
-pub fn format_file<T: Parse + Format, P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
+pub fn format_file<T: Parse + Format, P: AsRef<Path>>(path: P) -> crate::Result<String> {
     Options::new().format_file::<T, P>(path)
 }
 
 /// Formats an Erlang text with the default options.
-pub fn format_text<T: Parse + Format>(text: &str) -> anyhow::Result<String> {
+pub fn format_text<T: Parse + Format>(text: &str) -> crate::Result<String> {
     Options::new().format_text::<T>(text)
 }
 
@@ -32,19 +37,19 @@ impl Options {
         self
     }
 
-    pub fn format_file<T: Parse + Format, P: AsRef<Path>>(self, path: P) -> anyhow::Result<String> {
+    pub fn format_file<T: Parse + Format, P: AsRef<Path>>(self, path: P) -> crate::Result<String> {
         let text = std::fs::read_to_string(&path)?;
         let mut tokenizer = Tokenizer::new(text);
         tokenizer.set_filepath(path);
         self.format::<T>(tokenizer)
     }
 
-    pub fn format_text<T: Parse + Format>(self, text: &str) -> anyhow::Result<String> {
+    pub fn format_text<T: Parse + Format>(self, text: &str) -> crate::Result<String> {
         let tokenizer = Tokenizer::new(text.to_owned());
         self.format::<T>(tokenizer)
     }
 
-    fn format<T: Parse + Format>(self, tokenizer: Tokenizer) -> anyhow::Result<String> {
+    fn format<T: Parse + Format>(self, tokenizer: Tokenizer) -> crate::Result<String> {
         let mut ts = TokenStream::new(tokenizer);
         let item: T = ts.parse()?;
         let mut formatter = Formatter::new(ts);

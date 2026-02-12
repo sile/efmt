@@ -1,7 +1,9 @@
 use efmt_core::items::ModuleOrConfig;
 
+type Result<T> = efmt::Result<T>;
+
 #[test]
-fn format_works() -> anyhow::Result<()> {
+fn format_works() -> crate::Result<()> {
     for entry in std::fs::read_dir("tests/testdata/")? {
         let entry = entry?;
         let path = entry.path();
