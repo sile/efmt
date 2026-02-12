@@ -1,12 +1,111 @@
-use crate::format::Format;
+use crate::format::{Format, Formatter};
 use crate::items::Expr;
-use crate::items::components::{Element, RecordLike};
-use crate::items::expressions::Either;
-use crate::items::symbols::{DotSymbol, MatchSymbol, SharpSymbol};
-use crate::items::tokens::AtomToken;
+use crate::items::components::{Either, Element, Maybe, RecordLike};
+use crate::items::symbols::{ColonSymbol, DotSymbol, MatchSymbol, SharpSymbol};
+use crate::items::tokens::{AtomToken, KeywordToken, VariableToken};
 use crate::items::variables::UnderscoreVariable;
 use crate::parse::{self, Parse, ResumeParse};
 use crate::span::Span;
+
+#[derive(Debug, Clone, Span)]
+struct RecordName {
+    token: Either<AtomToken, Either<KeywordToken, VariableToken>>,
+    atom: AtomToken,
+}
+
+impl RecordName {
+    fn as_atom_token(&self) -> &AtomToken {
+        &self.atom
+    }
+}
+
+impl Parse for RecordName {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        if let Ok(token) = ts.parse::<AtomToken>() {
+            return Ok(Self {
+                atom: token.clone(),
+                token: Either::A(token),
+            });
+        }
+        if let Ok(token) = ts.parse::<KeywordToken>() {
+            let atom = AtomToken::new(
+                token.value().as_str(),
+                token.start_position(),
+                token.end_position(),
+            );
+            return Ok(Self {
+                atom,
+                token: Either::B(Either::A(token)),
+            });
+        }
+
+        let token: VariableToken = ts.parse()?;
+        if token.value() == "_" {
+            return Err(parse::Error::unexpected_token(ts, token.into()));
+        }
+        let atom = AtomToken::new(token.value(), token.start_position(), token.end_position());
+        Ok(Self {
+            atom,
+            token: Either::B(Either::B(token)),
+        })
+    }
+}
+
+impl Format for RecordName {
+    fn format(&self, fmt: &mut Formatter) {
+        self.token.format(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span)]
+struct QualifiedRecordName {
+    module: Maybe<(AtomToken, ColonSymbol)>,
+    name: RecordName,
+}
+
+impl QualifiedRecordName {
+    fn as_atom_token(&self) -> &AtomToken {
+        self.name.as_atom_token()
+    }
+}
+
+impl Parse for QualifiedRecordName {
+    fn parse(ts: &mut parse::TokenStream) -> parse::Result<Self> {
+        let module = if ts.peek::<(AtomToken, ColonSymbol)>().is_some() {
+            Maybe::some(ts.parse()?)
+        } else {
+            Maybe::parse_none(ts)?
+        };
+        Ok(Self {
+            module,
+            name: ts.parse()?,
+        })
+    }
+}
+
+impl Format for QualifiedRecordName {
+    fn format(&self, fmt: &mut Formatter) {
+        self.module.format(fmt);
+        self.name.format(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse, Format)]
+#[expect(clippy::large_enum_variant)]
+enum RecordNameRef {
+    Named(QualifiedRecordName),
+    Anonymous(UnderscoreVariable),
+}
+
+impl RecordNameRef {
+    fn as_atom_token(&self) -> Option<&AtomToken> {
+        if let Self::Named(x) = self {
+            Some(x.as_atom_token())
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub enum RecordConstructOrIndexExpr {
@@ -17,8 +116,16 @@ pub enum RecordConstructOrIndexExpr {
 impl RecordConstructOrIndexExpr {
     pub fn record_name(&self) -> &AtomToken {
         match self {
-            Self::Construct(x) => &x.record.prefix().1,
-            Self::Index(x) => &x.name,
+            Self::Construct(x) => x
+                .record
+                .prefix()
+                .1
+                .as_atom_token()
+                .expect("anonymous record has no record name"),
+            Self::Index(x) => x
+                .name
+                .as_atom_token()
+                .expect("anonymous record has no record name"),
         }
     }
 
@@ -46,8 +153,18 @@ pub enum RecordAccessOrUpdateExpr {
 impl RecordAccessOrUpdateExpr {
     pub fn record_name(&self) -> &AtomToken {
         match self {
-            Self::Access(x) => &x.index.name,
-            Self::Update(x) => &x.record.prefix().1.1,
+            Self::Access(x) => x
+                .index
+                .name
+                .as_atom_token()
+                .expect("anonymous record has no record name"),
+            Self::Update(x) => x
+                .record
+                .prefix()
+                .1
+                .1
+                .as_atom_token()
+                .expect("anonymous record has no record name"),
         }
     }
 
@@ -70,7 +187,10 @@ impl RecordAccessOrUpdateExpr {
 
 impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
     fn resume_parse(ts: &mut parse::TokenStream, value: Expr) -> parse::Result<Self> {
-        if ts.peek::<(SharpSymbol, (AtomToken, DotSymbol))>().is_some() {
+        if ts
+            .peek::<(SharpSymbol, (RecordNameRef, DotSymbol))>()
+            .is_some()
+        {
             ts.resume_parse(value).map(Self::Access)
         } else {
             ts.resume_parse(value).map(Self::Update)
@@ -80,17 +200,17 @@ impl ResumeParse<Expr> for RecordAccessOrUpdateExpr {
 
 /// `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
-/// - $NAME: [AtomToken]
+/// - $NAME: [AtomToken] | [KeywordToken] | [VariableToken] | [AtomToken] `:` [AtomToken]
 /// - $FIELD: ([AtomToken] | `_`) `=` [Expr]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordConstructExpr {
-    record: RecordLike<(SharpSymbol, AtomToken), RecordField>,
+    record: RecordLike<(SharpSymbol, RecordNameRef), RecordField>,
 }
 
 /// `$VALUE` `#` `$NAME` `.` `$FIELD`
 ///
 /// - $VALUE: [Expr]
-/// - $NAME: [AtomToken]
+/// - $NAME: [AtomToken] | [KeywordToken] | [VariableToken] | [AtomToken] `:` [AtomToken] | `_`
 /// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordAccessExpr {
@@ -109,12 +229,12 @@ impl ResumeParse<Expr> for RecordAccessExpr {
 
 /// `#` `$NAME` `.` `$FIELD`
 ///
-/// - $NAME: [AtomToken]
+/// - $NAME: [AtomToken] | [KeywordToken] | [VariableToken] | [AtomToken] `:` [AtomToken] | `_`
 /// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordIndexExpr {
     sharp: SharpSymbol,
-    name: AtomToken,
+    name: RecordNameRef,
     dot: DotSymbol,
     field: AtomToken,
 }
@@ -122,11 +242,11 @@ pub struct RecordIndexExpr {
 /// `$VALUE` `#` `$NAME` `{` (`$FIELD` `,`?)* `}`
 ///
 /// - $VALUE: [Expr]
-/// - $NAME: [AtomToken]
+/// - $NAME: [AtomToken] | [KeywordToken] | [VariableToken] | [AtomToken] `:` [AtomToken] | `_`
 /// - $FIELD: [AtomToken]
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct RecordUpdateExpr {
-    record: RecordLike<(Expr, (SharpSymbol, AtomToken)), RecordField>,
+    record: RecordLike<(Expr, (SharpSymbol, RecordNameRef)), RecordField>,
 }
 
 impl ResumeParse<Expr> for RecordUpdateExpr {
@@ -184,6 +304,9 @@ mod tests {
     fn record_construct_works() {
         let texts = [
             "#foo{}",
+            "#state{}",
+            "#mod:state{}",
+            "#_{}",
             indoc::indoc! {"
             #foo{
               module = Mod,
@@ -211,7 +334,7 @@ mod tests {
 
     #[test]
     fn record_index_works() {
-        let texts = ["#foo.bar"];
+        let texts = ["#foo.bar", "#mod:foo.bar", "#_.bar"];
         for text in texts {
             crate::assert_format!(text, Expr);
         }
@@ -221,6 +344,8 @@ mod tests {
     fn record_access_works() {
         let texts = [
             "X#foo.bar",
+            "X#mod:foo.bar",
+            "X#_.bar",
             "(foo())#foo.bar",
             "N2#nrec2.nrec1#nrec1.nrec0#nrec0.name",
         ];
@@ -233,10 +358,20 @@ mod tests {
     fn record_update_works() {
         let texts = [
             "M#foo{}",
+            "M#mod:foo{}",
+            "M#_{}",
             indoc::indoc! {"
             M#baz{
               qux = 1
              }#foo.bar"},
+            indoc::indoc! {"
+            M#mod:foo{
+              qux = 1
+             }"},
+            indoc::indoc! {"
+            M#_{
+              qux = 1
+             }"},
             indoc::indoc! {"
             M#foo.bar#baz{
               qux = 1

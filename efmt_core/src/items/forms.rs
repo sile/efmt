@@ -18,9 +18,11 @@ use crate::items::keywords::{ElseKeyword, IfKeyword};
 use crate::items::macros::{MacroName, MacroReplacement};
 use crate::items::symbols::{
     CloseParenSymbol, CloseSquareSymbol, ColonSymbol, CommaSymbol, DotSymbol, DoubleColonSymbol,
-    HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SlashSymbol,
+    HyphenSymbol, MatchSymbol, OpenParenSymbol, OpenSquareSymbol, SharpSymbol, SlashSymbol,
 };
-use crate::items::tokens::{AtomToken, IntegerToken, LexicalToken, StringToken, VariableToken};
+use crate::items::tokens::{
+    AtomToken, IntegerToken, KeywordToken, LexicalToken, StringToken, VariableToken,
+};
 use crate::parse::{Parse, TokenStream};
 use crate::span::Span;
 
@@ -56,31 +58,65 @@ impl Format for Form {
     }
 }
 
-/// `-` `record` `(` `$NAME` `,` `{` `$FIELD`* `}` `)` `.`
-///
-/// - $NAME: [AtomToken]
-/// - $FIELD: [AtomToken] (`=` [Expr])? (`::` [Type])? `,`?
-#[derive(Debug, Clone, Span, Parse, Format)]
-pub struct RecordDecl(AttrLike<RecordAtom, RecordDeclValue>);
+/// `-record(Name, {...}).` | `-record #Name(TVar1, ..., TVarN){...}.`
+#[derive(Debug, Clone, Span)]
+pub struct RecordDecl(Either<TupleRecordDecl, NativeRecordDecl>);
 
-impl RecordDecl {
-    pub fn record_name(&self) -> &AtomToken {
-        &self.0.value().name
-    }
-
-    pub fn fields(&self) -> &[RecordField] {
-        self.0.value().fields.get()
+impl Parse for RecordDecl {
+    fn parse(ts: &mut TokenStream) -> crate::parse::Result<Self> {
+        if let Ok(x) = ts.parse() {
+            return Ok(Self(Either::A(x)));
+        }
+        if let Ok(x) = ts.parse() {
+            return Ok(Self(Either::B(x)));
+        }
+        Err(ts.take_last_error().expect("unreachable"))
     }
 }
 
+impl Format for RecordDecl {
+    fn format(&self, fmt: &mut Formatter) {
+        self.0.format(fmt);
+    }
+}
+
+impl RecordDecl {
+    pub fn record_name(&self) -> &AtomToken {
+        match &self.0 {
+            Either::A(x) => &x.value().name,
+            Either::B(x) => x.name.as_atom_token(),
+        }
+    }
+
+    pub fn fields(&self) -> &[RecordField] {
+        match &self.0 {
+            Either::A(x) => x.value().fields.get(),
+            Either::B(x) => x.fields.get(),
+        }
+    }
+
+    pub fn is_native(&self) -> bool {
+        matches!(self.0, Either::B(_))
+    }
+
+    pub fn type_params(&self) -> Option<&[VariableToken]> {
+        match &self.0 {
+            Either::A(_) => None,
+            Either::B(x) => x.type_params.get().map(|x| x.get()),
+        }
+    }
+}
+
+type TupleRecordDecl = AttrLike<RecordAtom, TupleRecordDeclValue>;
+
 #[derive(Debug, Clone, Span, Parse)]
-struct RecordDeclValue {
+struct TupleRecordDeclValue {
     name: AtomToken,
     comma: CommaSymbol,
     fields: RecordFieldsLike<RecordField>,
 }
 
-impl Format for RecordDeclValue {
+impl Format for TupleRecordDeclValue {
     fn format(&self, fmt: &mut Formatter) {
         fmt.with_scoped_indent(|fmt| {
             fmt.set_indent(fmt.column());
@@ -89,6 +125,112 @@ impl Format for RecordDeclValue {
             fmt.write_space();
             self.fields.format(fmt);
         });
+    }
+}
+
+#[derive(Debug, Clone, Span)]
+struct NativeRecordName {
+    token: Either<AtomToken, Either<KeywordToken, VariableToken>>,
+    atom: AtomToken,
+}
+
+impl NativeRecordName {
+    fn as_atom_token(&self) -> &AtomToken {
+        &self.atom
+    }
+}
+
+impl Parse for NativeRecordName {
+    fn parse(ts: &mut TokenStream) -> crate::parse::Result<Self> {
+        if let Ok(token) = ts.parse::<AtomToken>() {
+            return Ok(Self {
+                atom: token.clone(),
+                token: Either::A(token),
+            });
+        }
+        if let Ok(token) = ts.parse::<KeywordToken>() {
+            let atom = AtomToken::new(
+                token.value().as_str(),
+                token.start_position(),
+                token.end_position(),
+            );
+            return Ok(Self {
+                atom,
+                token: Either::B(Either::A(token)),
+            });
+        }
+
+        let token: VariableToken = ts.parse()?;
+        if token.value() == "_" {
+            return Err(crate::parse::Error::unexpected_token(ts, token.into()));
+        }
+        let atom = AtomToken::new(token.value(), token.start_position(), token.end_position());
+        Ok(Self {
+            atom,
+            token: Either::B(Either::B(token)),
+        })
+    }
+}
+
+impl Format for NativeRecordName {
+    fn format(&self, fmt: &mut Formatter) {
+        self.token.format(fmt);
+    }
+}
+
+#[derive(Debug, Clone, Span)]
+struct NativeRecordDecl {
+    hyphen: HyphenSymbol,
+    record: RecordAtom,
+    sharp: SharpSymbol,
+    name: NativeRecordName,
+    type_params: Maybe<Params<VariableToken>>,
+    fields: RecordFieldsLike<RecordField>,
+    dot: DotSymbol,
+}
+
+impl Parse for NativeRecordDecl {
+    fn parse(ts: &mut TokenStream) -> crate::parse::Result<Self> {
+        let hyphen = ts.parse()?;
+        let record = ts.parse()?;
+        let sharp = ts.parse()?;
+        let name = ts.parse()?;
+        let type_params = if ts.peek::<OpenParenSymbol>().is_some() {
+            Maybe::some(ts.parse()?)
+        } else {
+            Maybe::parse_none(ts)?
+        };
+        let fields = ts.parse()?;
+        let dot = ts.parse()?;
+        Ok(Self {
+            hyphen,
+            record,
+            sharp,
+            name,
+            type_params,
+            fields,
+            dot,
+        })
+    }
+}
+
+impl Format for NativeRecordDecl {
+    fn format(&self, fmt: &mut Formatter) {
+        let f = |fmt: &mut Formatter| {
+            self.hyphen.format(fmt);
+            self.record.format(fmt);
+            fmt.write_space();
+            self.sharp.format(fmt);
+            self.name.format(fmt);
+            self.type_params.format(fmt);
+            self.fields.format(fmt);
+            self.dot.format(fmt);
+        };
+        if self.contains_newline() {
+            f(fmt);
+        } else {
+            fmt.with_single_line_mode(f);
+        }
     }
 }
 
@@ -725,6 +867,10 @@ mod tests {
     fn record_decl_works() {
         let texts = [
             "-record(foo, {}).",
+            "-record #state{}.",
+            "-record #state(V){values = [] :: list(number()), avg = 0.0 :: float()}.",
+            "-record #div{field}.",
+            "-record #Tillstand{field}.",
             indoc::indoc! {"
             -record(foo, {
                       foo
