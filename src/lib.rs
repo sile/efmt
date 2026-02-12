@@ -3,7 +3,12 @@ use efmt_core::parse::{Parse, TokenStream, Tokenizer};
 use std::path::Path;
 
 pub mod diff;
+mod error;
 pub mod files;
+
+pub use error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Formats an Erlang file with the default options.
 pub fn format_file<T: Parse + Format, P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
