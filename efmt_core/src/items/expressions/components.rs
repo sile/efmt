@@ -328,7 +328,7 @@ impl Parse for BinaryOp {
                 Symbol::LessEq => ts.parse().map(Self::LessEq),
                 Symbol::Greater => ts.parse().map(Self::Greater),
                 Symbol::GreaterEq => ts.parse().map(Self::GreaterEq),
-                Symbol::Not => ts.parse().map(Self::Send),
+                Symbol::Bang => ts.parse().map(Self::Send),
                 _ => Err(parse::Error::unexpected_token(ts, token.into())),
             },
             Some(LexicalToken::Keyword(token)) => match token.value() {

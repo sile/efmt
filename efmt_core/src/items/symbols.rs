@@ -116,7 +116,7 @@ impl_traits!(DoubleQuestionSymbol, DoubleQuestion);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct NotSymbol(SymbolToken);
-impl_traits!(NotSymbol, Not);
+impl_traits!(NotSymbol, Bang);
 
 #[derive(Debug, Clone, Span, Format)]
 pub struct HyphenSymbol(SymbolToken);
