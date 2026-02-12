@@ -1,6 +1,6 @@
 use crate::format::{Format, Formatter};
 use crate::items::Expr;
-use crate::items::components::{Either, MapLike};
+use crate::items::components::{Either, MapLike, NonEmptyItems};
 use crate::items::symbols::{
     CloseBraceSymbol, DoubleRightArrowSymbol, OpenBraceSymbol, SharpSymbol,
 };
@@ -34,18 +34,24 @@ impl MapExpr {
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapConstructExpr(MapLike<SharpSymbol, Expr>);
 
-/// `#` `{` `$ENTRY` || ([Qualifier] `,`?)+ `}`
+/// `#` `{` (`$ENTRY`, `,`?)+ || ([Qualifier] `,`?)+ `}`
 ///
 /// - $ENTRY: `Expr` `=>` `Expr`
 #[derive(Debug, Clone, Span, Parse, Format)]
 pub struct MapComprehensionExpr(
-    ComprehensionExpr<(SharpSymbol, OpenBraceSymbol), CloseBraceSymbol, MapComprehensionValue>,
+    ComprehensionExpr<
+        (SharpSymbol, OpenBraceSymbol),
+        CloseBraceSymbol,
+        NonEmptyItems<MapComprehensionValue>,
+    >,
 );
 
-impl<Open, Close> ComprehensionExpr<Open, Close, MapComprehensionValue> {
+impl<Open, Close> ComprehensionExpr<Open, Close, NonEmptyItems<MapComprehensionValue>> {
     pub(crate) fn children(&self) -> impl Iterator<Item = &Expr> {
-        std::iter::once(&self.value().key)
-            .chain(std::iter::once(&self.value().value))
+        self.value()
+            .items()
+            .iter()
+            .flat_map(|x| std::iter::once(&x.key).chain(std::iter::once(&x.value)))
             .chain(self.qualifiers().iter().flat_map(|x| x.children()))
     }
 }
@@ -122,8 +128,14 @@ mod tests {
     fn map_comprehension_works() {
         let texts = [
             "#{ Key => Value || Key := Value <- MapOrIterator }",
+            "#{ K1 => V1, K2 => V2 || K1 := V1 <- M, K2 := V2 <- M }",
             "#{ K => V || <<K, V>> <= Binary }",
             "#{ K => V || <<K, V>> <:= Binary }",
+            indoc::indoc! {"
+            #{ K1 => V1,
+               K2 => V2
+               || K1 := V1 <- M,
+                  K2 := V2 <- M }"},
         ];
         for text in texts {
             crate::assert_format!(text, Expr);
