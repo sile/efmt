@@ -230,6 +230,15 @@ impl<Open, Close> ComprehensionExpr<Open, Close> {
     }
 }
 
+impl<Open, Close> ComprehensionExpr<Open, Close, NonEmptyItems<Expr>> {
+    pub(crate) fn children(&self) -> impl Iterator<Item = &Expr> {
+        self.value
+            .items()
+            .iter()
+            .chain(self.qualifiers.items().iter().flat_map(|x| x.children()))
+    }
+}
+
 impl<Open, Close, Value> ComprehensionExpr<Open, Close, Value> {
     pub(crate) fn value(&self) -> &Value {
         &self.value

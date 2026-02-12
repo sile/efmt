@@ -1,6 +1,6 @@
 use crate::format::{Format, Formatter};
 use crate::items::Expr;
-use crate::items::components::{ListLike, MaybePackedItems};
+use crate::items::components::{ListLike, MaybePackedItems, NonEmptyItems};
 use crate::items::expressions::components::ComprehensionExpr;
 #[cfg(doc)]
 use crate::items::expressions::components::Qualifier;
@@ -61,9 +61,11 @@ impl Format for ImproperListConstructExpr {
     }
 }
 
-/// `[` [Expr] `||` ([Qualifier] `,`?)+  `]`
+/// `[` ([Expr] `,`?)+ `||` ([Qualifier] `,`?)+  `]`
 #[derive(Debug, Clone, Span, Parse, Format)]
-pub struct ListComprehensionExpr(ComprehensionExpr<OpenSquareSymbol, CloseSquareSymbol>);
+pub struct ListComprehensionExpr(
+    ComprehensionExpr<OpenSquareSymbol, CloseSquareSymbol, NonEmptyItems<Expr>>,
+);
 
 #[cfg(test)]
 mod tests {
@@ -117,11 +119,19 @@ mod tests {
             indoc::indoc! {"
             [ X || X <- [1, 2] ]"},
             indoc::indoc! {"
+            [ X, Y || X <- [1, 2], Y <- [3, 4] ]"},
+            indoc::indoc! {"
             [ {K, V} || K := V <- [1, 2] ]"},
             indoc::indoc! {"
             [ X
               || X <- [1, 2,
                        3] ]"},
+            indoc::indoc! {"
+            [ X,
+              Y
+              || X <- [1, 2, 3,
+                       4, 5],
+                 Y <= X ]"},
             indoc::indoc! {"
             [ [X, Y]
               || X <- [1, 2, 3,
