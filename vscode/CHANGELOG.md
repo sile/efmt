@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.21.0]
+
+- Add support for EEP 79 (native records syntax)
+- Add support for EEP 78 (multi-valued comprehensions)
+
 ## [0.19.1]
 
 - Fix float tokenizing bug
