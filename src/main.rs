@@ -1,4 +1,3 @@
-use anyhow::Context;
 use efmt::files::RebarConfigValue;
 use efmt_core::items::ModuleOrConfig;
 use env_logger::Env;
@@ -7,6 +6,8 @@ use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use unicode_width::UnicodeWidthStr;
+
+type Result<T> = efmt::Result<T>;
 
 struct Opt {
     check: bool,
@@ -183,7 +184,7 @@ impl Opt {
         })
     }
 
-    fn collect_default_files_if_need(&mut self) -> anyhow::Result<()> {
+    fn collect_default_files_if_need(&mut self) -> crate::Result<()> {
         if !self.files.is_empty() || !(self.check || self.write || self.show_files) {
             return Ok(());
         }
@@ -218,11 +219,13 @@ impl Opt {
         format_options
     }
 
-    fn enable_rebar3_mode(&mut self, rebar_config_dir: PathBuf) -> anyhow::Result<()> {
+    fn enable_rebar3_mode(&mut self, rebar_config_dir: PathBuf) -> crate::Result<()> {
         let rebar_config_path = rebar_config_dir.join("rebar.config");
-        for value in efmt::files::load_rebar_config(&rebar_config_path)
-            .with_context(|| format!("failed to load rebar.config file: {rebar_config_path:?}"))?
-        {
+        for value in efmt::files::load_rebar_config(&rebar_config_path).map_err(|e| {
+            efmt::Error::new(format!(
+                "failed to load rebar.config file: {rebar_config_path:?}: {e}"
+            ))
+        })? {
             if let RebarConfigValue::Tuple(item) = value {
                 if item.len() != 2 {
                     continue;
@@ -279,7 +282,7 @@ impl Opt {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> crate::Result<()> {
     let Ok(mut opt) = Opt::parse().inspect_err(|e| eprintln!("Error: {e:?}")) else {
         std::process::exit(1);
     };
@@ -317,7 +320,7 @@ fn format_file<P: AsRef<Path>>(
     format_options: &efmt::Options,
     path: P,
     allow_partial_failure: bool,
-) -> anyhow::Result<(String, String)> {
+) -> crate::Result<(String, String)> {
     let original = std::fs::read_to_string(&path)?;
     let opt = format_options.clone();
     let formatted = if allow_partial_failure {
@@ -331,7 +334,7 @@ fn format_file<P: AsRef<Path>>(
 fn format_stdin(
     format_options: &efmt::Options,
     allow_partial_failure: bool,
-) -> anyhow::Result<(String, String)> {
+) -> crate::Result<(String, String)> {
     let mut original = String::new();
     std::io::stdin().lock().read_to_string(&mut original)?;
     let opt = format_options.clone();
@@ -347,23 +350,29 @@ fn format_file_or_stdin<P: AsRef<Path>>(
     format_options: &efmt::Options,
     path: P,
     allow_partial_failure: bool,
-) -> anyhow::Result<(String, String)> {
+) -> crate::Result<(String, String)> {
     let (original, formatted) = if path.as_ref().to_str() == Some("-") {
         format_stdin(format_options, allow_partial_failure)
     } else {
         format_file(format_options, &path, allow_partial_failure)
     }?;
-    validate_formatted_text(path, &original, &formatted).context(concat!(
-        "Found a token mismatch between the original text ",
-        "and the formatted one (maybe efmt bug)"
-    ))?;
+    validate_formatted_text(path, &original, &formatted).map_err(|e| {
+        efmt::Error::new(format!(
+            "{}: {}",
+            concat!(
+                "Found a token mismatch between the original text ",
+                "and the formatted one (maybe efmt bug)"
+            ),
+            e
+        ))
+    })?;
     Ok((original, formatted))
 }
 
-fn format_files(opt: &Opt) -> anyhow::Result<()> {
+fn format_files(opt: &Opt) -> crate::Result<()> {
     let format_options = opt.to_format_options();
 
-    fn do_format(opt: &Opt, format_options: &efmt::Options, file: &Path) -> anyhow::Result<()> {
+    fn do_format(opt: &Opt, format_options: &efmt::Options, file: &Path) -> crate::Result<()> {
         match format_file_or_stdin(format_options, file, opt.allow_partial_failure) {
             Err(e) => {
                 log::error!("Failed to format {:?}\n{:?}", file, e);
@@ -407,14 +416,14 @@ fn format_files(opt: &Opt) -> anyhow::Result<()> {
     if !error_files.is_empty() {
         if opt.files.len() > 1 {
             eprintln!();
-            anyhow::bail!(
+            return Err(efmt::Error::new(format!(
                 "Failed to format the following files:\n{}",
                 error_files
                     .iter()
                     .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
                     .collect::<Vec<_>>()
                     .join("\n"),
-            );
+            )));
         } else {
             std::process::exit(1);
         }
@@ -448,7 +457,7 @@ fn check_line_lengths<P: AsRef<Path>>(text: &str, check_line_length: usize, path
     !has_error
 }
 
-fn check_files(opt: &Opt) -> anyhow::Result<()> {
+fn check_files(opt: &Opt) -> crate::Result<()> {
     let format_options = opt.to_format_options();
 
     fn do_check(
@@ -527,14 +536,14 @@ fn check_files(opt: &Opt) -> anyhow::Result<()> {
 
     if !unformatted_files.is_empty() {
         eprintln!();
-        anyhow::bail!(
+        return Err(efmt::Error::new(format!(
             "The following files need to be formatted:\n{}",
             unformatted_files
                 .iter()
                 .map(|f| format!("- {}", f.to_str().unwrap_or("<unknown>")))
                 .collect::<Vec<_>>()
                 .join("\n"),
-        );
+        )));
     } else {
         eprintln!("All input files are formatted correctly!");
     }
@@ -545,7 +554,7 @@ fn validate_formatted_text<P: AsRef<Path>>(
     path: P,
     original: &str,
     formatted: &str,
-) -> anyhow::Result<()> {
+) -> crate::Result<()> {
     use erl_tokenize::{PositionRange as _, Result, Token, Tokenizer};
 
     fn is_visible_token(t: &Result<Token>) -> bool {
@@ -556,16 +565,18 @@ fn validate_formatted_text<P: AsRef<Path>>(
         path: P,
         text: &str,
         next_token: Option<Result<Token>>,
-    ) -> anyhow::Result<()> {
+    ) -> crate::Result<()> {
         let next_position = next_token.map(|r| {
             r.map(|t| t.start_position())
                 .unwrap_or_else(|e| e.position().clone())
         });
         if let Some(p) = next_position {
-            anyhow::bail!(
-                "{}",
-                efmt_core::error::generate_error_message(text, Some(path), p.into(), "extra token")
-            );
+            return Err(efmt::Error::new(efmt_core::error::generate_error_message(
+                text,
+                Some(path),
+                p.into(),
+                "extra token",
+            )));
         }
         Ok(())
     }
@@ -586,41 +597,39 @@ fn validate_formatted_text<P: AsRef<Path>>(
             Some(Err(e)) => {
                 let reason = e.to_string();
                 let reason_end = reason.find(" (").unwrap_or(reason.len());
-                anyhow::bail!(
-                    "{}",
-                    efmt_core::error::generate_error_message(
-                        formatted,
-                        Some("<formatted>"),
-                        e.position().clone().into(),
-                        &reason[..reason_end]
-                    )
-                );
+                return Err(efmt::Error::new(efmt_core::error::generate_error_message(
+                    formatted,
+                    Some("<formatted>"),
+                    e.position().clone().into(),
+                    &reason[..reason_end],
+                )));
             }
             None => {
                 return check_extra_token(path, original, Some(Ok(t0)));
             }
         };
-        anyhow::ensure!(
-            text(&t0) == text(&t1),
-            "{}\n{}",
-            efmt_core::error::generate_error_message(
-                original,
-                Some(path),
-                t0.start_position().into(),
-                "expected"
-            ),
-            efmt_core::error::generate_error_message(
-                formatted,
-                Some("<formatted>"),
-                t1.start_position().into(),
-                "actual"
-            ),
-        );
+        if text(&t0) != text(&t1) {
+            return Err(efmt::Error::new(format!(
+                "{}\n{}",
+                efmt_core::error::generate_error_message(
+                    original,
+                    Some(path),
+                    t0.start_position().into(),
+                    "expected"
+                ),
+                efmt_core::error::generate_error_message(
+                    formatted,
+                    Some("<formatted>"),
+                    t1.start_position().into(),
+                    "actual"
+                ),
+            )));
+        }
     }
     check_extra_token("<formatted>", formatted, tokens1.next())
 }
 
-fn overwrite<P: AsRef<Path>>(path: P, text: &str) -> anyhow::Result<()> {
+fn overwrite<P: AsRef<Path>>(path: P, text: &str) -> crate::Result<()> {
     std::fs::write(path, text)?;
     Ok(())
 }

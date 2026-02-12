@@ -11,7 +11,7 @@ pub fn find_rebar_config_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-pub fn load_rebar_config<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<RebarConfigValue>> {
+pub fn load_rebar_config<P: AsRef<Path>>(path: P) -> crate::Result<Vec<RebarConfigValue>> {
     let text = std::fs::read_to_string(&path)?;
     let mut tokenizer = Tokenizer::new(text);
     tokenizer.set_filepath(path);
@@ -73,7 +73,7 @@ impl RebarConfigValue {
     }
 }
 
-pub fn collect_default_target_files() -> anyhow::Result<Vec<PathBuf>> {
+pub fn collect_default_target_files() -> crate::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for result in Walk::new("./") {
         let entry = result?;
