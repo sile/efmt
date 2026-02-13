@@ -1,9 +1,9 @@
 use efmt::files::RebarConfigValue;
 use efmt_core::items::ModuleOrConfig;
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use unicode_width::UnicodeWidthStr;
 
 type Result<T> = efmt::Result<T>;
@@ -369,6 +369,67 @@ fn format_file_or_stdin<P: AsRef<Path>>(
     Ok((original, formatted))
 }
 
+fn contains_stdin_path(files: &[PathBuf]) -> bool {
+    files.iter().any(|file| file.to_str() == Some("-"))
+}
+
+fn should_run_in_parallel(files: &[PathBuf], requested_parallel: bool) -> bool {
+    if !requested_parallel {
+        return false;
+    }
+    if contains_stdin_path(files) {
+        log::warn!("parallel execution is disabled when input contains '-' (stdin)");
+        return false;
+    }
+    true
+}
+
+// `predicate` is shared by reference across worker threads when `parallel` is true,
+// so `F: Sync` is required.
+fn filter_target_files<F>(files: &[PathBuf], parallel: bool, predicate: F) -> Vec<PathBuf>
+where
+    F: Fn(&Path) -> bool + Sync,
+{
+    if !parallel || files.len() <= 1 {
+        return files
+            .iter()
+            .filter(|file| predicate(file))
+            .cloned()
+            .collect::<Vec<_>>();
+    }
+
+    let workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(files.len());
+    let next_index = AtomicUsize::new(0);
+    let (sender, receiver) = std::sync::mpsc::channel::<usize>();
+
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let index = next_index.fetch_add(1, Ordering::Relaxed);
+                    if index >= files.len() {
+                        break;
+                    }
+                    if predicate(&files[index]) {
+                        let _ = sender.send(index);
+                    }
+                }
+            });
+        }
+    });
+    drop(sender);
+
+    let mut selected_indices = receiver.into_iter().collect::<Vec<_>>();
+    selected_indices.sort_unstable();
+    selected_indices
+        .into_iter()
+        .map(|index| files[index].clone())
+        .collect::<Vec<_>>()
+}
+
 fn format_files(opt: &Opt) -> crate::Result<()> {
     let format_options = opt.to_format_options();
 
@@ -399,19 +460,10 @@ fn format_files(opt: &Opt) -> crate::Result<()> {
         }
     }
 
-    let error_files = if opt.parallel {
-        opt.files
-            .clone()
-            .into_par_iter()
-            .filter(|file| do_format(opt, &format_options, file).is_err())
-            .collect::<Vec<_>>()
-    } else {
-        opt.files
-            .iter()
-            .filter(|file| do_format(opt, &format_options, file).is_err())
-            .cloned()
-            .collect::<Vec<_>>()
-    };
+    let run_parallel = should_run_in_parallel(&opt.files, opt.parallel);
+    let error_files = filter_target_files(&opt.files, run_parallel, |file| {
+        do_format(opt, &format_options, file).is_err()
+    });
 
     if !error_files.is_empty() {
         if opt.files.len() > 1 {
@@ -504,35 +556,16 @@ fn check_files(opt: &Opt) -> crate::Result<()> {
         }
     }
 
-    let unformatted_files = if opt.parallel {
-        opt.files
-            .clone()
-            .into_par_iter()
-            .filter(|file| {
-                !do_check(
-                    &format_options,
-                    file,
-                    opt.allow_partial_failure,
-                    opt.color,
-                    opt.check_line_length,
-                )
-            })
-            .collect::<Vec<_>>()
-    } else {
-        opt.files
-            .iter()
-            .filter(|file| {
-                !do_check(
-                    &format_options,
-                    file,
-                    opt.allow_partial_failure,
-                    opt.color,
-                    opt.check_line_length,
-                )
-            })
-            .cloned()
-            .collect::<Vec<_>>()
-    };
+    let run_parallel = should_run_in_parallel(&opt.files, opt.parallel);
+    let unformatted_files = filter_target_files(&opt.files, run_parallel, |file| {
+        !do_check(
+            &format_options,
+            file,
+            opt.allow_partial_failure,
+            opt.color,
+            opt.check_line_length,
+        )
+    });
 
     if !unformatted_files.is_empty() {
         eprintln!();
