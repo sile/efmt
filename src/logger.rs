@@ -1,7 +1,7 @@
 use colored::Colorize as _;
 use log::{Level, LevelFilter, Log, Metadata, Record};
 use std::io::{IsTerminal as _, Write as _};
-use std::sync::{Mutex, Once, OnceLock};
+use std::sync::{Once, OnceLock};
 
 static LOGGER: OnceLock<SimpleLogger> = OnceLock::new();
 static INSTALL: Once = Once::new();
@@ -23,15 +23,11 @@ pub(crate) fn init(verbose: bool) {
 
 struct SimpleLogger {
     use_color: bool,
-    write_lock: Mutex<()>,
 }
 
 impl SimpleLogger {
     fn new(use_color: bool) -> Self {
-        Self {
-            use_color,
-            write_lock: Mutex::new(()),
-        }
+        Self { use_color }
     }
 
     fn level_field(&self, level: Level) -> String {
@@ -62,7 +58,6 @@ impl Log for SimpleLogger {
             return;
         }
 
-        let _guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(
             stderr,
@@ -75,7 +70,6 @@ impl Log for SimpleLogger {
     }
 
     fn flush(&self) {
-        let _guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
         let _ = std::io::stderr().lock().flush();
     }
 }
