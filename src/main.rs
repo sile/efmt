@@ -3,7 +3,6 @@ use efmt_core::items::ModuleOrConfig;
 use regex::Regex;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use unicode_width::UnicodeWidthStr;
 
@@ -404,30 +403,29 @@ where
         .unwrap_or(1)
         .min(files.len());
     let next_index = AtomicUsize::new(0);
-    let selected_indices = Mutex::new(Vec::new());
+    let (sender, receiver) = std::sync::mpsc::channel::<usize>();
+    let next_index = &next_index;
+    let predicate = &predicate;
 
     std::thread::scope(|scope| {
         for _ in 0..workers {
-            scope.spawn(|| {
+            let sender = sender.clone();
+            scope.spawn(move || {
                 loop {
                     let index = next_index.fetch_add(1, Ordering::Relaxed);
                     if index >= files.len() {
                         break;
                     }
                     if predicate(&files[index]) {
-                        selected_indices
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .push(index);
+                        let _ = sender.send(index);
                     }
                 }
             });
         }
     });
+    drop(sender);
 
-    let mut selected_indices = selected_indices
-        .into_inner()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut selected_indices = receiver.into_iter().collect::<Vec<_>>();
     selected_indices.sort_unstable();
     selected_indices
         .into_iter()
