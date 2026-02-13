@@ -14,7 +14,6 @@ exclude = ["/rebar3_efmt/", "efmt_wasm.wasm", "/vscode/"]
 erl_tokenize = "0.10.0"
 efmt_core = { path = "efmt_core", version = "0.7.0" }
 log = "0.4"
-rayon = "1"
 similar = { version= "2", features = ["inline"] }
 regex = "1.6.0"
 colored = "3"
