@@ -1,6 +1,5 @@
 use efmt::files::RebarConfigValue;
 use efmt_core::items::ModuleOrConfig;
-use env_logger::Env;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator};
 use regex::Regex;
 use std::io::Read as _;
@@ -8,6 +7,8 @@ use std::path::{Path, PathBuf};
 use unicode_width::UnicodeWidthStr;
 
 type Result<T> = efmt::Result<T>;
+
+mod logger;
 
 struct Opt {
     check: bool,
@@ -42,8 +43,7 @@ impl Opt {
             .take(&mut args)
             .is_present();
         if !help_mode {
-            let loglevel = if verbose { "debug" } else { "info" };
-            env_logger::Builder::from_env(Env::default().default_filter_or(loglevel)).init();
+            logger::init(verbose);
         }
 
         let check = noargs::flag("check")
