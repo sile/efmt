@@ -385,6 +385,8 @@ fn should_run_in_parallel(files: &[PathBuf], requested_parallel: bool) -> bool {
     true
 }
 
+// `predicate` is shared by reference across worker threads when `parallel` is true,
+// so `F: Sync` is required.
 fn filter_target_files<F>(files: &[PathBuf], parallel: bool, predicate: F) -> Vec<PathBuf>
 where
     F: Fn(&Path) -> bool + Sync,
