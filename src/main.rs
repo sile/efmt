@@ -404,13 +404,10 @@ where
         .min(files.len());
     let next_index = AtomicUsize::new(0);
     let (sender, receiver) = std::sync::mpsc::channel::<usize>();
-    let next_index = &next_index;
-    let predicate = &predicate;
 
     std::thread::scope(|scope| {
         for _ in 0..workers {
-            let sender = sender.clone();
-            scope.spawn(move || {
+            scope.spawn(|| {
                 loop {
                     let index = next_index.fetch_add(1, Ordering::Relaxed);
                     if index >= files.len() {
