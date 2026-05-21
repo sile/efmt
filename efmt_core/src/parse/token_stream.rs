@@ -275,10 +275,11 @@ impl TokenStream {
             self.current_token_index += 1;
 
             match &token {
-                LexicalToken::Symbol(x) if x.value() == Symbol::Question
-                    && !self.disable_macro_expand => {
-                        return self.expand_macro_and_read_token();
-                    }
+                LexicalToken::Symbol(x)
+                    if x.value() == Symbol::Question && !self.disable_macro_expand =>
+                {
+                    return self.expand_macro_and_read_token();
+                }
                 LexicalToken::Symbol(x) if x.value() == Symbol::Hyphen => {
                     let index = self.current_token_index;
                     self.try_handle_directives()?;
