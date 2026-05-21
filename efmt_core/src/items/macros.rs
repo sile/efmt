@@ -244,13 +244,12 @@ impl Parse for MacroArg {
                     | Keyword::Receive => {
                         level += 1;
                     }
-                    Keyword::Fun => {
-                        if ts.peek::<OpenParenSymbol>().is_some()
-                            || ts.peek::<(LexicalToken, OpenParenSymbol)>().is_some()
-                        {
+                    Keyword::Fun
+                        if (ts.peek::<OpenParenSymbol>().is_some()
+                            || ts.peek::<(LexicalToken, OpenParenSymbol)>().is_some())
+                        => {
                             level += 1;
                         }
-                    }
                     Keyword::End => {
                         if level == 0 {
                             return Err(parse::Error::unexpected_token(ts, token));

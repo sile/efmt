@@ -9,7 +9,7 @@ fn format_works() -> crate::Result<()> {
         let path = entry.path();
         if path
             .extension()
-            .map_or(true, |ext| ext != "erl" && ext != "src" && ext != "escript")
+            .is_none_or(|ext| ext != "erl" && ext != "src" && ext != "escript")
         {
             continue;
         }
