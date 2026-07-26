@@ -2,7 +2,6 @@ efmt
 ====
 
 [![efmt](https://img.shields.io/crates/v/efmt.svg)](https://crates.io/crates/efmt)
-[![hex.pm version](https://img.shields.io/hexpm/v/rebar3_efmt.svg)](https://hex.pm/packages/rebar3_efmt)
 [![vscode version](https://img.shields.io/vscode-marketplace/v/sile.efmt.svg?label=vscode)](https://marketplace.visualstudio.com/items?itemName=sile.efmt)
 [![Documentation](https://docs.rs/efmt/badge.svg)](https://docs.rs/efmt)
 [![Actions Status](https://github.com/sile/efmt/workflows/CI/badge.svg)](https://github.com/sile/efmt/actions)
@@ -21,7 +20,6 @@ Features
 - [Emacs Erlang Mode](https://www.erlang.org/doc/apps/tools/erlang_mode_chapter.html) friendly indentation with some exceptions
 - Preserves non-whitespace tokens of the original text as-is
   - Ensures the code after formatting keeps the same semantic meaning
-- Provides a rebar3 plugin: [rebar3_efmt](https://hex.pm/packages/rebar3_efmt)
 - Thorough macro support ([MACRO_AND_DIRECTIVE.md](MACRO_AND_DIRECTIVE.md))
 
 An Formatting Example
@@ -57,25 +55,6 @@ fac(N) ->
 Installation
 ------------
 
-### With [Rebar3](https://github.com/erlang/rebar3)
-
-Just add the following line to your `rebar.config`.
-
-```erlang
-{project_plugins, [rebar3_efmt]}.
-```
-
-Then, you can run the `$ rebar3 efmt` command.
-
-If you want to provide the default options via `rebar.config`,
-please specify an entry that has `efmt` as the key and `efmt`'s options as the value.
-```erlang
-{efmt, [{exclude_file, "rebar.config"}]}.
-```
-
-Note that `rebar3_efmt` tries to automatically download a pre-built binary (see the next section) for your environment.
-However, if there is not a suitable one, you need to build the `efmt` binary on your own.
-
 ### Pre-built binaries
 
 Pre-built binaries for Linux and MacOS are available in [the releases page](https://github.com/sile/efmt/releases).
@@ -101,7 +80,7 @@ Usage
 
 Formats an Erlang file (assuming `example.erl` in the above example is located in the current directory):
 ```console
-$ efmt example.erl  # or `rebar3 efmt example.erl`
+$ efmt example.erl
 
 // You can specify multiple files.
 $ efmt example.erl rebar.config ...
@@ -109,7 +88,7 @@ $ efmt example.erl rebar.config ...
 
 Checks diff between the original text and the formatted one:
 ```console
-$ efmt -c example.erl  # or `rebar3 efmt -c example.erl`
+$ efmt -c example.erl
 --- a/example.erl
 +++ b/example.erl
 @@ -1,9 +1,8 @@
@@ -137,7 +116,7 @@ $ efmt -c
 
 Overwrites the original file with the formatted one:
 ```console
-$ efmt -w example.erl  # or `rebar3 efmt -w example.erl`
+$ efmt -w example.erl
 
 // As with `-c` option, you can omit the filename arg.
 $ emf -w
@@ -146,10 +125,10 @@ $ emf -w
 For the other command-line options, please see the help document:
 ```console
 // Short doc.
-$ efmt -h  # or `rebar3 efmt -h`
+$ efmt -h
 
 // Long doc.
-$ efmt --help  # or `rebar3 efmt --help`
+$ efmt --help
 ```
 
 ### How to keep some areas from being formatted
