@@ -17,8 +17,7 @@ const webExtensionConfig = {
 	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 	target: 'webworker', // extensions run in a webworker context
 	entry: {
-		'extension': './src/web/extension.ts',
-		'test/suite/index': './src/web/test/suite/index.ts'
+		'extension': './src/web/extension.ts'
 	},
 	output: {
 		filename: '[name].js',
@@ -28,16 +27,7 @@ const webExtensionConfig = {
 	},
 	resolve: {
 		mainFields: ['browser', 'module', 'main'], // look for `browser` entry point in imported node modules
-		extensions: ['.ts', '.js'], // support ts-files and js-files
-		alias: {
-			// provides alternate implementation for node module and source files
-		},
-		fallback: {
-			// Webpack 5 no longer polyfills Node.js core modules automatically.
-			// see https://webpack.js.org/configuration/resolve/#resolvefallback
-			// for the list of Node.js core module polyfills.
-			'assert': require.resolve('assert')
-		}
+		extensions: ['.ts', '.js'] // support ts-files and js-files
 	},
 	module: {
 		rules: [{
@@ -51,10 +41,7 @@ const webExtensionConfig = {
 	plugins: [
 		new webpack.optimize.LimitChunkCountPlugin({
 			maxChunks: 1 // disable chunks by default since web extensions must be a single bundle
-		}),
-		new webpack.ProvidePlugin({
-			process: 'process/browser', // provide a shim for the global `process` variable
-		}),
+		})
 	],
 	externals: {
 		'vscode': 'commonjs vscode', // ignored because it doesn't exist
