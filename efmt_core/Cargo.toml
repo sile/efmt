@@ -15,4 +15,3 @@ log = "0.4"
 
 [dev-dependencies]
 indoc = "2"
-similar-asserts = "1"

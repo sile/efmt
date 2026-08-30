@@ -15,7 +15,7 @@ fn format_works() -> crate::Result<()> {
         }
         let formatted = efmt::Options::new().format_file::<ModuleOrConfig, _>(&path)?;
         let expected = std::fs::read_to_string(&path)?;
-        similar_asserts::assert_eq!(formatted, expected, "target={:?}", path);
+        assert_eq!(formatted, expected, "target={:?}", path);
     }
     Ok(())
 }

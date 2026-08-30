@@ -206,7 +206,7 @@ mod tests {
             [a, b | #c].
         "};
         let err = crate::format_text::<Module>(text).err().unwrap();
-        similar_asserts::assert_eq!(
+        assert_eq!(
             err.to_string(),
             indoc::indoc! {"
         Parse failed:
@@ -224,7 +224,7 @@ mod tests {
             ?ID([a, b | #c]).
         "};
         let err = crate::format_text::<Module>(text).err().unwrap();
-        similar_asserts::assert_eq!(
+        assert_eq!(
             err.to_string(),
             indoc::indoc! {"
         Parse failed:
@@ -241,7 +241,7 @@ mod tests {
             hello
         "};
         let err = crate::format_text::<Module>(text).err().unwrap();
-        similar_asserts::assert_eq!(
+        assert_eq!(
             err.to_string(),
             indoc::indoc! {"
         Parse failed:
@@ -258,7 +258,7 @@ mod tests {
             "hello
         "#};
         let err = crate::format_text::<Module>(text).err().unwrap();
-        similar_asserts::assert_eq!(
+        assert_eq!(
             err.to_string(),
             indoc::indoc! {r#"
         Tokenize failed:
