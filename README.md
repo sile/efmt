@@ -2,7 +2,6 @@ efmt
 ====
 
 [![efmt](https://img.shields.io/crates/v/efmt.svg)](https://crates.io/crates/efmt)
-[![vscode version](https://img.shields.io/vscode-marketplace/v/sile.efmt.svg?label=vscode)](https://marketplace.visualstudio.com/items?itemName=sile.efmt)
 [![Documentation](https://docs.rs/efmt/badge.svg)](https://docs.rs/efmt)
 [![Actions Status](https://github.com/sile/efmt/workflows/CI/badge.svg)](https://github.com/sile/efmt/actions)
 ![License](https://img.shields.io/crates/l/efmt)
@@ -151,7 +150,6 @@ Editor Integrations
 -------------------
 
 - Emacs: [emacs-format-all-the-code](https://github.com/lassik/emacs-format-all-the-code)
-- VSCode: [extension](https://marketplace.visualstudio.com/items?itemName=sile.efmt)
 - Sublime Text: [Formatter](https://packagecontrol.io/packages/Formatter)
 
 Differences with other Erlang formatters

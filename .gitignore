@@ -1,6 +1,3 @@
 target/
 **/*.rs.bk
 .efmt/
-/vscode/node_modules/
-/vscode/dist/*
-!/vscode/dist/efmt.wasm
