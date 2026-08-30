@@ -22,11 +22,11 @@ macro_rules! assert_format {
     ($text:expr, $item_type:ty) => {{
         let formatted = $crate::format_text::<$item_type>(&$text).unwrap();
         let expected = $text;
-        similar_asserts::assert_eq!(formatted, expected);
+        assert_eq!(formatted, expected);
     }};
 
     ($text:expr, $expected:expr, $item_type:ty) => {{
         let formatted = $crate::format_text::<$item_type>(&$text).unwrap();
-        similar_asserts::assert_eq!(formatted, $expected);
+        assert_eq!(formatted, $expected);
     }};
 }

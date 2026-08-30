@@ -1,7 +1,6 @@
 [package]
 name = "efmt"
 version = "0.21.0"
-authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Erlang code formatter"
@@ -20,9 +19,6 @@ colored = "3"
 ignore = "0.4.22"
 noargs = "0.4.1"
 unicode-width = "0.2.2"
-
-[dev-dependencies]
-similar-asserts = "1"
 
 [workspace]
 members = ["efmt_core", "efmt_derive", "efmt_wasm"]
