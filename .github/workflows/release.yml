@@ -1,79 +1,149 @@
-name: Release
+name: Create GitHub Release and Publish to crates.io
 
 on:
   push:
-    tags:
-      - '*'
+    tags: ['v*']
 
 jobs:
-  github-release-draft:
-    name: 'Create GitHub Release Draft'
+  validate:
+    name: Validate release
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_version.outputs.VERSION }}
-      upload-url: ${{ steps.create-release.outputs.upload_url }}
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Get the version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
-
-      - name: Create Release Draft
-        id: create-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup update stable
+      - run: rustup default stable
+      - run: rustup component add rustfmt clippy
+      # Guard against a `v*` tag whose name does not match Cargo.toml.
+      # Without this, a tag like `v0.1.2` pushed against a crate
+      # still on `version = "0.1.1"` would silently publish 0.1.1 to
+      # crates.io while the GitHub Release advertised v0.1.2.
+      # `cargo metadata + jq` is preferred over `cargo pkgid | sed` so
+      # a future change to cargo's pkgid output format cannot silently
+      # break the check. `jq` is preinstalled on ubuntu-latest.
+      - name: Tag matches Cargo.toml version
         run: |
-          gh release create ${{ steps.get_version.outputs.VERSION }} \
-            --generate-notes \
-            --draft \
-            --title "v${{ steps.get_version.outputs.VERSION }}"
-          echo "upload_url=https://uploads.github.com/repos/${{ github.repository }}/releases/latest/assets" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          cargo_version="$(cargo metadata --format-version=1 --no-deps \
+            | jq -r '.packages[] | select(.name == "efmt") | .version')"
+          if [ "$tag_version" != "$cargo_version" ]; then
+            echo "tag version ($tag_version) does not match Cargo.toml version ($cargo_version)"
+            exit 1
+          fi
+      # The `validate` job re-runs the CI suite so a broken commit
+      # that somehow received a `v*` tag never publishes, even if the
+      # push-time CI on that commit failed or was skipped.
+      - run: cargo test --all
+      - run: cargo test --doc
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps
+      # Packaging smoke test for the `efmt` binary crate only.
+      # `efmt_core` / `efmt_derive` are published manually beforehand.
+      - run: cargo publish -p efmt --dry-run
 
-  linux-binary:
-    name: 'Upload Binary for Linux'
+  # publish first: crates.io publish is non-reversible (unpublish is
+  # restricted to 72 hours and only removes the version from the index,
+  # not from downstream Cargo.lock files), so make it the guarding step.
+  # If it fails, no orphan github-release with a version that does not
+  # exist on crates.io is left behind. A github-release failure after
+  # publish succeeds is recoverable by re-running `gh release create`
+  # against the existing tag.
+  publish:
+    needs: validate
     runs-on: ubuntu-latest
-    needs: github-release-draft
+    permissions:
+      id-token: write
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        id: auth
+      - run: cargo publish -p efmt
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
-      - name: Install dependent packages
-        run: sudo apt install -y musl-tools
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: create-release
+        run: gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # The release must already exist before any asset upload, so every binary
+  # job depends on `github-release`. The jobs run in parallel and attach
+  # statically linked or SDK-pinned binaries to the same tag.
+  # Asset names strip the leading `v` from the tag, e.g. `efmt-0.21.0.xxx`.
+
+  linux-x86_64-binary:
+    name: Upload Binary for Linux x86_64
+    needs: github-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # musl-tools provides the musl linker for a fully static binary.
+      - run: sudo apt install -y musl-tools
       - run: rustup update stable
       - run: rustup target add x86_64-unknown-linux-musl
       - run: cargo build --release --target=x86_64-unknown-linux-musl
-
       - name: Upload Release Asset
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mv target/x86_64-unknown-linux-musl/release/efmt efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-unknown-linux-musl
-          gh release upload ${{ needs.github-release-draft.outputs.version }} \
-            efmt-${{ needs.github-release-draft.outputs.version }}.x86_64-unknown-linux-musl
+          mv target/x86_64-unknown-linux-musl/release/efmt \
+            efmt-${GITHUB_REF_NAME#v}.x86_64-unknown-linux-musl
+          gh release upload ${{ github.ref_name }} \
+            efmt-${GITHUB_REF_NAME#v}.x86_64-unknown-linux-musl
+
+  linux-arm64-binary:
+    name: Upload Binary for Linux arm64
+    needs: github-release
+    # arm64 native runner, so aarch64-unknown-linux-musl needs no cross
+    # toolchain: apt musl-tools on this image is the aarch64 one.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt install -y musl-tools
+      - run: rustup update stable
+      - run: rustup target add aarch64-unknown-linux-musl
+      - run: cargo build --release --target=aarch64-unknown-linux-musl
+      - name: Upload Release Asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mv target/aarch64-unknown-linux-musl/release/efmt \
+            efmt-${GITHUB_REF_NAME#v}.aarch64-unknown-linux-musl
+          gh release upload ${{ github.ref_name }} \
+            efmt-${GITHUB_REF_NAME#v}.aarch64-unknown-linux-musl
 
   macos-binary:
-    name: 'Upload Binary for MacOS'
-    runs-on: macos-latest
-    needs: github-release-draft
-    strategy:
-      matrix:
-        target: ["x86_64-apple-darwin", "aarch64-apple-darwin"]
+    name: Upload Binary for macOS
+    needs: github-release
+    # macos-15 (not macos-latest): the older SDK keeps the minimum macOS
+    # version of the produced binaries low and the image stable.
+    runs-on: macos-15
+    permissions:
+      contents: write
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup update stable
-      - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --release --target=${{ matrix.target }}
-
+      - run: rustup target add aarch64-apple-darwin
+      - run: cargo build --release --target=aarch64-apple-darwin
       - name: Upload Release Asset
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mv target/${{ matrix.target }}/release/efmt efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
-          gh release upload ${{ needs.github-release-draft.outputs.version }} \
-            efmt-${{ needs.github-release-draft.outputs.version }}.${{ matrix.target }}
-
+          mv target/aarch64-apple-darwin/release/efmt \
+            efmt-${GITHUB_REF_NAME#v}.aarch64-apple-darwin
+          gh release upload ${{ github.ref_name }} \
+            efmt-${GITHUB_REF_NAME#v}.aarch64-apple-darwin

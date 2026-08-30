@@ -56,14 +56,31 @@ Installation
 
 ### Pre-built binaries
 
-Pre-built binaries for Linux and MacOS are available in [the releases page](https://github.com/sile/efmt/releases).
+Pre-built binaries for Linux and macOS are available from the
+[releases page](https://github.com/sile/efmt/releases):
+
+- `x86_64-unknown-linux-musl` (Linux x86_64, fully static)
+- `aarch64-unknown-linux-musl` (Linux arm64, fully static)
+- `aarch64-apple-darwin` (macOS Apple Silicon)
+
+For example, download the Linux x86_64 binary from the latest release with
+the GitHub CLI:
 
 ```console
-// An example to download the binary for Linux.
-$ VERSION=0.21.0
-$ curl -L https://github.com/sile/efmt/releases/download/${VERSION}/efmt-${VERSION}.x86_64-unknown-linux-musl -o efmt
-$ chmod +x efmt
-$ ./efmt
+$ gh release download --repo sile/efmt \
+    --pattern "efmt-*.x86_64-unknown-linux-musl"
+$ chmod +x efmt-*.x86_64-unknown-linux-musl
+$ ./efmt-*.x86_64-unknown-linux-musl --version
+```
+
+The asset name is `efmt-<version>.<target>`, where `<target>` is one of the
+triples above and `<version>` is the release version without the leading `v`.
+To download a specific version, pass its tag name (for example `v0.21.0`)
+instead of the latest release:
+
+```console
+$ gh release download v0.21.0 --repo sile/efmt \
+    --pattern "efmt-0.21.0.x86_64-unknown-linux-musl"
 ```
 
 ### With [Cargo](https://doc.rust-lang.org/cargo/)
